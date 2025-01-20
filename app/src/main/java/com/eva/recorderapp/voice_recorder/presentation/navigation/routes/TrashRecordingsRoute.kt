@@ -18,7 +18,7 @@ import com.eva.recorderapp.voice_recorder.presentation.navigation.util.UiEventsS
 import com.eva.recorderapp.voice_recorder.presentation.navigation.util.animatedComposable
 import com.eva.recorderapp.voice_recorder.presentation.recordings.RecordingsBinScreen
 import com.eva.recorderapp.voice_recorder.presentation.recordings.RecordingsBinViewmodel
-import com.eva.recorderapp.voice_recorder.presentation.recordings.util.handlers.DeleteRecordingRequestHandler
+import com.eva.recorderapp.voice_recorder.presentation.recordings.handlers.DeleteRecordingRequestHandler
 import com.eva.recorderapp.voice_recorder.presentation.util.LocalSharedTransitionVisibilityScopeProvider
 
 fun NavGraphBuilder.trashRecordingsRoute(
