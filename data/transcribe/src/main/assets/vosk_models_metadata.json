@@ -27,6 +27,19 @@
             "license": "Apache-2.0"
         },
         {
+            "id": "vosk-cn-small",
+            "name": "vosk-model-small-cn",
+            "display_name": "Chinese (Mandarin, Simplified)",
+            "locale": "zh-CN",
+            "version": "0.22",
+            "engine": "vosk",
+            "size_bytes": 43898754,
+            "model_uri": "https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip",
+            "archive_format": "zip",
+            "checksum_sha256": "3af8b0e7e0f835ae9d414ce5df580237a3cfb08d586c9fbbb0f7ff29ad5b14ba",
+            "license": "Apache-2.0"
+        },
+        {
             "id": "vosk-hi-small",
             "name": "vosk-model-small-hi",
             "display_name": "Hindi",
