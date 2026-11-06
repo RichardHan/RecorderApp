@@ -9,13 +9,15 @@ internal enum class SettingsTabs(
 ) {
 	AUDIO_SETTINGS(0),
 	FILES_SETTINGS(1),
-	TRANSCRIPTIONS_SETTINGS(2);
+	TRANSCRIPTIONS_SETTINGS(2),
+	CLOUD_SETTINGS(3);
 
 	val textRes: String
 		@Composable
 		get() = when (this) {
 			AUDIO_SETTINGS -> stringResource(R.string.app_settings_audio)
 			FILES_SETTINGS -> stringResource(R.string.app_settings_files)
+			CLOUD_SETTINGS -> stringResource(R.string.drive_settings_title)
 			else -> stringResource(R.string.app_settings_transcriptions)
 		}
 }

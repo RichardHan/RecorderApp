@@ -65,7 +65,7 @@ android {
 	}
 	packaging {
 		resources {
-			excludes += "/META-INF/{AL2.0,LGPL2.1}"
+			excludes += "/META-INF/{AL2.0,LGPL2.1,INDEX.LIST,DEPENDENCIES}"
 		}
 	}
 }
@@ -83,6 +83,7 @@ baselineProfile {
 }
 
 dependencies {
+	implementation(project(":data:drive"))
 
 	implementation(libs.androidx.core.ktx)
 	implementation(libs.androidx.navigation.compose)

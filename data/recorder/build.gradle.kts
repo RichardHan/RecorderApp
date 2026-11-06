@@ -12,6 +12,7 @@ android {
 }
 
 dependencies {
+	implementation(project(":data:drive"))
 
 	// lifecyle service and media3 common
 	implementation(libs.androidx.lifecycle.service)
