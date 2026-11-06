@@ -60,9 +60,11 @@ For more [screenshots](./screenshots).
 ## Google Drive auto-upload / Google Drive 自動上傳
 
 This fork adds optional, user-authorized Google Drive upload after a recording is successfully
-saved. **Mobile data is allowed by default**; the Wi-Fi-only setting is off. See
-[docs/DRIVE_SETUP.md](docs/DRIVE_SETUP.md) for Google Cloud setup and bilingual testing steps.
-The application ID remains `com.eva.recorderapp` (debug: `com.eva.recorderapp.debug`).
+saved. **Mobile data is allowed by default**; the Wi-Fi-only setting is off. The application ID
+remains `com.eva.recorderapp` (debug: `com.eva.recorderapp.debug`).
+
+- **今晚自裝／側載測試（繁中清單）：** [docs/SELF_INSTALL.md](docs/SELF_INSTALL.md)
+- **GCP／OAuth 細節（中英）：** [docs/DRIVE_SETUP.md](docs/DRIVE_SETUP.md)
 
 ## :safety_pin: Permissions
 
