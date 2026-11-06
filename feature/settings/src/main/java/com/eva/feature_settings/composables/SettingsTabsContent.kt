@@ -36,6 +36,7 @@ internal fun SettingsTabContent(
     filesSettings: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     transcriptionSettings: @Composable () -> Unit = {},
+	cloudSettings: @Composable () -> Unit = {},
     initialTab: SettingsTabs = SettingsTabs.AUDIO_SETTINGS,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
@@ -112,6 +113,7 @@ internal fun SettingsTabContent(
                 SettingsTabs.AUDIO_SETTINGS.tabIndex -> audioSettings()
                 SettingsTabs.FILES_SETTINGS.tabIndex -> filesSettings()
                 SettingsTabs.TRANSCRIPTIONS_SETTINGS.tabIndex -> transcriptionSettings()
+				SettingsTabs.CLOUD_SETTINGS.tabIndex -> cloudSettings()
                 else -> {}
             }
         }

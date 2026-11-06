@@ -292,4 +292,21 @@
   <string name="recorder_transcriptions_about_dialog_text_not_enabled">Live Transcriptions are not enabled, Turn on from settings to receive live transcription while recording</string>
   <string name="recorder_transcriptions_about_dialog_text_enabled">Live Transcriptions are running with model </string>
   <string name="stt_models_list_title">Transcription Models</string>
+
+	<string name="drive_settings_title">Cloud</string>
+	<string name="drive_settings_description">Automatically upload completed recordings to your Google Drive. The app can only access files and folders it creates. Mobile data is used by default when Wi-Fi is unavailable.</string>
+	<string name="drive_account_title">Google account</string>
+	<string name="drive_account_not_signed_in">Not signed in</string>
+	<string name="drive_sign_in">Sign in with Google</string>
+	<string name="drive_sign_out">Sign out</string>
+	<string name="drive_renew_access">Renew Drive access</string>
+	<string name="drive_auto_upload_title">Auto-upload recordings</string>
+	<string name="drive_auto_upload_description">Queue an upload after a recording is saved. Failed network uploads retry in the background.</string>
+	<string name="drive_wifi_only_title">Upload over Wi-Fi only</string>
+	<string name="drive_wifi_only_description">Off by default. Turn on to pause uploads while using mobile data.</string>
+	<string name="drive_folder_title">Destination</string>
+	<string name="drive_folder_description">RecorderApp Uploads (created automatically in your Drive)</string>
+	<string name="drive_account_ready">Google Drive is ready for recording uploads.</string>
+
+
 </resources>

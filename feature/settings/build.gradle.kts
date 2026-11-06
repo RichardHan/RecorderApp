@@ -13,6 +13,8 @@ android {
 
 
 dependencies {
+	implementation(project(":data:drive"))
+	implementation(libs.androidx.activity.compose)
 	//navigation
 	implementation(libs.androidx.navigation.compose)
 	implementation(libs.androidx.hilt.navigation.compose)

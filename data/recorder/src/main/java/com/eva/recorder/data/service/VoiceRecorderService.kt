@@ -9,6 +9,7 @@ import android.util.Log
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.eva.bookmarks.domain.provider.RecordingBookmarksProvider
+import com.eva.drive.data.preferences.RecordingAutoUploader
 import com.eva.recorder.R
 import com.eva.recorder.data.VoiceRecorderManager
 import com.eva.recorder.domain.RecorderWidgetInteractor
@@ -64,6 +65,9 @@ internal class VoiceRecorderService : LifecycleService() {
 
     @Inject
     lateinit var notificationHelper: NotificationHelper
+
+    @Inject
+    lateinit var recordingAutoUploader: RecordingAutoUploader
 
     private val binder = LocalBinder()
     private val _bookMarks = MutableStateFlow(emptySet<LocalTime>())
@@ -253,6 +257,7 @@ internal class VoiceRecorderService : LifecycleService() {
             voiceRecorder.stopRecording().fold(
                 onSuccess = { recordingId ->
                     clearAndSaveBookMarks(recordingId, timeBeforeSave)
+                    recordingAutoUploader.enqueue(recordingId)
                     // again show the notification
                     notificationHelper.showCompletedNotificationWithIntent(recordingId)
                 },

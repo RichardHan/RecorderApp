@@ -57,6 +57,13 @@ These are some screen shorts for the app
 
 For more [screenshots](./screenshots).
 
+## Google Drive auto-upload / Google Drive 自動上傳
+
+This fork adds optional, user-authorized Google Drive upload after a recording is successfully
+saved. **Mobile data is allowed by default**; the Wi-Fi-only setting is off. See
+[docs/DRIVE_SETUP.md](docs/DRIVE_SETUP.md) for Google Cloud setup and bilingual testing steps.
+The application ID remains `com.eva.recorderapp` (debug: `com.eva.recorderapp.debug`).
+
 ## :safety_pin: Permissions
 
 Basically, Android is a bit of a control freak when it comes to apps. It's all about keeping your
