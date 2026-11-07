@@ -63,3 +63,15 @@ class ResourcePollingTests {
         resumed.cancel()
     }
 }
+
+class ResourceWarningTests {
+    private val g = 1L shl 30
+    @org.junit.Test fun healthyShowsNothing() {
+        org.junit.Assert.assertNull(com.eva.transcribe.resources.resourceWarning(com.eva.transcribe.resources.ResourceSnapshot(diskFree = 20 * g, lowMemory = false)))
+        org.junit.Assert.assertNull(com.eva.transcribe.resources.resourceWarning(com.eva.transcribe.resources.ResourceSnapshot()))
+    }
+    @org.junit.Test fun realShortageWarns() {
+        org.junit.Assert.assertNotNull(com.eva.transcribe.resources.resourceWarning(com.eva.transcribe.resources.ResourceSnapshot(diskFree = g / 2, lowMemory = false)))
+        org.junit.Assert.assertNotNull(com.eva.transcribe.resources.resourceWarning(com.eva.transcribe.resources.ResourceSnapshot(diskFree = 20 * g, lowMemory = true)))
+    }
+}
