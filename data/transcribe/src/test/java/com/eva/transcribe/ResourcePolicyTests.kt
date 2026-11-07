@@ -71,7 +71,8 @@ class ResourceWarningTests {
         org.junit.Assert.assertNull(com.eva.transcribe.resources.resourceWarning(com.eva.transcribe.resources.ResourceSnapshot()))
     }
     @org.junit.Test fun realShortageWarns() {
-        org.junit.Assert.assertNotNull(com.eva.transcribe.resources.resourceWarning(com.eva.transcribe.resources.ResourceSnapshot(diskFree = g / 2, lowMemory = false)))
+        // no global storage threshold: low free space alone is not a warning (per-model demand handles it)
+        org.junit.Assert.assertNull(com.eva.transcribe.resources.resourceWarning(com.eva.transcribe.resources.ResourceSnapshot(diskFree = g / 2, lowMemory = false)))
         org.junit.Assert.assertNotNull(com.eva.transcribe.resources.resourceWarning(com.eva.transcribe.resources.ResourceSnapshot(diskFree = 20 * g, lowMemory = true)))
     }
 }
