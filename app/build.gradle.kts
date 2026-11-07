@@ -66,7 +66,10 @@ android {
 	packaging {
 		jniLibs {
 			// phones only: drop emulator ABIs shipped in the sherpa-onnx AAR
-			excludes += setOf("lib/x86/**", "lib/x86_64/**")
+			// `-PincludeEmulatorAbis=true` keeps x86_64 for emulator-only test builds
+			if (project.findProperty("includeEmulatorAbis")?.toString() != "true")
+				excludes += setOf("lib/x86/**", "lib/x86_64/**")
+			else excludes += setOf("lib/x86/**")
 		}
 		resources {
 			excludes += "/META-INF/{AL2.0,LGPL2.1,INDEX.LIST,DEPENDENCIES}"
