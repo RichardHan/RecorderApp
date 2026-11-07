@@ -18,8 +18,8 @@ android {
 		applicationId = "com.eva.recorderapp"
 		minSdk = libs.versions.android.minSdk.get().toInt()
 		targetSdk = libs.versions.android.compileSdk.get().toInt()
-        versionCode = 29
-        versionName = "1.7.11"
+        versionCode = 30
+        versionName = "1.7.12"
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 		vectorDrawables {

@@ -1,6 +1,9 @@
 package com.eva.feature_settings.composables.transcribe
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.Text
@@ -35,15 +38,15 @@ internal fun rememberResources(models: List<STTModel>, refresh: Int): ResourceSn
 @Composable
 internal fun TranscriptionResourcePanel(snapshot: ResourceSnapshot, onRefresh: () -> Unit) {
     Card {
-        Column(Modifier.padding(12.dp)) {
-            Text("手機資源（每 5 秒更新）")
-            Text("模型所在儲存空間：可用 ${gib(snapshot.diskFree)} / 總共 ${gib(snapshot.diskTotal)}")
-            Text("手機可用 RAM：${gib(snapshot.ramFree)} / 總共 ${gib(snapshot.ramTotal)}")
-            Text("系統低記憶體狀態：${when (snapshot.lowMemory) { true -> "是"; false -> "否"; null -> "未知" }}；門檻 ${gib(snapshot.threshold)}")
-            Text("${if (snapshot.is64) "64" else "32"} 位元執行環境；1 GiB = 1,073,741,824 bytes")
-            Text("RAM 為全手機目前可用值，不是 App 用量。模型需求是載入前估計，不保證峰值；已載入模型也會占用 RAM，勿將剩餘值當成可再載入一份。")
-            Text("English (India) 已不再提供；若升級前選用它，請重新選擇模型（舊下載檔不會自動刪除）。")
-            TextButton(onClick = onRefresh) { Text("立即更新") }
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("儲存空間：可用 ${gib(snapshot.diskFree)} / ${gib(snapshot.diskTotal)}")
+                    Text("RAM：可用 ${gib(snapshot.ramFree)} / ${gib(snapshot.ramTotal)}")
+                }
+                TextButton(onClick = onRefresh) { Text("更新") }
+            }
+            resourceWarning(snapshot)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }
 }
