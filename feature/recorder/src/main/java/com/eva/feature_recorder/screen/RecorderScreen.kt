@@ -43,6 +43,7 @@ internal fun VoiceRecorderScreen(
 	liveCloud: com.eva.cloudtranscribe.live.LiveCloudState = com.eva.cloudtranscribe.live.LiveCloudState(),
 	transcriptionSettings: TranscriptionSettings = TranscriptionSettings(),
 	navigation: @Composable () -> Unit = {},
+	onToggleLiveTranscription: (Boolean) -> Unit = {},
 ) {
 
 	val snackBarHostState = LocalSnackBarProvider.current
@@ -92,6 +93,7 @@ internal fun VoiceRecorderScreen(
 				liveCloud = liveCloud,
 				transcriptionSettings = transcriptionSettings,
 				onNavigateToSettings = onNavigateToSettings,
+				onToggleLiveTranscription = onToggleLiveTranscription,
 				modifier = Modifier.fillMaxSize()
 			)
 		}

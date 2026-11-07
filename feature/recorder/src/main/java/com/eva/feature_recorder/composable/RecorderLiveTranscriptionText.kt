@@ -30,7 +30,8 @@ import kotlinx.coroutines.launch
 /** Visible status line for the live transcript; pure so it can be unit tested. */
 internal fun liveStatusText(state: LiveTranscriptState, isActive: Boolean): String = when {
 	!isActive -> "按下錄音後，即時字幕會顯示在這裡"
-	state.status == LiveTranscriptStatus.DISABLED -> "即時字幕未啟用或未選擇模型"
+	state.status == LiveTranscriptStatus.DISABLED -> if (state.hasText) "即時字幕已關閉（已辨識的內容保留；錄音不受影響）" else "即時字幕已關閉，錄音不受影響"
+	state.status == LiveTranscriptStatus.NO_MODEL -> "尚未選擇離線模型，請到設定下載／選擇"
 	state.status == LiveTranscriptStatus.LOADING -> "載入離線模型中…" + (state.modelLabel?.let { "（$it）" } ?: "")
 	state.status == LiveTranscriptStatus.ERROR -> "⚠ " + (state.message ?: "即時字幕發生錯誤")
 	state.status == LiveTranscriptStatus.DECODING -> "辨識中…"

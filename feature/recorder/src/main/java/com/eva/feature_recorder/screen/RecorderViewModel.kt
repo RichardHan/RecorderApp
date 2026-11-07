@@ -41,8 +41,13 @@ import kotlinx.datetime.LocalTime
 internal class RecorderViewModel @Inject constructor(
     private val handler: RecorderActionHandler,
     private val recorderService: RecorderServiceBinder,
-    transcriptionSettings: TranscriptionSettingsRepo,
+    private val transcriptionSettings: TranscriptionSettingsRepo,
 ) : AppViewModel() {
+
+    /** Live on-device captions on/off; only this preference changes (cloud settings are independent). */
+    fun setLiveTranscription(enabled: Boolean) {
+        viewModelScope.launch { transcriptionSettings.onEnableOrDisable(enabled) }
+    }
 
     private val _uiEvents = MutableSharedFlow<UIEvents>()
     override val uiEvent: SharedFlow<UIEvents>

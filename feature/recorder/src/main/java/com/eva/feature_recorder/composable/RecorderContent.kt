@@ -46,6 +46,7 @@ internal fun RecorderContent(
 	isStartRecordingEnabled: Boolean = true,
 	transcriptionSettings: TranscriptionSettings = TranscriptionSettings(),
 	onNavigateToSettings: () -> Unit = {},
+	onToggleLiveTranscription: (Boolean) -> Unit = {},
 ) {
 	Box(modifier = modifier) {
 		// compact header (timer + waveform) so the multi-line live transcript gets most of the screen
@@ -66,6 +67,7 @@ internal fun RecorderContent(
 				recorderState = recorderState,
 				transcriptionSettings = transcriptionSettings,
 				onOpenSettings = onNavigateToSettings,
+				onToggleLiveTranscription = onToggleLiveTranscription,
 				modifier = Modifier.align(Alignment.CenterHorizontally)
 			)
 			RecorderAmplitudeGraph(
@@ -81,11 +83,11 @@ internal fun RecorderContent(
 					offline = transcriptions,
 					cloud = liveCloud,
 					isActive = recorderState.canReadAmplitudes,
-					showOffline = transcriptionSettings.isEnabled,
+					showOffline = transcriptionSettings.isEnabled || transcriptions.hasText,
 					fontFamily = DownloadableFonts.SOURCE_SANS_3_FONT_FAMILY,
 					modifier = Modifier.fillMaxWidth().weight(1f),
 				)
-			} else if (transcriptionSettings.isEnabled) {
+			} else if (transcriptionSettings.isEnabled || transcriptions.hasText) {
 				RecorderLiveTranscriptionText(
 					result = transcriptions,
 					isActive = recorderState.canReadAmplitudes,
