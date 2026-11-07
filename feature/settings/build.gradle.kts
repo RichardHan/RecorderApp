@@ -14,6 +14,7 @@ android {
 
 dependencies {
 	implementation(project(":data:drive"))
+	implementation(project(":data:cloudtranscribe"))
 	implementation(libs.androidx.activity.compose)
 	//navigation
 	implementation(libs.androidx.navigation.compose)

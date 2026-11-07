@@ -18,8 +18,8 @@ android {
 		applicationId = "com.eva.recorderapp"
 		minSdk = libs.versions.android.minSdk.get().toInt()
 		targetSdk = libs.versions.android.compileSdk.get().toInt()
-        versionCode = 16
-        versionName = "1.5.0"
+        versionCode = 17
+        versionName = "1.6.0"
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 		vectorDrawables {
@@ -84,6 +84,7 @@ baselineProfile {
 
 dependencies {
 	implementation(project(":data:drive"))
+	implementation(project(":data:cloudtranscribe"))
 
 	implementation(libs.androidx.core.ktx)
 	implementation(libs.androidx.navigation.compose)

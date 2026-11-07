@@ -95,7 +95,7 @@ internal fun AudioSettingsScreen(
                     contentPadding = PaddingValues(dimensionResource(R.dimen.sc_padding)),
                 )
             },
-            cloudSettings = { DriveSettingsContent() },
+            cloudSettings = { com.eva.feature_settings.composables.cloudai.CloudTabContent() },
             contentPadding = scPadding,
             modifier = Modifier.fillMaxSize(),
         )

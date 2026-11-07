@@ -13,6 +13,7 @@ android {
 
 dependencies {
 	implementation(project(":data:drive"))
+	implementation(project(":data:cloudtranscribe"))
 
 	// lifecyle service and media3 common
 	implementation(libs.androidx.lifecycle.service)
