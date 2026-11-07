@@ -69,6 +69,9 @@ internal class VoiceRecorderService : LifecycleService() {
     @Inject
     lateinit var recordingAutoUploader: RecordingAutoUploader
 
+    @Inject
+    lateinit var cloudJobScheduler: com.eva.cloudtranscribe.work.CloudJobScheduler
+
     private val binder = LocalBinder()
     private val _bookMarks = MutableStateFlow(emptySet<LocalTime>())
     private val _warnings = Channel<String>(Channel.BUFFERED)
@@ -258,6 +261,8 @@ internal class VoiceRecorderService : LifecycleService() {
                 onSuccess = { recordingId ->
                     clearAndSaveBookMarks(recordingId, timeBeforeSave)
                     recordingAutoUploader.enqueue(recordingId)
+                    // opt-in only (default off); never reached for cancelled recordings
+                    cloudJobScheduler.onRecordingFinalized(recordingId)
                     // again show the notification
                     notificationHelper.showCompletedNotificationWithIntent(recordingId)
                 },

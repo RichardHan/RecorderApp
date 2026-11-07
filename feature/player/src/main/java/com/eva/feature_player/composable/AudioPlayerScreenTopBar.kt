@@ -54,6 +54,7 @@ internal fun AudioPlayerScreenTopBar(
     onRenameOption: (AudioFileModel) -> Unit = {},
     onShareOption: () -> Unit = {},
     onDetailsOptions: () -> Unit = {},
+    onCloudTranscripts: () -> Unit = {},
     onToggleFavourite: (AudioFileModel) -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior? = null,
     isFavouritesActionEnabled: Boolean = true,
@@ -177,6 +178,13 @@ internal fun AudioPlayerScreenTopBar(
                                 onClick = {
                                     showDropDown = false
                                     onDetailsOptions()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(text = "逐字稿／雲端重轉／摘要") },
+                                onClick = {
+                                    showDropDown = false
+                                    onCloudTranscripts()
                                 },
                             )
                         }
