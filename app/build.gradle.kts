@@ -18,8 +18,8 @@ android {
 		applicationId = "com.eva.recorderapp"
 		minSdk = libs.versions.android.minSdk.get().toInt()
 		targetSdk = libs.versions.android.compileSdk.get().toInt()
-        versionCode = 18
-        versionName = "1.7.0"
+        versionCode = 19
+        versionName = "1.7.1"
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 		vectorDrawables {
@@ -70,6 +70,14 @@ android {
 			if (project.findProperty("includeEmulatorAbis")?.toString() != "true")
 				excludes += setOf("lib/x86/**", "lib/x86_64/**")
 			else excludes += setOf("lib/x86/**")
+			// `-Parm64Only=true`: single-ABI sideload build for modern phones (e.g. S26 Ultra)
+			if (project.findProperty("arm64Only")?.toString() == "true")
+				excludes += setOf("lib/armeabi-v7a/**", "lib/armeabi/**")
+			// `-PcompressNative=true`: store .so compressed (extracted at install) to shrink sideload APKs
+			if (project.findProperty("compressNative")?.toString() == "true") useLegacyPackaging = true
+		}
+		dex {
+			if (project.findProperty("compressNative")?.toString() == "true") useLegacyPackaging = true
 		}
 		resources {
 			excludes += "/META-INF/{AL2.0,LGPL2.1,INDEX.LIST,DEPENDENCIES}"
