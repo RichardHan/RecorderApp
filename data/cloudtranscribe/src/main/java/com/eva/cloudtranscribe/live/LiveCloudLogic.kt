@@ -125,3 +125,9 @@ object LiveMerge {
 	/** End of the latest successful cloud chunk, for the "雲端已更新" indicator. */
 	fun latestCloudEndMs(spans: List<CloudSpan>): Long? = spans.filter { it.covers }.maxOfOrNull { it.endMs }
 }
+
+/** Which session may drive the shared UI state (pure; unit-tested). */
+object LiveCloudOwnership {
+	fun <T : Any> mayPublish(publisher: T, current: T?, finishing: T?): Boolean =
+		publisher === current || (current == null && publisher === finishing)
+}

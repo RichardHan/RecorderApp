@@ -98,4 +98,45 @@ class LiveAsrControllerTests {
 		c.apply(true, "m"); c.cancelAll()
 		assertTrue(run.cancelled); assertNull(c.finishAll())
 	}
+
+	// regression (t86u): service instance reused for recording B after A stopped — A's text must not leak into B
+	@Test fun newRecordingAfterFinishStartsCleanAndIgnoresLateOldCallbacks() = runTest {
+		val runs = mutableListOf<FakeRun>()
+		val c = LiveAsrController(backgroundScope, { Result.success(FakeRun("r${runs.size}").also { runs += it }) })
+		c.apply(true, "m"); runs[0].l.value = listOf("三月考核時，根據平時。"); advanceUntilIdle(); runCurrent()
+		val a = c.finishAll()!!
+		assertTrue(a.text.contains("三月考核"))
+		// before the fix: controller stayed closed, apply() was ignored and the old line stayed on screen
+		c.apply(true, "m"); assertEquals(1, runs.size)
+		c.resetForNewRecording()
+		assertTrue(c.state.value.lines.isEmpty())
+		c.apply(true, "m"); assertEquals(2, runs.size)
+		runs[0].l.value = listOf("A 的遲到回呼") // late callback from the old run
+		runs[1].l.value = listOf("B 第一句"); advanceUntilIdle(); runCurrent()
+		assertEquals(listOf("B 第一句"), c.state.value.lines)
+		val b = c.finishAll()!!
+		assertFalse(b.text.contains("三月考核")); assertFalse(b.text.contains("A 的"))
+		assertFalse(b.hadGaps)
+	}
+
+	@Test fun resetDuringActiveRunCancelsItWithoutSaving() = runTest {
+		val runs = mutableListOf<FakeRun>(); var releases = 0
+		val c = LiveAsrController(backgroundScope, { Result.success(FakeRun("r${runs.size}").also { runs += it }) }, { releases++ })
+		c.apply(true, "m"); runs[0].l.value = listOf("舊"); advanceUntilIdle(); runCurrent()
+		c.resetForNewRecording()
+		assertTrue(runs[0].cancelled); assertEquals(1, releases)
+		assertTrue(c.state.value.lines.isEmpty()); assertNull(c.finishAll())
+	}
+}
+
+class LiveCloudOwnershipTests {
+	private val O = com.eva.cloudtranscribe.live.LiveCloudOwnership
+	@Test fun onlyCurrentOrStillFinishingSessionPublishes() {
+		val a = Any(); val b = Any()
+		assertTrue(O.mayPublish(a, a, null))
+		assertTrue(O.mayPublish(a, null, a))   // A stopped and flushing, no new recording yet: final key points still shown
+		assertFalse(O.mayPublish(a, b, a))     // B started: late A state can never overwrite B's UI
+		assertTrue(O.mayPublish(b, b, a))
+		assertFalse(O.mayPublish(a, null, null))
+	}
 }

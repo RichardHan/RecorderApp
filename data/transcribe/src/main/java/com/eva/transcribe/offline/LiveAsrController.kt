@@ -146,6 +146,23 @@ class LiveAsrController(
 		LiveAsrAggregate(models.toList(), archivedLines.joinToString("\n"), decoded, failed, dropped, complete && dropped == 0L && failed == 0, hadGaps)
 	}
 
+	/**
+	 * A NEW recording starts in the same (still bound) service instance: drop everything of the previous recording so
+	 * no old line can leak into the new one, and reopen the controller. Serialized with [finishAll], so a previous
+	 * recording's finish always completes (and returns its text) before the reset. Late callbacks of an old run cannot
+	 * publish afterwards because its mirror job is cancelled and [current] is replaced.
+	 */
+	suspend fun resetForNewRecording() = mutex.withLock {
+		val old = current
+		mirror?.cancel(); mirror = null
+		current = null; currentModel = null
+		if (old != null) { old.cancel(); releaseModel() }
+		archivedLines.clear(); archivedTimed.clear(); models.clear()
+		decoded = 0; failed = 0; dropped = 0L
+		complete = true; hadGaps = false; everStarted = false; closed = false
+		_state.value = LiveAsrSnapshot()
+	}
+
 	/** Recording cancelled / service destroyed: drop without waiting. */
 	fun cancelAll() {
 		closed = true

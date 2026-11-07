@@ -42,6 +42,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.LocalTime
 
 
@@ -123,6 +124,9 @@ internal class VoiceRecorderService : LifecycleService() {
         get() = voiceRecorder.recorderTimer
             .distinctUntilChanged { old, new -> old.second == new.second }
 
+    /** Serializes "save previous recording's live transcript" with "reset for a new recording". */
+    private val transcriptLock = kotlinx.coroutines.sync.Mutex()
+
     override fun onBind(intent: Intent): IBinder {
         super.onBind(intent)
         Log.d(TAG, "SERVICE BOUNDED")
@@ -148,10 +152,8 @@ internal class VoiceRecorderService : LifecycleService() {
             lifecycleScope.launch {
                 voiceRecorder.initTranscriptions()
             }
-            // advanced live cloud mode (default OFF → returns without any request)
-            lifecycleScope.launch {
-                runCatching { liveCloud.start() }.onFailure { Log.e(TAG, "live cloud start failed", it) }
-            }
+            // live cloud is started per recording in onStartRecording (the service instance can outlive a recording
+            // while the UI is bound, so starting it only here left later recordings without cloud and with stale UI)
             Log.i(TAG, "SERVICE CREATED WITH OBSERVERS")
         } catch (e: Exception) {
             e.printStackTrace()
@@ -217,7 +219,14 @@ internal class VoiceRecorderService : LifecycleService() {
             notificationHelper.timerNotification,
         )
         //start the recorder
-        lifecycleScope.launch { voiceRecorder.startRecording() }.invokeOnCompletion {
+        lifecycleScope.launch {
+            // per-recording reset; waits for an earlier recording's offline transcript save (same lock) so its text is
+            // saved first and can never leak into this recording
+            transcriptLock.withLock { runCatching { voiceRecorder.beginNewRecording() }.onFailure { Log.e(TAG, "transcript reset failed", it) } }
+            voiceRecorder.startRecording()
+            // advanced live cloud mode (default OFF → returns without any request); fresh session + config per recording
+            launch { runCatching { liveCloud.start() }.onFailure { Log.e(TAG, "live cloud start failed", it) } }
+        }.invokeOnCompletion {
             // start foreground service
             startVoiceRecorderService(
                 NotificationConstants.RECORDER_NOTIFICATION_ID,
@@ -260,6 +269,8 @@ internal class VoiceRecorderService : LifecycleService() {
             //update widget
             widgetFacade.resetWidget()
         }.invokeOnCompletion {
+            // a newer recording may have started in this same instance while this one was finishing: don't kill it
+            if (voiceRecorder.recorderState.value.let { it == RecorderState.RECORDING || it == RecorderState.PAUSED || it == RecorderState.PREPARING }) return@invokeOnCompletion
             // stop the foreground
             stopForeground(STOP_FOREGROUND_REMOVE)
             // stop the service
@@ -270,28 +281,35 @@ internal class VoiceRecorderService : LifecycleService() {
     private fun onStopRecording() {
         // stop the recording
         lifecycleScope.launch {
-            val timeBeforeSave = voiceRecorder.recorderTimer.value
-            voiceRecorder.stopRecording().fold(
-                onSuccess = { recordingId ->
-                    clearAndSaveBookMarks(recordingId, timeBeforeSave)
-                    recordingAutoUploader.enqueue(recordingId)
-                    // opt-in only (default off); never reached for cancelled recordings
-                    cloudJobScheduler.onRecordingFinalized(recordingId)
-                    // again show the notification
-                    notificationHelper.showCompletedNotificationWithIntent(recordingId)
-                    // flush the tail utterance and persist the live on-device transcript
-                    saveLiveTranscript(recordingId)
-                    // live cloud: flush tail + final key points, saved as new immutable records (bounded wait)
-                    runCatching { liveCloud.finishAndSave(recordingId) }.onFailure { Log.e(TAG, "live cloud finish failed", it) }
-                },
-                onFailure = { error ->
-                    val message = error.message ?: ""
-                    showSaveRecordingErrorMessage(message)
-                },
-            )
+            transcriptLock.lock()
+            var lockHeld = true
+            try {
+                val timeBeforeSave = voiceRecorder.recorderTimer.value
+                voiceRecorder.stopRecording().fold(
+                    onSuccess = { recordingId ->
+                        clearAndSaveBookMarks(recordingId, timeBeforeSave)
+                        recordingAutoUploader.enqueue(recordingId)
+                        // opt-in only (default off); never reached for cancelled recordings
+                        cloudJobScheduler.onRecordingFinalized(recordingId)
+                        // again show the notification
+                        notificationHelper.showCompletedNotificationWithIntent(recordingId)
+                        // flush the tail utterance and persist the live on-device transcript
+                        try { saveLiveTranscript(recordingId) } finally { transcriptLock.unlock(); lockHeld = false }
+                        // live cloud: flush tail + final key points, saved as new immutable records (bounded wait)
+                        runCatching { liveCloud.finishAndSave(recordingId) }.onFailure { Log.e(TAG, "live cloud finish failed", it) }
+                    },
+                    onFailure = { error ->
+                        val message = error.message ?: ""
+                        showSaveRecordingErrorMessage(message)
+                    },
+                )
+            } finally {
+                if (lockHeld) { transcriptLock.unlock(); lockHeld = false }
+            }
             //update widget
             widgetFacade.resetWidget()
         }.invokeOnCompletion {
+            if (voiceRecorder.recorderState.value.let { it == RecorderState.RECORDING || it == RecorderState.PAUSED || it == RecorderState.PREPARING }) return@invokeOnCompletion
             //clear and save bookmarks
             // stop the foreground
             stopForeground(STOP_FOREGROUND_REMOVE)

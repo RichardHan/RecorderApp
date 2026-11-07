@@ -61,6 +61,8 @@ internal class TranscriptionProviderImpl(
 	private var usedSherpa = false
 	private var lastEngine: String = ""
 
+	@Volatile private var lastDesired: Pair<Boolean, String?>? = null
+
 	private val controller = LiveAsrController(scope, startRun = ::startRun, releaseModel = ::releaseModel)
 
 	override suspend fun initTranscriptions() {
@@ -92,6 +94,7 @@ internal class TranscriptionProviderImpl(
 				.distinctUntilChanged()
 				.conflate()
 				.collect { (enabled, modelId) ->
+					lastDesired = enabled to modelId
 					try { controller.apply(enabled, modelId) } catch (e: CancellationException) { throw e } catch (e: Exception) {
 						Log.e(TAG, "apply failed", e)
 					}
@@ -176,6 +179,16 @@ internal class TranscriptionProviderImpl(
 			return LiveAsrRunResult(finals.value.size, 0, dropped, ok)
 		}
 		override fun cancel() { queue.close(); runScope.cancel() }
+	}
+
+	override suspend fun beginNewRecording() {
+		// same service instance reused for another recording: start clean, timeline from zero, re-apply settings
+		controller.resetForNewRecording()
+		samplesSeen = 0L
+		_timed.value = emptyList()
+		lastDesired?.let { (enabled, modelId) ->
+			try { controller.apply(enabled, modelId) } catch (e: CancellationException) { throw e } catch (e: Exception) { Log.e(TAG, "re-apply failed", e) }
+		}
 	}
 
 	override suspend fun finishTranscription(): LiveTranscript? {
