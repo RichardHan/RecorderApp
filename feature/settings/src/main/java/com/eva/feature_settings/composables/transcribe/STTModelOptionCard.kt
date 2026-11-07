@@ -245,7 +245,7 @@ internal fun STTModelOptionCard(
                             modifier = Modifier.weight(1f),
                         )
                         Text(
-                            text = "${(sttModel.progress() * 100).roundToInt()} %",
+                            text = (sttModel.statusText.takeIf { it.isNotBlank() }?.let { "$it " } ?: "") + "${(sttModel.progress() * 100).roundToInt()} %",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.tertiary,
                         )

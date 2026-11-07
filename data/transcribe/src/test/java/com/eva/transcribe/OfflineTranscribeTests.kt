@@ -135,6 +135,14 @@ class ExtractorTests {
 		assertFalse(File(dir, "model.onnx").exists())
 	}
 
+	@Test fun extractReportsMonotonicByteProgressToManifestTotal() {
+		val data = tar { file("root/model.onnx", a); file("root/sub/tokens.txt", b) }
+		val seen = ArrayList<Long>(); var lastTotal = 0L
+		SafeTarBz2Extractor.extract(ByteArrayInputStream(data), Files.createTempDirectory("x").toFile(), manifest, onBytes = { d, t -> seen += d; lastTotal = t })
+		assertTrue(seen.isNotEmpty()); assertEquals(seen.sorted(), seen)
+		assertEquals(manifest.sumOf { it.sizeBytes }, seen.last()); assertEquals(seen.last(), lastTotal)
+	}
+
 	@Test fun rejectsChecksumMismatch() {
 		val data = tar { file("root/model.onnx", "MODEL".toByteArray()); file("root/sub/tokens.txt", b) }
 		try { SafeTarBz2Extractor.extract(ByteArrayInputStream(data), Files.createTempDirectory("x").toFile(), manifest); fail() } catch (_: IOException) {}
@@ -229,5 +237,28 @@ class PerFileModelTests {
 	@Test fun ramRequirementUsesLongs() {
 		val need = com.eva.transcribe.offline.OfflineSpeechEngine.requiredRamBytes(2_399_761_248L)
 		assertTrue(need > 3_500_000_000L && need < 4_000_000_000L)
+	}
+}
+
+class ModelDownloadProgressTests {
+	private val P = com.eva.transcribe.data.ModelDownloadProgress
+	@Test fun percentIsBoundedAndSafe() {
+		assertEquals(0, P.percent(5, 0)); assertEquals(0, P.percent(5, -1))
+		assertEquals(50, P.percent(439_351_212, 878_702_423)); assertEquals(100, P.percent(2_000_000_000, 878_702_423))
+		assertEquals(0, P.percent(-3, 10))
+	}
+	@Test fun resumeOnlyAppendsOnHonoured206() {
+		assertTrue(P.resumeAppends(1_000, 206))
+		assertFalse(P.resumeAppends(1_000, 200)) // server ignored Range -> restart from zero
+		assertFalse(P.resumeAppends(0, 206))
+	}
+	@Test fun qwen06CatalogueMatchesPublishedArchive() {
+		// values verified 2026-11-07 against the public GitHub release asset (content-length + full SHA-256 + tar listing)
+		val f = listOf(File("src/main/assets/vosk_models_metadata.json"), File("data/transcribe/src/main/assets/vosk_models_metadata.json")).first { it.exists() }
+		val m = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString(com.eva.transcribe.data.models.ModelsMetadataList.serializer(), f.readText())
+			.models.single { it.modelId == "sherpa-qwen3-asr-0.6b-int8" }
+		assertEquals(878_702_423L, m.sizeBytes)
+		assertEquals("393f8a14e2f5fb96746aaab342997a40641001fbd5bf9592a080a8329178ee96", m.checksum)
+		assertEquals(setOf("conv_frontend.onnx", "encoder.int8.onnx", "decoder.int8.onnx", "tokenizer/vocab.json", "tokenizer/tokenizer_config.json", "tokenizer/merges.txt"), m.files.map { it.path }.toSet())
 	}
 }

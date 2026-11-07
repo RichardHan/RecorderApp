@@ -172,6 +172,7 @@ internal class STTModelsManagerViewModel @Inject constructor(
                                 progress = { progress ?: 0f },
                                 isRunning = isRunning,
                                 downloadId = workId,
+                                statusText = (workerResource as? WorkResource.Running)?.message.orEmpty(),
                             )
                         }
                     }
