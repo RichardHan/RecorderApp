@@ -219,7 +219,7 @@ class AdapterTests {
 		val out = OpenAiCompatibleClient("https://x.example", KEY, "m", ReasoningEffort.OFF, t).transcribe("p", AudioPayload(byteArrayOf(0))) as CallOutcome.Failure
 		assertTrue(out.retryable)
 		assertFalse(out.message.contains(KEY))
-		val io = OpenAiCompatibleClient("https://x.example", KEY, "m", ReasoningEffort.OFF) { _, _, _, _ -> throw IOException("timeout $KEY") }
+		val io = OpenAiCompatibleClient("https://x.example", KEY, "m", ReasoningEffort.OFF, HttpTransport { _, _, _, _ -> throw IOException("timeout $KEY") })
 		val f = io.transcribe("p", AudioPayload(byteArrayOf(0))) as CallOutcome.Failure
 		assertTrue(f.retryable); assertFalse(f.message.contains(KEY))
 		assertEquals(false, (OpenAiCompatibleClient("https://x.example", KEY, "m", ReasoningEffort.OFF, Capture(HttpResponse(400, "bad"))).transcribe("p", AudioPayload(byteArrayOf(0))) as CallOutcome.Failure).retryable)

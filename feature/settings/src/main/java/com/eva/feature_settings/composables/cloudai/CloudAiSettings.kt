@@ -50,6 +50,14 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
+import com.eva.cloudtranscribe.api.ConnectionProbe
+import com.eva.cloudtranscribe.api.ProbeTransport
 
 @HiltViewModel
 internal class CloudAiSettingsViewModel @Inject constructor(
@@ -58,6 +66,42 @@ internal class CloudAiSettingsViewModel @Inject constructor(
 ) : ViewModel() {
 	val settings: StateFlow<CloudSettings?> = repo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 	val hasKey: StateFlow<Boolean> = keys.hasKey
+
+	var testing by mutableStateOf(false)
+		private set
+	var testResult by mutableStateOf<String?>(null)
+		private set
+	private var testJob: Job? = null
+	private var probeTransport: ProbeTransport? = null
+
+	fun testSavedSettings() {
+		if (testing) return
+		testing = true
+		testResult = null
+		testJob = viewModelScope.launch {
+			val transport = ProbeTransport()
+			probeTransport = transport
+			var timedOut = false
+			val watchdog = launch { delay(20_000); timedOut = true; transport.cancel() }
+			try {
+				val s = repo.settings.first()
+				val result = withContext(Dispatchers.IO) { ConnectionProbe.run(s, keys.read(), transport) }
+				testResult = if (timedOut) "整體測試逾時（20 秒），已停止；未重試。" else result
+			} catch (e: CancellationException) {
+				testResult = "已取消測試；已送出的 API 請求可能仍計費。"
+				throw e
+			} catch (e: Exception) {
+				testResult = "無法讀取已儲存設定／Key，請檢查後再試。"
+			} finally {
+				watchdog.cancel()
+				transport.cancel()
+				probeTransport = null
+				testing = false
+			}
+		}
+	}
+	fun cancelTest() { probeTransport?.cancel(); testJob?.cancel() }
+	override fun onCleared() { probeTransport?.cancel(); super.onCleared() }
 
 	fun save(s: CloudSettings) = viewModelScope.launch { repo.update { s } }
 	fun saveKey(key: String) { if (key.isNotBlank()) keys.save(key) }
@@ -88,6 +132,7 @@ internal fun CloudAiSettingsContent(
 	val current = saved ?: return
 	var draft by remember(current) { mutableStateOf(current) }
 	var keyInput by remember { mutableStateOf("") }
+	var confirmTest by remember { mutableStateOf(false) }
 	var confirmAuto by remember { mutableStateOf(false) }
 	var savedMsg by remember { mutableStateOf<String?>(null) }
 
@@ -133,8 +178,26 @@ internal fun CloudAiSettingsContent(
 			Button(enabled = keyInput.isNotBlank(), onClick = { viewModel.saveKey(keyInput); keyInput = "" }) { Text("儲存 Key") }
 			OutlinedButton(enabled = hasKey, onClick = { viewModel.removeKey() }) { Text("移除 Key") }
 		}
+		val dirty = draft != current || keyInput.isNotBlank()
+		if (dirty) Text("測試只使用已儲存設定；請先儲存最新設定與 Key。", style = MaterialTheme.typography.bodySmall)
+		Text("按測試只會送出一次極短文字（可能產生少量 API 費用），不會上傳錄音，也不會自動重試。", style = MaterialTheme.typography.bodySmall)
+		Button(
+			enabled = !dirty && !viewModel.testing && hasKey && current.baseUrl.isNotBlank() && current.transcribeModel.isNotBlank(),
+			onClick = { confirmTest = true },
+		) { Text(if (viewModel.testing) "連線測試中…" else "測試已儲存設定") }
+		if (viewModel.testing) TextButton(onClick = { viewModel.cancelTest() }) { Text("取消測試") }
+		viewModel.testResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+		Text("僅文字連線測試，不代表支援音訊；沒有上傳錄音。", style = MaterialTheme.typography.bodySmall)
 		draft.validate(hasKey)?.let { Text("尚未可用：$it", color = MaterialTheme.colorScheme.error) }
 	}
+
+	if (confirmTest) AlertDialog(
+		onDismissRequest = { confirmTest = false },
+		title = { Text("測試已儲存設定？") },
+		text = { Text("會使用已儲存的供應商、Endpoint、API Key 與轉錄模型，送出一次『回覆 OK』的文字請求。可能產生少量 API 費用；沒有任何錄音上傳，不自動重試。") },
+		confirmButton = { TextButton(onClick = { confirmTest = false; viewModel.testSavedSettings() }) { Text("同意費用，測試一次") } },
+		dismissButton = { TextButton(onClick = { confirmTest = false }) { Text("取消") } },
+	)
 
 	if (confirmAuto) AlertDialog(
 		onDismissRequest = { confirmAuto = false },

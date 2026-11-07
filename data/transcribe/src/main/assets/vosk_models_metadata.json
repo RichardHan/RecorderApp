@@ -1,19 +1,6 @@
 {
     "models": [
         {
-            "id": "vosk-en-in-small",
-            "name": "vosk-model-small-en-in",
-            "display_name": "English (India)",
-            "locale": "en-IN",
-            "version": "0.4",
-            "engine": "vosk",
-            "size_bytes": 37573330,
-            "model_uri": "https://alphacephei.com/vosk/models/vosk-model-small-en-in-0.4.zip",
-            "archive_format": "zip",
-            "checksum_sha256": "20663dcac4d5cb783a579c54d98339344a688e4ec6e1b4a4b059fd1235454cc7",
-            "license": "Apache-2.0"
-        },
-        {
             "id": "vosk-en-us-small",
             "name": "vosk-model-small-en-us",
             "display_name": "English (US)",

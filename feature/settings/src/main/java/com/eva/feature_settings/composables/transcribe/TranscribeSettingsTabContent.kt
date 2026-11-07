@@ -46,6 +46,8 @@ internal fun TranscribeSettingsTabContent(
     contentPadding: PaddingValues = PaddingValues(12.dp),
 ) {
 
+    var resourceRefresh by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val resourceSnapshot = rememberResources(sttModels.map { it.model }, resourceRefresh)
     val isInspectionMode = LocalInspectionMode.current
     var pendingDownload by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<STTModel?>(null) }
     pendingDownload?.let { m ->
@@ -73,6 +75,9 @@ internal fun TranscribeSettingsTabContent(
         contentPadding = contentPadding,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        item(key = "phone-resources") {
+            TranscriptionResourcePanel(resourceSnapshot, onRefresh = { resourceRefresh++ })
+        }
         item {
             SettingsItemTitle(
                 title = stringResource(R.string.recordings_settings_transcriptions_title),
@@ -110,6 +115,8 @@ internal fun TranscribeSettingsTabContent(
                 sttModel = model,
                 isSelected = model.model.modelId == selectedSTTModel?.model?.modelId,
                 onDownload = { pendingDownload = model.model },
+                downloadAllowed = resourceSnapshot.models[model.model.modelId]?.let { com.eva.transcribe.resources.ResourcePolicy.diskEnough(resourceSnapshot.diskFree, it.diskNeeded) != false } ?: true,
+                resourceText = resourceSnapshot.models[model.model.modelId]?.let { resourceDescription(resourceSnapshot, it) } ?: "資源需求讀取中／未知",
                 onCancelDownload = { model.downloadId?.let(onCancelDownload) },
                 onDelete = { onDeleteSTTModel(model.model) },
                 onSelect = { onSelectSTTModel(model.model) },

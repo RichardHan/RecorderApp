@@ -18,8 +18,8 @@ android {
 		applicationId = "com.eva.recorderapp"
 		minSdk = libs.versions.android.minSdk.get().toInt()
 		targetSdk = libs.versions.android.compileSdk.get().toInt()
-        versionCode = 19
-        versionName = "1.7.1"
+        versionCode = 20
+        versionName = "1.7.2"
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 		vectorDrawables {
@@ -80,6 +80,9 @@ android {
 			if (project.findProperty("compressNative")?.toString() == "true") useLegacyPackaging = true
 		}
 		resources {
+			// JNA also bundles legacy MIPS resources (not Android-supported ABIs).
+			if (project.findProperty("arm64Only")?.toString() == "true")
+				excludes += setOf("lib/mips/**", "lib/mips64/**")
 			excludes += "/META-INF/{AL2.0,LGPL2.1,INDEX.LIST,DEPENDENCIES}"
 		}
 	}

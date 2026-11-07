@@ -105,7 +105,7 @@ class OfflineSpeechEngine @Inject constructor(
 		val needed = requiredRamBytes(modelBytes)
 		Log.i(TAG, "model=${modelBytes / 1_048_576}MB avail=${info.availMem / 1_048_576}MB need=${needed / 1_048_576}MB")
 		check(android.os.Process.is64Bit() || modelBytes < LARGE_MODEL_BYTES) { "此模型僅支援 64 位元裝置" }
-		check(info.availMem >= needed && !info.lowMemory) {
+		check(com.eva.transcribe.resources.ResourcePolicy.ramEnough(info.availMem, info.lowMemory, needed, android.os.Process.is64Bit(), modelBytes) == true) {
 			"可用記憶體不足：需要約 ${needed / 1_048_576} MB，目前可用 ${info.availMem / 1_048_576} MB。請關閉其他 App 或改用較小模型（錄音不受影響）"
 		}
 	}
@@ -124,9 +124,9 @@ class OfflineSpeechEngine @Inject constructor(
 		fun cleanQwenText(raw: String): String = raw.replace(QWEN_PREFIX, "").replace("<asr_text>", "").trim()
 		const val QWEN_MAX_TOTAL_LEN = 512
 		const val QWEN_MAX_NEW_TOKENS = 192
-		const val LARGE_MODEL_BYTES = 1_500_000_000L
+		const val LARGE_MODEL_BYTES = com.eva.transcribe.resources.ResourcePolicy.LARGE_MODEL
 		/** Model weights are mmapped/copied by onnxruntime: weights + 30% + 512 MB working margin. */
-		fun requiredRamBytes(modelBytes: Long): Long = modelBytes + modelBytes * 3 / 10 + 512L * 1024 * 1024
+		fun requiredRamBytes(modelBytes: Long): Long = com.eva.transcribe.resources.ResourcePolicy.ramBytes(modelBytes)
 		fun buildConfig(engine: String, dir: File, numThreads: Int): OfflineRecognizerConfig {
 			fun p(name: String) = File(dir, name).also { require(it.exists()) { "缺少模型檔 ${it.name}" } }.absolutePath
 			val modelConfig = when (engine) {

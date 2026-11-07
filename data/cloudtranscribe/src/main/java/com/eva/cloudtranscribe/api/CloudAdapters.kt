@@ -74,6 +74,8 @@ class OpenAiCompatibleClient(
 	private val model: String,
 	private val effort: ReasoningEffort,
 	private val transport: HttpTransport,
+	private val maxTokens: Int = CloudSettings.MAX_TOKENS,
+	private val timeoutSeconds: Int = CloudSettings.TIMEOUT_SECONDS,
 ) : CloudAiClient {
 	private val url = baseUrl.trim().trimEnd('/') + "/chat/completions"
 
@@ -90,7 +92,7 @@ class OpenAiCompatibleClient(
 				put("content", content)
 			}
 		}
-		put("max_tokens", CloudSettings.MAX_TOKENS)
+		put("max_tokens", maxTokens)
 		put("stream", false)
 		if (shouldSendEffort()) put("reasoning_effort", effort.wire)
 	}.toString()
@@ -114,7 +116,7 @@ class OpenAiCompatibleClient(
 	override fun complete(prompt: String): CallOutcome = send(buildBody(JsonPrimitive(prompt)))
 
 	private fun send(body: String): CallOutcome = safeCall(apiKey) {
-		val response = transport.postJson(url, mapOf("Authorization" to "Bearer $apiKey"), body, CloudSettings.TIMEOUT_SECONDS)
+		val response = transport.postJson(url, mapOf("Authorization" to "Bearer $apiKey"), body, timeoutSeconds)
 		if (response.code !in 200..299) return@safeCall classifyHttp(response.code, response.body, apiKey)
 		parse(response.body)
 	}
@@ -149,6 +151,8 @@ class GeminiNativeClient(
 	private val apiKey: String,
 	private val model: String,
 	private val transport: HttpTransport,
+	private val maxTokens: Int = CloudSettings.MAX_TOKENS,
+	private val timeoutSeconds: Int = CloudSettings.TIMEOUT_SECONDS,
 ) : CloudAiClient {
 	private val url = baseUrl.trim().trimEnd('/').ifBlank { DEFAULT_BASE } + "/models/$model:generateContent"
 
@@ -167,14 +171,14 @@ class GeminiNativeClient(
 				}
 			}
 		}
-		putJsonObject("generationConfig") { put("maxOutputTokens", CloudSettings.MAX_TOKENS) }
+		putJsonObject("generationConfig") { put("maxOutputTokens", maxTokens) }
 	}.toString()
 
 	override fun transcribe(prompt: String, audio: AudioPayload) = send(buildBody(prompt, audio))
 	override fun complete(prompt: String) = send(buildBody(prompt, null))
 
 	private fun send(body: String): CallOutcome = safeCall(apiKey) {
-		val response = transport.postJson(url, mapOf("x-goog-api-key" to apiKey), body, CloudSettings.TIMEOUT_SECONDS)
+		val response = transport.postJson(url, mapOf("x-goog-api-key" to apiKey), body, timeoutSeconds)
 		if (response.code !in 200..299) return@safeCall classifyHttp(response.code, response.body, apiKey)
 		parse(response.body)
 	}

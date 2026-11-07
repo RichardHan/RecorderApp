@@ -122,7 +122,7 @@ internal class ModelDownloadMangerImpl(
             } else null
 
             // disk check: archive (cache) + extracted files (+ old install kept until commit) + margin
-            val needed = modelResult.archiveSize + (manifest?.sumOf { it.sizeBytes } ?: modelResult.archiveSize * 2) + 200L * 1024 * 1024
+            val needed = com.eva.transcribe.resources.ResourcePolicy.archiveBytes(modelResult.archiveSize, manifest?.sumOf { it.sizeBytes })
             val free = minOf(context.filesDir.usableSpace, context.cacheDir.usableSpace)
             if (free < needed) throw IOException("儲存空間不足：需要約 ${needed / 1_048_576} MB，可用 ${free / 1_048_576} MB")
 
@@ -236,22 +236,23 @@ internal class ModelDownloadMangerImpl(
                 fs.createDirectories(partialDir)
                 fun have(e: com.eva.transcribe.data.models.ModelFileEntry): Long {
                     val done = partialDir.resolve(e.path)
-                    if (fs.exists(done)) return e.sizeBytes
-                    return fs.metadataOrNull(partialDir.resolve(e.path + ".part"))?.size ?: 0L
+                    return com.eva.transcribe.resources.ResourcePolicy.partialBytes(e.sizeBytes,
+                        fs.metadataOrNull(done)?.size, fs.metadataOrNull(partialDir.resolve(e.path + ".part"))?.size)
                 }
                 val already = manifest.sumOf { have(it) }
                 val remaining = total - already
                 val free = context.filesDir.usableSpace
                 // keep >= MIN_FREE_AFTER_DOWNLOAD left so the phone (and recordings) are not starved
-                if (free < remaining + MIN_FREE_AFTER_DOWNLOAD)
+                if (free < com.eva.transcribe.resources.ResourcePolicy.downloadBytes(true, total, total, already, false))
                     throw IOException("儲存空間不足：還需下載 ${remaining / 1_048_576} MB，並保留 ${MIN_FREE_AFTER_DOWNLOAD / 1_048_576} MB；可用 ${free / 1_048_576} MB")
 
-                var finishedBytes = manifest.filter { fs.exists(partialDir.resolve(it.path)) }.sumOf { it.sizeBytes }
+                var finishedBytes = manifest.filter { fs.metadataOrNull(partialDir.resolve(it.path))?.size == it.sizeBytes }.sumOf { it.sizeBytes }
                 var lastProgress = -1
                 for (entry in manifest) {
                     currentCoroutineContext().ensureActive()
                     val target = partialDir.resolve(entry.path)
-                    if (fs.exists(target)) continue
+                    if (fs.metadataOrNull(target)?.size == entry.sizeBytes) continue
+                    if (fs.exists(target)) fs.delete(target)
                     target.parent?.let(fs::createDirectories)
                     val part = partialDir.resolve(entry.path + ".part")
                     var offset = fs.metadataOrNull(part)?.size ?: 0L
@@ -481,7 +482,7 @@ internal class ModelDownloadMangerImpl(
         private const val MAX_UNCOMPRESSED_SIZE = 1024L * 1024L * 1024L
 
         const val FILES_FORMAT = "files"
-        private const val MIN_FREE_AFTER_DOWNLOAD = 3584L * 1024 * 1024
+        private const val MIN_FREE_AFTER_DOWNLOAD = com.eva.transcribe.resources.ResourcePolicy.FILE_BUFFER
         private val SHA256_REGEX = Regex("^[a-f0-9]{64}$")
     }
 }
