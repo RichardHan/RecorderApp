@@ -12,15 +12,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -48,7 +46,7 @@ internal fun cloudStatusText(s: LiveCloudState): String = buildString {
 	s.transcribeError?.let { append("\n⚠ 轉錄：$it") }
 }
 
-/** Separate panes: on-device live captions | cloud transcript (+ provisional offline) | key points. */
+/** Simultaneously visible sections, top to bottom: 即時字幕, 雲端稿, 重點 (no tabs). Each section scrolls on its own. */
 @Composable
 internal fun LiveTranscriptPanes(
 	offline: LiveTranscriptState,
@@ -58,29 +56,27 @@ internal fun LiveTranscriptPanes(
 	modifier: Modifier = Modifier,
 	fontFamily: FontFamily = FontFamily.Default,
 ) {
-	val tabs = buildList { if (showOffline) add("即時字幕"); add("雲端稿"); add("重點") }
-	var tab by rememberSaveable { mutableIntStateOf(0) }
-	val current = tabs.getOrElse(tab) { tabs.first() }
-	Column(modifier) {
-		val paneModifier = Modifier.fillMaxWidth().weight(1f).padding(bottom = 4.dp)
-		when (current) {
-			"即時字幕" -> RecorderLiveTranscriptionText(offline, paneModifier, isActive, fontFamily)
-			"雲端稿" -> CloudTranscriptPane(cloud, paneModifier, fontFamily)
-			else -> KeyPointsPane(cloud, paneModifier)
-		}
-		// view switcher at the bottom, just above the recorder controls (user request)
-		SecondaryTabRow(selectedTabIndex = tabs.indexOf(current)) {
-			tabs.forEachIndexed { i, t -> Tab(selected = t == current, onClick = { tab = i }, text = { Text(t) }) }
-		}
-
+	Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+		SectionTitle("即時字幕")
+		if (showOffline) RecorderLiveTranscriptionText(offline, Modifier.fillMaxWidth().weight(1f), isActive, fontFamily)
+		else Text("即時字幕已關閉（不影響雲端稿與重點）", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+		SectionTitle("雲端稿")
+		CloudTranscriptPane(cloud, Modifier.fillMaxWidth().weight(1f), fontFamily)
+		SectionTitle("重點")
+		KeyPointsPane(cloud, Modifier.fillMaxWidth().weight(1f))
 	}
 }
+
+@Composable
+private fun SectionTitle(text: String) =
+	Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
 
 @Composable
 private fun CloudTranscriptPane(cloud: LiveCloudState, modifier: Modifier, fontFamily: FontFamily) {
 	val listState = rememberLazyListState()
 	val total = cloud.cloudSpans.size + cloud.provisional.size
-	LaunchedEffect(total) { if (total > 0) listState.animateScrollToItem(total - 1) }
+	val atBottom by remember { derivedStateOf { val i = listState.layoutInfo; (i.visibleItemsInfo.lastOrNull()?.index ?: -1) >= i.totalItemsCount - 2 } }
+	LaunchedEffect(total) { if (total > 0 && atBottom) listState.animateScrollToItem(total - 1) }
 	Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.medium, modifier = modifier) {
 		Column(Modifier.fillMaxSize().padding(12.dp)) {
 			Text(cloudStatusText(cloud), style = MaterialTheme.typography.labelMedium,
