@@ -2,6 +2,7 @@ package com.eva.feature_player.cloud
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -87,18 +88,7 @@ internal fun SavedTranscriptPanel(
 				)
 				else -> {
 					val selected = list.firstOrNull { it.id == selectedId } ?: PlaybackTranscripts.defaultSelection(list) ?: list.first()
-					if (list.size > 1) Row(
-						horizontalArrangement = Arrangement.spacedBy(6.dp),
-						modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-					) {
-						list.forEach { r ->
-							FilterChip(
-								selected = r.id == selected.id,
-								onClick = { selectedId = r.id },
-								label = { Text(PlaybackTranscripts.label(r)) },
-							)
-						}
-					} else Text(PlaybackTranscripts.label(selected), style = MaterialTheme.typography.labelMedium)
+					SourcePicker(list, selected) { selectedId = it }
 					TranscriptLines(selected, trackData, onSeekTo, Modifier.weight(1f).fillMaxWidth().padding(top = 6.dp))
 				}
 			}
@@ -119,7 +109,14 @@ private fun TranscriptLines(
 	val active by remember(lines) {
 		derivedStateOf { if (timed) PlaybackTranscripts.activeIndex(lines, trackData().current.inWholeMilliseconds) else -1 }
 	}
-	LaunchedEffect(active) { if (active >= 0) listState.animateScrollToItem(active) }
+	// follow playback only while the previous highlighted line is on screen (manual reading is not yanked back)
+	var lastActive by remember(lines) { mutableStateOf(-1) }
+	LaunchedEffect(active) {
+		if (active < 0) return@LaunchedEffect
+		val visible = listState.layoutInfo.visibleItemsInfo.map { it.index }
+		if (lastActive < 0 || lastActive in visible) listState.animateScrollToItem(active)
+		lastActive = active
+	}
 
 	Column(modifier) {
 		if (!timed) Text(
@@ -148,3 +145,31 @@ private fun TranscriptLines(
 }
 
 private fun fmt(ms: Long): String { val s = ms / 1000; return "%d:%02d".format(s / 60, s % 60) }
+
+
+/** Full-width picker: current source on one wrapping line; menu lists every variant with its full model name. */
+@Composable
+private fun SourcePicker(list: List<TranscriptRecord>, selected: TranscriptRecord, onSelect: (String) -> Unit) {
+	var open by remember { mutableStateOf(false) }
+	Box(Modifier.fillMaxWidth()) {
+		androidx.compose.material3.OutlinedButton(
+			onClick = { if (list.size > 1) open = true },
+			enabled = true,
+			modifier = Modifier.fillMaxWidth(),
+		) {
+			Text(
+				(if (list.size > 1) "逐字稿（${list.size} 份）：" else "逐字稿：") + PlaybackTranscripts.label(selected) + if (list.size > 1) "  ▾" else "",
+				style = MaterialTheme.typography.labelLarge,
+				modifier = Modifier.fillMaxWidth(),
+			)
+		}
+		androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+			list.forEach { r ->
+				androidx.compose.material3.DropdownMenuItem(
+					text = { Text((if (r.id == selected.id) "✓ " else "") + PlaybackTranscripts.label(r)) },
+					onClick = { onSelect(r.id); open = false },
+				)
+			}
+		}
+	}
+}

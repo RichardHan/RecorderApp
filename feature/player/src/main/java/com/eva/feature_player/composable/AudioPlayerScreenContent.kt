@@ -55,10 +55,7 @@ internal fun AudioPlayerScreenContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            PlayerDurationText(
-                track = trackData,
-                fontFamily = DownloadableFonts.SPLINE_SANS_MONO_FONT_FAMILY,
-            )
+            CompactPlayerTime(trackData)
             PlayerAmplitudeGraph2(
                 trackData = trackData,
                 bookMarksTimeStamps = bookMarkTimeStamps,
@@ -67,7 +64,9 @@ internal fun AudioPlayerScreenContent(
                 onSeek = { amount -> onPlayerEvents(PlayerEvents.OnSeekingPlayer(amount)) },
                 onSeekEnd = { onPlayerEvents(PlayerEvents.OnSeekEndPlayer) },
                 timelineFontFamily = DownloadableFonts.PLUS_CODE_LATIN_FONT_FAMILY,
-                modifier = Modifier.fillMaxWidth().height(110.dp),
+                aspectRatio = null,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier.fillMaxWidth().height(96.dp),
             )
             PlayerBookMarks(
                 trackData = trackData,
@@ -137,3 +136,19 @@ internal fun AudioPlayerScreenContent(
         )
     }
 }
+
+
+/** One-line compact "played / total" time for the transcript layout (avoids the huge display-size clock). */
+@Composable
+private fun CompactPlayerTime(trackData: () -> PlayerTrackData) {
+    val played by remember { derivedStateOf { trackData().current.inWholeSeconds } }
+    val total by remember { derivedStateOf { trackData().total.inWholeSeconds } }
+    androidx.compose.material3.Text(
+        text = "${fmtSec(played)} / ${fmtSec(total)}",
+        style = androidx.compose.material3.MaterialTheme.typography.titleLarge,
+        color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+        fontFamily = DownloadableFonts.SPLINE_SANS_MONO_FONT_FAMILY,
+    )
+}
+
+internal fun fmtSec(s: Long): String = if (s >= 3600) "%d:%02d:%02d".format(s / 3600, s % 3600 / 60, s % 60) else "%02d:%02d".format(s / 60, s % 60)

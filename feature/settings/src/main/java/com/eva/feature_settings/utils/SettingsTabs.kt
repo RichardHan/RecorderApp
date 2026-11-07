@@ -22,4 +22,14 @@ internal enum class SettingsTabs(
 			AI_SETTINGS -> "AI"
 			else -> stringResource(R.string.app_settings_transcriptions)
 		}
+
+	/** Short label so all five tabs fit in one row on a narrow phone. */
+	val shortLabel: String
+		get() = when (this) {
+			AUDIO_SETTINGS -> "Audio"
+			FILES_SETTINGS -> "Files"
+			TRANSCRIPTIONS_SETTINGS -> "Transcribe"
+			CLOUD_SETTINGS -> "Cloud"
+			AI_SETTINGS -> "AI"
+		}
 }
