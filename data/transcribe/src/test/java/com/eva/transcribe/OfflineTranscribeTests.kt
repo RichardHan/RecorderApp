@@ -1,0 +1,157 @@
+package com.eva.transcribe
+
+import com.eva.transcribe.archive.SafeTarBz2Extractor
+import com.eva.transcribe.data.models.ModelFileEntry
+import com.eva.transcribe.data.models.ModelsMetadataList
+import com.eva.transcribe.offline.LiveUtterancePipeline
+import com.eva.transcribe.offline.UtteranceSegmenter
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.IOException
+import java.nio.file.Files
+import java.security.MessageDigest
+import kotlin.math.PI
+import kotlin.math.sin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorOutputStream
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Test
+
+private fun tone(ms: Int, amp: Int, freq: Double = 300.0) = ShortArray(16 * ms) { (sin(2 * PI * freq * it / 16000) * amp).toInt().toShort() }
+private fun noise(ms: Int, amp: Int) = ShortArray(16 * ms) { ((it * 7919 % 13) - 6).let { v -> v * amp / 6 }.toShort() }
+private fun concat(vararg a: ShortArray) = a.fold(ShortArray(0)) { acc, x -> acc + x }
+
+class SegmenterTests {
+	@Test fun splitsPhrasesWithPaddingAndAccountsForEverySample() {
+		val audio = concat(noise(1000, 20), tone(1500, 3000), noise(1500, 20), tone(800, 3000), noise(1000, 20))
+		val seg = UtteranceSegmenter()
+		val utts = ArrayList<UtteranceSegmenter.Utterance>()
+		var i = 0
+		while (i < audio.size) { val n = minOf(1234, audio.size - i); utts += seg.accept(audio.copyOfRange(i, i + n)); i += n }
+		utts += seg.flush()
+		assertEquals(2, utts.size)
+		assertTrue("pre-roll kept", utts[0].startSample <= 16_000 - 16 * 270)
+		assertTrue("post-roll kept", utts[0].samples.size >= 16 * (1500 + 500))
+		assertEquals(audio.size.toLong(), utts.sumOf { it.samples.size.toLong() } + seg.silenceSamples)
+	}
+
+	@Test fun tailIsFlushedWhenStoppingMidSentence() {
+		val seg = UtteranceSegmenter()
+		assertTrue(seg.accept(concat(noise(500, 20), tone(1200, 3000))).isEmpty())
+		val tail = seg.flush()
+		assertEquals(1, tail.size)
+		assertTrue(tail[0].samples.size >= 16 * 1200)
+	}
+
+	@Test fun quietSpeechIsKept() {
+		val seg = UtteranceSegmenter()
+		val out = seg.accept(concat(noise(1000, 10), tone(1000, 250), noise(1000, 10))) + seg.flush()
+		assertEquals(1, out.size)
+	}
+
+	@Test fun longSpeechIsCappedForModelLimits() {
+		val seg = UtteranceSegmenter(maxUtteranceMs = 5_000)
+		val out = seg.accept(tone(12_000, 3000)) + seg.flush()
+		assertTrue(out.size >= 3)
+		assertTrue(out.all { it.samples.size <= 16 * 5_000 + 16 * 30 })
+	}
+}
+
+class PipelineTests {
+	@Test fun ordersResultsAndFlushesTail() = runBlocking {
+		val p = LiveUtterancePipeline(this, queueCapacity = 8) { s -> "len${s.size / 1600}" }
+		p.accept(concat(noise(500, 20), tone(1000, 3000), noise(1500, 20)), 16 * 3000)
+		p.accept(tone(700, 3000), 16 * 700)
+		assertTrue(p.finish())
+		val text = p.text()
+		assertEquals(2, text.lines().size)
+		assertEquals(0L, p.droppedSamples)
+	}
+
+	@Test fun backlogIsVisibleNotSilent() = runBlocking {
+		val p = LiveUtterancePipeline(this, queueCapacity = 1) { delay(300); "x" }
+		repeat(6) { p.accept(concat(tone(600, 3000), noise(900, 20)), 16 * 1500) }
+		assertTrue(p.finish())
+		assertTrue(p.droppedSamples > 0)
+		assertTrue(p.text().contains("辨識跟不上"))
+	}
+
+	@Test fun decoderFailureIsMarked() = runBlocking {
+		val p = LiveUtterancePipeline(this) { error("boom") }
+		p.accept(concat(tone(800, 3000), noise(900, 20)), 16 * 1700)
+		p.finish()
+		assertEquals(1, p.failedUtterances)
+		assertTrue(p.text().contains("辨識失敗"))
+	}
+}
+
+class ExtractorTests {
+	private fun sha(b: ByteArray) = MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }
+
+	private fun tar(build: TarArchiveOutputStream.() -> Unit): ByteArray {
+		val bos = ByteArrayOutputStream()
+		TarArchiveOutputStream(BZip2CompressorOutputStream(bos)).use { it.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX); it.build() }
+		return bos.toByteArray()
+	}
+
+	private fun TarArchiveOutputStream.file(name: String, data: ByteArray) {
+		putArchiveEntry(TarArchiveEntry(name).apply { size = data.size.toLong() }); write(data); closeArchiveEntry()
+	}
+
+	private val a = "model".toByteArray()
+	private val b = "tokens".toByteArray()
+	private val manifest = listOf(ModelFileEntry("model.onnx", a.size.toLong(), sha(a)), ModelFileEntry("sub/tokens.txt", b.size.toLong(), sha(b)))
+
+	@Test fun extractsOnlyManifestFilesAndStripsRoot() {
+		val data = tar { file("root/model.onnx", a); file("root/sub/tokens.txt", b); file("root/test_wavs/x.wav", ByteArray(100)) }
+		val dir = Files.createTempDirectory("x").toFile()
+		SafeTarBz2Extractor.extract(ByteArrayInputStream(data), dir, manifest)
+		assertEquals("model", File(dir, "model.onnx").readText())
+		assertFalse(File(dir, "test_wavs").exists())
+	}
+
+	@Test fun rejectsTraversal() {
+		val data = tar { file("root/../../evil", a) }
+		try { SafeTarBz2Extractor.extract(ByteArrayInputStream(data), Files.createTempDirectory("x").toFile(), manifest); fail() } catch (_: SecurityException) {}
+	}
+
+	@Test fun ignoresSymlinksAndFailsOnMissing() {
+		val data = tar {
+			putArchiveEntry(TarArchiveEntry("root/model.onnx", TarArchiveEntry.LF_SYMLINK).apply { linkName = "/etc/passwd" }); closeArchiveEntry()
+			file("root/sub/tokens.txt", b)
+		}
+		val dir = Files.createTempDirectory("x").toFile()
+		try { SafeTarBz2Extractor.extract(ByteArrayInputStream(data), dir, manifest); fail() } catch (e: IOException) { assertTrue(e.message!!.contains("missing")) }
+		assertFalse(File(dir, "model.onnx").exists())
+	}
+
+	@Test fun rejectsChecksumMismatch() {
+		val data = tar { file("root/model.onnx", "MODEL".toByteArray()); file("root/sub/tokens.txt", b) }
+		try { SafeTarBz2Extractor.extract(ByteArrayInputStream(data), Files.createTempDirectory("x").toFile(), manifest); fail() } catch (_: IOException) {}
+	}
+}
+
+class CatalogueTests {
+	@Test fun bundledCatalogueIsValid() {
+		val f = listOf(File("src/main/assets/vosk_models_metadata.json"), File("data/transcribe/src/main/assets/vosk_models_metadata.json")).first { it.exists() }
+		val list = Json { ignoreUnknownKeys = true }.decodeFromString(ModelsMetadataList.serializer(), f.readText())
+		val sherpa = list.models.filter { it.engine.startsWith("sherpa-") }
+		assertEquals(setOf("sherpa-sensevoice", "sherpa-qwen3-asr", "sherpa-firered-aed"), sherpa.map { it.engine }.toSet())
+		assertTrue(list.models.any { it.engine == "vosk" })
+		sherpa.forEach { m ->
+			assertEquals("tar.bz2", m.archiveFormat)
+			assertTrue(m.modelUri.startsWith("https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/"))
+			assertTrue(Regex("[0-9a-f]{64}").matches(m.checksum!!))
+			assertTrue(m.files.isNotEmpty() && m.files.all { Regex("[0-9a-f]{64}").matches(it.sha256) && it.sizeBytes > 0 })
+		}
+		assertFalse("no FireRed CTC in place of AED", sherpa.any { it.modelUri.contains("ctc") })
+	}
+}

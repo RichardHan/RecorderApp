@@ -70,6 +70,9 @@ internal class VoiceRecorderService : LifecycleService() {
     lateinit var recordingAutoUploader: RecordingAutoUploader
 
     @Inject
+    lateinit var transcriptStore: com.eva.cloudtranscribe.store.TranscriptStore
+
+    @Inject
     lateinit var cloudJobScheduler: com.eva.cloudtranscribe.work.CloudJobScheduler
 
     private val binder = LocalBinder()
@@ -265,6 +268,8 @@ internal class VoiceRecorderService : LifecycleService() {
                     cloudJobScheduler.onRecordingFinalized(recordingId)
                     // again show the notification
                     notificationHelper.showCompletedNotificationWithIntent(recordingId)
+                    // flush the tail utterance and persist the live on-device transcript
+                    saveLiveTranscript(recordingId)
                 },
                 onFailure = { error ->
                     val message = error.message ?: ""
@@ -279,6 +284,38 @@ internal class VoiceRecorderService : LifecycleService() {
             stopForeground(STOP_FOREGROUND_REMOVE)
             // stop the service
             stopSelf()
+        }
+    }
+
+    /** Saves the on-device live transcript as its own OFFLINE record (never overwrites cloud results). */
+    private suspend fun saveLiveTranscript(recordingId: Long) {
+        try {
+            val live = voiceRecorder.finishTranscription() ?: return
+            val now = System.currentTimeMillis()
+            transcriptStore.saveTranscript(
+                com.eva.cloudtranscribe.model.TranscriptRecord(
+                    id = "offline-live-$now",
+                    recordingId = recordingId,
+                    source = com.eva.cloudtranscribe.model.TranscriptSource.OFFLINE,
+                    provenance = com.eva.cloudtranscribe.model.Provenance(
+                        engine = live.engine, model = live.modelId, trigger = "live",
+                        audioFormat = if (live.engine == "vosk") "streaming" else "分句辨識（VAD）",
+                    ),
+                    createdAtMillis = now,
+                    status = if (live.complete) com.eva.cloudtranscribe.model.RunStatus.SUCCESS else com.eva.cloudtranscribe.model.RunStatus.PARTIAL,
+                    text = live.text,
+                    totalSegments = live.decodedSegments + live.failedSegments,
+                    completedSegments = live.decodedSegments,
+                    warnings = buildList {
+                        if (live.droppedMillis > 0) add("即時辨識跟不上，約 ${live.droppedMillis / 1000} 秒未辨識（可用離線重轉補齊）")
+                        if (live.failedSegments > 0) add("${live.failedSegments} 段辨識失敗")
+                    },
+                ),
+            )
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save live transcript", e)
         }
     }
 

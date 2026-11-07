@@ -37,6 +37,7 @@ data class EngineConfig(
 	val maxAttempts: Int = CloudSettings.MAX_ATTEMPTS,
 	val minSplitSeconds: Int = CloudSettings.MIN_CHUNK_SECONDS,
 	val hallucinationWarning: Boolean = true,
+	val skipSilentChunks: Boolean = false,
 	val retryBaseDelayMs: Long = 2_000,
 	val prompt: String = Prompts.TRANSCRIBE,
 	val alternatePrompt: String = Prompts.TRANSCRIBE_ALT,
@@ -89,7 +90,7 @@ class CloudTranscriptionEngine(
 	private suspend fun processChunk(index: Int, range: LongRange, source: AudioRangeSource, budget: Int): SegmentResult {
 		val start = range.first
 		val end = range.last + 1
-		if (source.isSilent(start, end)) return SegmentResult(index, start, end, SegmentStatus.SILENT)
+		if (config.skipSilentChunks && source.isSilent(start, end)) return SegmentResult(index, start, end, SegmentStatus.SILENT)
 		val audio = withContext(Dispatchers.Default) { source.encode(start, end) }
 		var attempts = 0
 		var lastError: String? = null

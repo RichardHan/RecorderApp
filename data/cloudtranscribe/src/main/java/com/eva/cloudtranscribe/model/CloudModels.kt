@@ -22,6 +22,8 @@ data class CloudSettings(
 	val autoAfterRecording: Boolean = false,
 	val autoWifiOnly: Boolean = true,
 	val hallucinationWarning: Boolean = true,
+	/** Skip upload of chunks that measure as near-silent. Off by default: quiet speech must not be lost. */
+	val skipSilentChunks: Boolean = false,
 ) {
 	val normalizedChunkSeconds: Int get() = chunkSeconds.coerceIn(MIN_CHUNK_SECONDS, MAX_CHUNK_SECONDS)
 	val normalizedWorkers: Int get() = workers.coerceIn(1, MAX_WORKERS)

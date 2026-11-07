@@ -18,3 +18,5 @@ app/keystore.properties
 *.jks
 .junie
 .idea/*
+
+/third_party/

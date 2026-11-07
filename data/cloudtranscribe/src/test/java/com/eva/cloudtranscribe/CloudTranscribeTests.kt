@@ -103,9 +103,16 @@ class EngineTests {
 		assertEquals(RunStatus.PARTIAL, res.status)
 	}
 
-	@Test fun realSilenceSkipsUpload() = runBlocking {
+	@Test fun silentChunksAreUploadedByDefault() = runBlocking {
 		val client = ScriptedClient { _, _ -> CallOutcome.Text("ok") }
 		val res = CloudTranscriptionEngine(client, MemCheckpoints(), cfg()).run(FakeSource(400_000, silent = setOf(0)))
+		assertEquals(2, client.total.get())
+		assertEquals(SegmentStatus.OK, res.segments[0].status)
+	}
+
+	@Test fun realSilenceSkipsUploadOnlyWhenOptedIn() = runBlocking {
+		val client = ScriptedClient { _, _ -> CallOutcome.Text("ok") }
+		val res = CloudTranscriptionEngine(client, MemCheckpoints(), cfg().copy(skipSilentChunks = true)).run(FakeSource(400_000, silent = setOf(0)))
 		assertEquals(SegmentStatus.SILENT, res.segments[0].status)
 		assertEquals(1, client.total.get())
 		assertEquals(RunStatus.SUCCESS, res.status)

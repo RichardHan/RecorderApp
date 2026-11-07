@@ -16,4 +16,13 @@ internal data class ModelMetadata(
     @SerialName("archive_format") val archiveFormat: String = "zip",
     @SerialName("checksum_sha256") val checksum: String? = null,
     @SerialName("license") val license: String,
+    /** For tar.bz2 archives: the only files extracted (root dir stripped), each SHA-256 verified. */
+    @SerialName("files") val files: List<ModelFileEntry> = emptyList(),
+)
+
+@Serializable
+data class ModelFileEntry(
+    @SerialName("path") val path: String,
+    @SerialName("size_bytes") val sizeBytes: Long,
+    @SerialName("sha256") val sha256: String,
 )
