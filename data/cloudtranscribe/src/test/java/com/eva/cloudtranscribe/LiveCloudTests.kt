@@ -283,8 +283,9 @@ class LiveMergeTests {
 		assertEquals(listOf("雲"), r.map { it.text })
 	}
 
-	@Test fun emptyCloudSpanStillCoversOffline() =
-		assertTrue(m(listOf(CloudSpan(0, 60_000, "")), listOf(OfflineLine(1_000, "雜訊"))).isEmpty())
+	// v1.7.10: empty/no-speech cloud output must never erase viable offline text
+	@Test fun emptyCloudSpanKeepsOffline() =
+		assertEquals(listOf("雜訊"), m(listOf(CloudSpan(0, 60_000, "")), listOf(OfflineLine(1_000, "雜訊"))).map { it.text })
 
 	@Test fun partialOverlapUsesLineStartOnly() {
 		// offline line starting at 59.5s belongs to the covered chunk; one at 60s does not

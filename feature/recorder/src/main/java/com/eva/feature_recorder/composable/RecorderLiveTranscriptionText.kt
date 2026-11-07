@@ -81,7 +81,7 @@ internal fun RecorderLiveTranscriptionText(
 				modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 8.dp),
 			) {
 				itemsIndexed(result.finalized) { _, line ->
-					Text(text = line, fontFamily = fontFamily, style = MaterialTheme.typography.bodyLarge)
+					Text(text = if (line.length > 500) line.take(500) + "…（已截斷顯示）" else line, fontFamily = fontFamily, style = MaterialTheme.typography.bodyLarge)
 				}
 				if (result.partial.isNotBlank()) item {
 					Text(

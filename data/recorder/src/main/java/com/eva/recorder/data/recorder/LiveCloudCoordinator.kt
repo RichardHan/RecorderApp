@@ -118,11 +118,11 @@ internal class LiveCloudCoordinator(
 		val segments = spans.mapIndexed { i, sp ->
 			SegmentResult(
 				index = i, startMs = sp.startMs, endMs = sp.endMs,
-				status = when { !sp.ok -> SegmentStatus.FAILED; sp.text.isBlank() -> SegmentStatus.EMPTY; else -> SegmentStatus.OK },
+				status = when { !sp.ok || sp.suspicious -> SegmentStatus.FAILED; sp.text.isBlank() -> SegmentStatus.SILENT; else -> SegmentStatus.OK },
 				text = sp.text, attempts = 1, error = sp.error,
 			)
 		}
-		val allOk = spans.all { it.ok }
+		val allOk = spans.all { it.ok && !it.suspicious }
 		runCatching {
 			store.saveTranscript(
 				TranscriptRecord(
@@ -130,10 +130,10 @@ internal class LiveCloudCoordinator(
 					provenance = Provenance(engine = "cloud-live", providerType = ProviderType.OPENAI_COMPATIBLE, endpointHost = endpointHost,
 						model = transcribeModel ?: "?", audioFormat = "mp3（即時擷取 PCM）", trigger = "live"),
 					createdAtMillis = now, status = if (allOk) RunStatus.SUCCESS else RunStatus.PARTIAL,
-					text = spans.filter { it.ok && it.text.isNotBlank() }.joinToString("\n") { it.text.trim() },
+					text = spans.filter { it.covers }.joinToString("\n") { it.text.trim() },
 					totalSegments = spans.size, completedSegments = spans.count { it.ok }, segments = segments,
 					warnings = buildList {
-						if (!allOk) add("部分片段雲端轉錄失敗或未上傳，可用完整雲端轉錄重轉")
+						if (!allOk) add("部分片段雲端轉錄失敗、未上傳或疑似重複幻覺（原文保留在片段中），可用完整雲端轉錄重轉")
 						add("即時模式：音訊來自錄音時的即時擷取，與存檔可能有極小差異")
 					},
 				)

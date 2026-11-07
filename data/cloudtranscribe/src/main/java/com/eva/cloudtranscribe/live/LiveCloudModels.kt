@@ -64,7 +64,14 @@ data class LiveCloudSettings(
 }
 
 /** One finished cloud transcript chunk covering [startMs, endMs) of recorded (non-paused) audio. */
-data class CloudSpan(val startMs: Long, val endMs: Long, val text: String, val ok: Boolean = true, val error: String? = null)
+data class CloudSpan(
+	val startMs: Long, val endMs: Long, val text: String, val ok: Boolean = true, val error: String? = null,
+	/** Raw output flagged by [com.eva.cloudtranscribe.engine.RepetitionGuard]; kept for diagnosis, never used as transcript. */
+	val suspicious: Boolean = false,
+) {
+	/** Only real, non-empty, non-suspicious cloud text replaces offline lines. Empty/no-speech/failed never erases offline. */
+	val covers: Boolean get() = ok && !suspicious && text.isNotBlank()
+}
 
 /** One offline (on-device) finalized line; [startMs] is on the same recorded-audio timeline. */
 data class OfflineLine(val startMs: Long, val text: String)

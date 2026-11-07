@@ -28,7 +28,7 @@ object PlaybackTranscripts {
 	fun timedLines(record: TranscriptRecord): List<PlaybackLine>? {
 		val segs = record.segments.sortedBy { it.startMs }
 			.flatMap { s -> if (s.parts.isNotEmpty()) s.parts.sortedBy { it.startMs } else listOf(s) }
-			.filter { it.text.isNotBlank() && it.endMs > it.startMs && it.startMs >= 0 }
+			.filter { it.status == SegmentStatus.OK && it.text.isNotBlank() && it.endMs > it.startMs && it.startMs >= 0 }
 		if (segs.isEmpty()) return null
 		return segs.map { PlaybackLine(it.text.trim(), it.startMs, it.endMs) }
 	}
