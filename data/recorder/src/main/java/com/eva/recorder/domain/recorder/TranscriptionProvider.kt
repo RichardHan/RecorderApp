@@ -24,5 +24,8 @@ interface TranscriptionProvider {
 	/** Flushes the tail, waits for pending recognition and returns the full live transcript (null when disabled). */
 	suspend fun finishTranscription(): LiveTranscript? = null
 
+	/** Called when a new recording starts; must clear all live text/state of any earlier recording. */
+	suspend fun beginNewRecording() {}
+
 	fun transcriptCleanUp()
 }

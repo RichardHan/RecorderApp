@@ -62,11 +62,23 @@ internal class LiveCloudCoordinator(
 	val state: StateFlow<LiveCloudState> = _state.asStateFlow()
 
 	private var session: LiveCloudSession? = null
-	private val jobs = mutableListOf<Job>()
+	private var jobs = mutableListOf<Job>()
+	private val lock = Any()
+	/** Session of a stopped recording still flushing/saving; shown in the UI only until a newer recording starts. */
+	private var finishing: LiveCloudSession? = null
 	private var transcribeModel: String? = null
 	private var endpointHost: String? = null
 
 	suspend fun start() {
+		// a new recording always starts from a clean state; a stale/unfinished earlier session is dropped (not saved)
+		synchronized(lock) {
+			// an unfinished session that was never stopped (e.g. service reused without stop) is dropped; a session that
+			// is already finishing for a stopped recording is NOT touched — it keeps flushing and saving its own results
+			session?.cancel(); session = null
+			jobs.forEach { it.cancel() }; jobs = mutableListOf()
+			finishing = null
+			_state.value = LiveCloudState()
+		}
 		val live = liveRepo.current()
 		if (!live.isActive) return // default: OFF, nothing happens
 		val cloud = cloudRepo.current()
@@ -82,8 +94,6 @@ internal class LiveCloudCoordinator(
 		val summaryClient = if (summaryProblem == null && summaryKey != null)
 			OpenAiCompatibleClient(live.summaryBaseUrl, summaryKey, live.summaryModel, ReasoningEffort.OFF, transport)
 		else null
-		transcribeModel = cloud.transcribeModel
-		endpointHost = Redactor.hostOf(cloud.baseUrl)
 
 		val s = LiveCloudSession(
 			scope = scope,
@@ -98,19 +108,32 @@ internal class LiveCloudCoordinator(
 			},
 			transcribeModel = cloud.transcribeModel,
 		)
-		session = s
-		jobs += scope.launch { s.state.collect { _state.value = it } }
-		jobs += scope.launch { source.stream.collect { (buffer, size) -> if (size > 0) s.onAudio(buffer, size) } }
-		jobs += scope.launch { transcriber.offlineTimedLines.collect { l -> s.onOfflineLines(l.map { (ms, t) -> OfflineLine(ms, t) }) } }
+		val sessionJobs = mutableListOf<Job>()
+		synchronized(lock) { session = s; jobs = sessionJobs; transcribeModel = cloud.transcribeModel; endpointHost = Redactor.hostOf(cloud.baseUrl) }
+		// only the current session may publish UI state: a finishing older session can never overwrite a newer one
+		sessionJobs += scope.launch { s.state.collect { st -> synchronized(lock) { if (com.eva.cloudtranscribe.live.LiveCloudOwnership.mayPublish(s, session, finishing)) _state.value = st } } }
+		sessionJobs += scope.launch { source.stream.collect { (buffer, size) -> if (size > 0) s.onAudio(buffer, size) } }
+		sessionJobs += scope.launch { transcriber.offlineTimedLines.collect { l -> s.onOfflineLines(l.map { (ms, t) -> OfflineLine(ms, t) }) } }
 		Log.i(TAG, "live cloud session started")
 	}
 
 	/** Flush + wait (bounded) and persist results as NEW immutable records; never touches audio or other transcripts. */
 	suspend fun finishAndSave(recordingId: Long) {
-		val s = session ?: return
-		jobs.forEach { it.cancel() }
-		val end = try { s.finish() } catch (e: Exception) { Log.e(TAG, "finish failed", e); return }
-		session = null
+		// capture THIS recording's session + jobs + config; a newer start() cannot be affected by this finish
+		val s: LiveCloudSession; val ownJobs: List<Job>; val model: String?; val host: String?
+		synchronized(lock) {
+			s = session ?: return; ownJobs = jobs; model = transcribeModel; host = endpointHost
+			// detach immediately: a new recording's start() can neither cancel nor be overwritten by this session
+			session = null; jobs = mutableListOf(); finishing = s
+		}
+		ownJobs.filterIndexed { i, _ -> i != 0 }.forEach { it.cancel() } // stop audio/offline feeds, keep UI mirror
+		val end = try { s.finish() } catch (e: Exception) {
+			Log.e(TAG, "finish failed", e)
+			ownJobs.forEach { it.cancel() }; synchronized(lock) { if (finishing === s) finishing = null }
+			return
+		}
+		ownJobs.forEach { it.cancel() }
+		synchronized(lock) { if (finishing === s) finishing = null }
 		val now = System.currentTimeMillis()
 		val spans = end.cloudSpans
 		if (spans.isEmpty()) return
@@ -127,8 +150,8 @@ internal class LiveCloudCoordinator(
 			store.saveTranscript(
 				TranscriptRecord(
 					id = transcriptId, recordingId = recordingId, source = TranscriptSource.CLOUD,
-					provenance = Provenance(engine = "cloud-live", providerType = ProviderType.OPENAI_COMPATIBLE, endpointHost = endpointHost,
-						model = transcribeModel ?: "?", audioFormat = "mp3（即時擷取 PCM）", trigger = "live"),
+					provenance = Provenance(engine = "cloud-live", providerType = ProviderType.OPENAI_COMPATIBLE, endpointHost = host,
+						model = model ?: "?", audioFormat = "mp3（即時擷取 PCM）", trigger = "live"),
 					createdAtMillis = now, status = if (allOk) RunStatus.SUCCESS else RunStatus.PARTIAL,
 					text = spans.filter { it.covers }.joinToString("\n") { it.text.trim() },
 					totalSegments = spans.size, completedSegments = spans.count { it.ok }, segments = segments,
@@ -148,7 +171,8 @@ internal class LiveCloudCoordinator(
 		}.onFailure { Log.e(TAG, "save failed", it) }
 	}
 
-	fun cancel() {
+	fun cancel() = synchronized(lock) {
+		finishing = null
 		session?.cancel()
 		session = null
 		jobs.forEach { it.cancel() }
@@ -157,3 +181,4 @@ internal class LiveCloudCoordinator(
 
 	fun release() { cancel(); scope.cancel() }
 }
+
