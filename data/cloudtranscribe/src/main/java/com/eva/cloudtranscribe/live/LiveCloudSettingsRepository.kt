@@ -29,5 +29,5 @@ class LiveCloudSettingsRepository @Inject constructor(@ApplicationContext privat
 	}
 
 	private fun decode(raw: String?): LiveCloudSettings =
-		raw?.let { runCatching { json.decodeFromString(LiveCloudSettings.serializer(), it) }.getOrNull() } ?: LiveCloudSettings()
+		raw?.let { runCatching { json.decodeFromString(LiveCloudSettings.serializer(), it).normalized() }.getOrNull() } ?: LiveCloudSettings()
 }

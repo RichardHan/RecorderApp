@@ -223,6 +223,7 @@ object Prompts {
 		return t == NO_SPEECH || t == "NO SPEECH" || t == "[NO_SPEECH]"
 	}
 
-	fun summary(transcript: String) = "請用繁體中文為以下會議逐字稿撰寫摘要，包含：重點摘要、決議事項、待辦事項（負責人／期限若有）。" +
-		"不要捏造逐字稿中沒有的內容。\n\n逐字稿：\n$transcript"
+	fun summary(transcript: String) = "請用繁體中文精簡整理以下會議逐字稿的重點。只寫明確說出的重要事實、決議與待辦；" +
+		"沒有的類別就省略，不必湊數。每點一句、以「- 」開頭，技術名詞與英文原樣保留。不要開場白、結語或客套話。" +
+		"不要推測或捏造內容、負責人或期限；重複字、語助詞與雜訊不是重點。完全沒有重點時只輸出：目前無重點\n\n逐字稿：\n$transcript"
 }
