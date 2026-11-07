@@ -162,6 +162,7 @@ class CloudTranscribeWorker @AssistedInject constructor(
 				chunkSeconds = p.chunkSeconds ?: s.normalizedChunkSeconds,
 				workers = p.workers ?: s.normalizedWorkers,
 				hallucinationWarning = s.hallucinationWarning,
+				skipSilentChunks = s.skipSilentChunks,
 			))
 			val result = engine.run(PcmFileSource(pcm)) { done, total ->
 				setProgress(workDataOf(CloudJobScheduler.PROGRESS_DONE to done, CloudJobScheduler.PROGRESS_TOTAL to total))
@@ -238,6 +239,8 @@ class CloudSummaryWorker @AssistedInject constructor(
 
 	private fun done(r: SummaryRecord): Result { store.saveSummary(r); return if (r.status == RunStatus.SUCCESS) Result.success() else Result.failure() }
 }
+
+internal fun foregroundInfoFor(context: Context, id: Int, text: String) = buildForeground(context, id, text)
 
 private fun buildForeground(context: Context, id: Int, text: String): ForegroundInfo {
 	val channel = "cloud_ai_jobs"

@@ -1,5 +1,6 @@
 package com.eva.feature_player.cloud
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -53,6 +54,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -66,7 +68,16 @@ data class CloudUiState(
 class CloudTranscriptsViewModel @Inject constructor(
 	private val store: TranscriptStore,
 	private val scheduler: CloudJobScheduler,
+	private val offline: com.eva.cloudtranscribe.work.OfflineFileTranscriber,
 ) : ViewModel() {
+	val offlineModels = offline.availableModels.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
+
+	fun startOffline(model: com.eva.transcribe.domain.models.STTModel) = viewModelScope.launch {
+		withContext(Dispatchers.IO) { offline.start(recordingId, model) }
+		_messages.emit("已排入離線轉錄（${model.displayName}），音訊不會上傳")
+		refresh()
+	}
+
 	private val _state = MutableStateFlow(CloudUiState())
 	val state = _state.asStateFlow()
 	private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
@@ -103,7 +114,7 @@ class CloudTranscriptsViewModel @Inject constructor(
 
 private val fmt = SimpleDateFormat("MM/dd HH:mm", Locale.getDefault())
 
-private fun TranscriptRecord.label() = "${if (source == TranscriptSource.OFFLINE) "離線" else "雲端"}・${provenance.model}・${fmt.format(Date(createdAtMillis))}"
+private fun TranscriptRecord.label() = "${if (source == TranscriptSource.OFFLINE) (if (provenance.trigger == "live") "離線即時" else "離線") else "雲端"}・${provenance.model}・${fmt.format(Date(createdAtMillis))}"
 
 private fun RunStatus.zh() = when (this) {
 	RunStatus.QUEUED -> "排隊中"; RunStatus.RUNNING -> "處理中"; RunStatus.SUCCESS -> "完成"
@@ -118,6 +129,8 @@ fun CloudTranscriptsDialog(
 ) {
 	LaunchedEffect(recordingId) { viewModel.bind(recordingId) }
 	val state by viewModel.state.collectAsStateWithLifecycle()
+	val offlineModels by viewModel.offlineModels.collectAsStateWithLifecycle()
+	var offlinePick by remember { mutableStateOf<String?>(null) }
 	var confirmUpload by remember { mutableStateOf(false) }
 	var confirmDelete by remember { mutableStateOf<String?>(null) }
 	var compare by remember { mutableStateOf(listOf<String>()) }
@@ -133,6 +146,16 @@ fun CloudTranscriptsDialog(
 						TextButton(onDismiss) { Text("關閉") }
 					}
 					Text("原始錄音與離線逐字稿不會被修改；每次雲端重轉都另存一份。", style = MaterialTheme.typography.bodySmall)
+					Text("離線重新轉錄（手機運算，不上傳）", style = MaterialTheme.typography.titleSmall)
+					if (offlineModels.isEmpty()) Text("尚未下載可用的離線模型（設定 › 轉錄 下載 SenseVoice／Qwen3‑ASR／FireRed）。", style = MaterialTheme.typography.bodySmall)
+					else {
+						Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+							offlineModels.forEach { m -> FilterChip(offlinePick == m.modelId, { offlinePick = m.modelId }, { Text(m.displayName.substringBefore('（')) }) }
+						}
+						OutlinedButton(enabled = offlinePick != null, onClick = {
+							offlineModels.firstOrNull { it.modelId == offlinePick }?.let(viewModel::startOffline)
+						}, modifier = Modifier.fillMaxWidth()) { Text("離線重新轉錄") }
+					}
 					Button(onClick = { confirmUpload = true }, modifier = Modifier.fillMaxWidth()) { Text("雲端重新轉錄") }
 					message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
 				}

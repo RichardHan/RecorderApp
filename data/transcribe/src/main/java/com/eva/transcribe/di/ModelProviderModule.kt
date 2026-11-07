@@ -57,10 +57,12 @@ internal object ModelProviderModule {
         @ApplicationContext context: Context,
         client: HttpClient,
         repo: STTModelsRepository,
+        reader: STTModelMetadataReader,
     ): ModelDownloadManager = ModelDownloadMangerImpl(
         context = context,
         httpClient = client,
         repository = repo,
+        metadataReader = reader,
     )
 
 

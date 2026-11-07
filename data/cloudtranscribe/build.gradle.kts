@@ -8,12 +8,14 @@ android {
 	namespace = "com.eva.cloudtranscribe"
 	testOptions {
 		unitTests.isReturnDefaultValues = true
+		unitTests.all { t -> listOf("MP3_ROUNDTRIP_WAV", "MP3_ROUNDTRIP_OUT").forEach { k -> System.getenv(k)?.let { t.environment(k, it) } } }
 	}
 }
 
 dependencies {
 	implementation(project(":core:utils"))
 	implementation(project(":data:recordings"))
+	implementation(project(":data:transcribe"))
 	implementation(libs.kotlinx.serialization.json)
 	implementation(libs.androidx.datastore.preferences)
 	implementation(libs.work.runtime.ktx)

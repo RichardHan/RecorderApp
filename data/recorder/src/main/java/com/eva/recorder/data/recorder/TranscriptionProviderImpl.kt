@@ -3,70 +3,128 @@ package com.eva.recorder.data.recorder
 import android.util.Log
 import com.eva.datastore.domain.repository.TranscriptionSettingsRepo
 import com.eva.recorder.domain.recorder.AudioByteDataProvider
+import com.eva.recorder.domain.recorder.LiveTranscript
 import com.eva.recorder.domain.recorder.TranscriptionProvider
 import com.eva.transcribe.domain.AudioTranscriptor
+import com.eva.transcribe.domain.repository.STTModelsRepository
+import com.eva.transcribe.offline.LiveUtterancePipeline
+import com.eva.transcribe.offline.OfflineEngines
+import com.eva.transcribe.offline.OfflineSpeechEngine
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.buffer
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 private const val TAG = "TRANSCRIPTION_PROVIDER"
 
+/**
+ * Runs only when transcription is enabled and a downloaded model is selected.
+ * - sherpa-onnx models (SenseVoice / Qwen3-ASR / FireRed AED): non-streaming "分句辨識" via [LiveUtterancePipeline].
+ * - Vosk: streaming; every buffer (incl. silence, which Vosk needs to finalise) goes through a bounded queue
+ *   and overflow is counted and shown instead of being dropped silently.
+ * Recognition runs on background dispatchers and never blocks the audio recorder.
+ */
 internal class TranscriptionProviderImpl(
 	private val source: AudioByteDataProvider,
 	private val transcriptor: AudioTranscriptor,
 	private val settingsRepo: TranscriptionSettingsRepo,
+	private val repository: STTModelsRepository,
+	private val offlineEngine: OfflineSpeechEngine,
 ) : TranscriptionProvider {
 
-	@OptIn(ExperimentalCoroutinesApi::class)
-	override val transcription: Flow<String>
-		get() = settingsRepo.settingsFlow.flatMapLatest { settings ->
-			if (settings.isEnabled && settings.modelId != null) readTranscriptionFlow()
-			else emptyFlow()
-		}
+	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+	private val _display = MutableStateFlow("")
+	override val transcription: Flow<String> = _display.asStateFlow()
 
-	private fun readTranscriptionFlow() = source.stream
-		.buffer(capacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST)
-		.filter { (_, size) -> size > 0 }
-		.mapNotNull { (pcmBuffer, readSize) ->
-			val rmsValue = pcmBuffer.rms(readSize)
-			if (rmsValue <= AudioTranscriptor.MIN_RMS_TO_RECOGNIZE) return@mapNotNull null
-			try {
-				// feed this to transcriber
-				transcriptor.recognizeAudio(pcmBuffer, readSize)
-			} catch (e: Exception) {
-				Log.e(TAG, "ERROR IN TRANSCRIPTION", e)
-				return@mapNotNull null
-			}
-		}
-		.flowOn(Dispatchers.Default)
-		.map { result ->
-			// using partial results are good for live transcriptions
-			// a full result is mostly contamination of all the partial results
-			result.partial
-		}
-		.catch { e ->
-			// Log your error here so the app doesn't die
-			Log.e(TAG, "SOME ERROR: ${e.message}")
-		}
+	private var collector: Job? = null
+	private var pipeline: LiveUtterancePipeline? = null
+	private var displayJob: Job? = null
+	private var activeModel: Pair<String, String>? = null
+
+	// vosk state
+	private val voskFinals = ArrayList<String>()
+	private var voskDropped = 0L
 
 	override suspend fun initTranscriptions() {
 		val settings = settingsRepo.setting()
-		val currentModel = settings.modelId
-		if (!settings.isEnabled || currentModel == null) {
-			Log.d(TAG, "TRANSLATIONS NOT ENABLED OR NO MODEL IS SELECTED")
+		val modelId = settings.modelId
+		if (!settings.isEnabled || modelId == null) {
+			Log.d(TAG, "TRANSCRIPTION DISABLED OR NO MODEL SELECTED")
 			return
 		}
-		transcriptor.setUp(currentModel)
+		val model = repository.readModelByLanguage(modelId).getOrElse {
+			Log.w(TAG, "Selected model missing", it); return
+		}
+		if (OfflineEngines.isSherpa(model.engine)) {
+			_display.value = "（載入離線模型…）"
+			offlineEngine.load(modelId).onFailure { e ->
+				Log.e(TAG, "Offline model load failed", e)
+				_display.value = "⚠ 離線模型載入失敗：${e.message}"
+				return
+			}
+			_display.value = ""
+			val p = LiveUtterancePipeline(scope) { samples -> offlineEngine.decode(samples) }
+			pipeline = p
+			activeModel = modelId to model.engine
+			displayJob = scope.launch { p.display.collect { _display.value = it } }
+			collector = scope.launch {
+				source.stream.collect { (buffer, size) -> if (size > 0) p.accept(buffer, size) }
+			}
+		} else {
+			if (transcriptor.setUp(modelId).isFailure) return
+			activeModel = modelId to model.engine
+			val queue = Channel<ShortArray>(capacity = 64)
+			collector = scope.launch {
+				source.stream.collect { (buffer, size) ->
+					if (size <= 0) return@collect
+					if (queue.trySend(buffer.copyOf(size)).isFailure) {
+						voskDropped += size
+						_display.value = "⚠ 辨識跟不上，部分音訊未辨識"
+					}
+				}
+			}
+			scope.launch {
+				for (chunk in queue) {
+					try {
+						val r = transcriptor.recognizeAudio(chunk, chunk.size) ?: continue
+						if (r.fullResult.isNotBlank()) synchronized(voskFinals) { voskFinals += r.fullResult }
+						_display.value = r.partial.ifBlank { r.fullResult }
+					} catch (e: CancellationException) { throw e } catch (e: Exception) {
+						Log.e(TAG, "VOSK ERROR", e)
+					}
+				}
+			}
+		}
 	}
 
-	override fun transcriptCleanUp() = transcriptor.cleanUp()
+	override suspend fun finishTranscription(): LiveTranscript? {
+		val (modelId, engine) = activeModel ?: return null
+		collector?.cancel()
+		val p = pipeline
+		return if (p != null) {
+			val complete = p.finish()
+			LiveTranscript(modelId, engine, p.text(), p.decodedUtterances, p.failedUtterances, p.droppedSamples * 1000 / 16_000, complete && p.droppedSamples == 0L && p.failedUtterances == 0)
+		} else {
+			val text = synchronized(voskFinals) { voskFinals.joinToString("\n") }
+			LiveTranscript(modelId, engine, text, voskFinals.size, 0, voskDropped * 1000 / 16_000, voskDropped == 0L)
+		}
+	}
+
+	override fun transcriptCleanUp() {
+		val usedOffline = pipeline != null
+		pipeline?.cancel()
+		scope.cancel()
+		pipeline = null
+		activeModel = null
+		transcriptor.cleanUp()
+		// free the large native model once any in-flight decode has returned
+		if (usedOffline) CoroutineScope(Dispatchers.IO).launch { offlineEngine.release() }
+	}
 }

@@ -18,8 +18,8 @@ android {
 		applicationId = "com.eva.recorderapp"
 		minSdk = libs.versions.android.minSdk.get().toInt()
 		targetSdk = libs.versions.android.compileSdk.get().toInt()
-        versionCode = 17
-        versionName = "1.6.0"
+        versionCode = 18
+        versionName = "1.7.0"
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 		vectorDrawables {
@@ -64,6 +64,10 @@ android {
 		resValues = true
 	}
 	packaging {
+		jniLibs {
+			// phones only: drop emulator ABIs shipped in the sherpa-onnx AAR
+			excludes += setOf("lib/x86/**", "lib/x86_64/**")
+		}
 		resources {
 			excludes += "/META-INF/{AL2.0,LGPL2.1,INDEX.LIST,DEPENDENCIES}"
 		}
@@ -85,6 +89,8 @@ baselineProfile {
 dependencies {
 	implementation(project(":data:drive"))
 	implementation(project(":data:cloudtranscribe"))
+	// sherpa-onnx v2.0.1 runtime (JNI + Kotlin API), fetched & SHA-256 verified by settings.gradle.kts
+	implementation(files(rootProject.file("third_party/sherpa-onnx/sherpa-onnx-2.0.1.aar")))
 
 	implementation(libs.androidx.core.ktx)
 	implementation(libs.androidx.navigation.compose)

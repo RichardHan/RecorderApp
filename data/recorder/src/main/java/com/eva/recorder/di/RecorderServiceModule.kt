@@ -65,11 +65,15 @@ internal object RecorderServiceModule {
 	fun transcriptorProvider(
 		source: AudioByteDataProvider,
 		transcriptor: AudioTranscriptor,
-		settingsRepo: TranscriptionSettingsRepo
+		settingsRepo: TranscriptionSettingsRepo,
+		repository: com.eva.transcribe.domain.repository.STTModelsRepository,
+		offlineEngine: com.eva.transcribe.offline.OfflineSpeechEngine,
 	): TranscriptionProvider = TranscriptionProviderImpl(
 		source = source,
 		transcriptor = transcriptor,
-		settingsRepo = settingsRepo
+		settingsRepo = settingsRepo,
+		repository = repository,
+		offlineEngine = offlineEngine,
 	)
 
 	@Provides

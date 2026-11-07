@@ -41,6 +41,7 @@ internal class ModelDownloadMangerImpl(
     private val context: Context,
     private val httpClient: HttpClient,
     private val repository: STTModelsRepository,
+    private val metadataReader: com.eva.transcribe.data.repository.STTModelMetadataReader,
 ) : ModelDownloadManager {
 
     private val fs = FileSystem.SYSTEM
@@ -109,6 +110,19 @@ internal class ModelDownloadMangerImpl(
 
             fs.createDirectories(modelFolder)
 
+            // tar.bz2 models carry a per-file manifest (paths, sizes, SHA-256) in the bundled catalogue
+            val manifest = if (modelResult.archiveFormat == "tar.bz2") {
+                metadataReader.readMetaData().getOrThrow().models
+                    .firstOrNull { it.modelId == modelResult.modelId }?.files
+                    ?.takeIf { it.isNotEmpty() }
+                    ?: throw IllegalStateException("Missing file manifest for ${modelResult.modelId}")
+            } else null
+
+            // disk check: archive (cache) + extracted files (+ old install kept until commit) + margin
+            val needed = modelResult.archiveSize + (manifest?.sumOf { it.sizeBytes } ?: modelResult.archiveSize * 2) + 200L * 1024 * 1024
+            val free = minOf(context.filesDir.usableSpace, context.cacheDir.usableSpace)
+            if (free < needed) throw IOException("儲存空間不足：需要約 ${needed / 1_048_576} MB，可用 ${free / 1_048_576} MB")
+
             downloadModelZipFile(modelResult.downloadURI, zipCacheFile) { progress ->
                 onDownloadState(ModelDownloadState.DownloadProgress(progress))
             }
@@ -122,7 +136,14 @@ internal class ModelDownloadMangerImpl(
             Log.d(TAG, "MODEL CHECKSUM VERIFIED")
             onDownloadState(ModelDownloadState.ModelUnzipping)
 
-            extractModelArchive(zipCacheFile, extractionDirectory)
+            if (manifest != null) withContext(Dispatchers.IO) {
+                val job = currentCoroutineContext()
+                fs.source(zipCacheFile).buffer().inputStream().use { input ->
+                    com.eva.transcribe.archive.SafeTarBz2Extractor.extract(
+                        input, extractionDirectory.toFile(), manifest, isCancelled = { !job.isActive },
+                    )
+                }
+            } else extractModelArchive(zipCacheFile, extractionDirectory)
 
             // zip file is moved to extraction dir
             withContext(NonCancellable) { deleteFileSafely(zipCacheFile) }

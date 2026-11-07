@@ -183,6 +183,15 @@ internal fun STTModelOptionCard(
                             enabled = enabled,
                             modifier = Modifier.height(IntrinsicSize.Min),
                         )
+                        Text(
+                            text = when (sttModel.model.engine) {
+                                "vosk" -> "Vosk 串流辨識"
+                                "sherpa-sensevoice", "sherpa-qwen3-asr", "sherpa-firered-aed" -> "sherpa-onnx 離線分句辨識（停頓後出字）"
+                                else -> sttModel.model.engine
+                            } + "・下載 $formattedSize・授權 ${sttModel.model.license ?: "-"}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                     TooltipBox(
                         positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
