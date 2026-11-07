@@ -40,6 +40,7 @@ object OfflineEngines {
 @Singleton
 class OfflineSpeechEngine @Inject constructor(
 	private val repository: STTModelsRepository,
+	@dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
 ) {
 	private val lock = Mutex()
 	private var recognizer: OfflineRecognizer? = null
@@ -59,6 +60,7 @@ class OfflineSpeechEngine @Inject constructor(
 				check(users == 0) { "另一個離線模型（$loadedModelId）正在使用中，請先停止錄音或其他離線轉錄" }
 				releaseLocked()
 				val dir = model.localModelURI?.toUri()?.toFile() ?: error("模型路徑不存在")
+				checkMemory(dir)
 				val t = System.currentTimeMillis()
 				recognizer = OfflineRecognizer(config = buildConfig(model.engine, dir, numThreads))
 				loadedModelId = modelId
@@ -77,7 +79,10 @@ class OfflineSpeechEngine @Inject constructor(
 			try {
 				stream.acceptWaveform(samples, 16_000)
 				r.decode(stream)
-				r.getResult(stream).text.trim()
+				val result = r.getResult(stream)
+				val text = cleanQwenText(result.text)
+				// never silently truncate: Qwen3 stops at maxNewTokens, flag it visibly
+				if (result.tokens.size >= QWEN_MAX_NEW_TOKENS) "$text［…可能截斷］" else text
 			} finally {
 				stream.release()
 			}
@@ -92,6 +97,19 @@ class OfflineSpeechEngine @Inject constructor(
 		}
 	}
 
+	/** Uses the device's real currently-available RAM (not the phone model name) before loading a big model. */
+	private fun checkMemory(dir: File) {
+		val modelBytes = dir.walkTopDown().filter { it.isFile && it.name.endsWith(".onnx") }.sumOf { it.length() }
+		val am = context.getSystemService(android.app.ActivityManager::class.java)
+		val info = android.app.ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
+		val needed = requiredRamBytes(modelBytes)
+		Log.i(TAG, "model=${modelBytes / 1_048_576}MB avail=${info.availMem / 1_048_576}MB need=${needed / 1_048_576}MB")
+		check(android.os.Process.is64Bit() || modelBytes < LARGE_MODEL_BYTES) { "此模型僅支援 64 位元裝置" }
+		check(info.availMem >= needed && !info.lowMemory) {
+			"可用記憶體不足：需要約 ${needed / 1_048_576} MB，目前可用 ${info.availMem / 1_048_576} MB。請關閉其他 App 或改用較小模型（錄音不受影響）"
+		}
+	}
+
 	private fun releaseLocked() {
 		recognizer?.release()
 		recognizer = null
@@ -100,6 +118,15 @@ class OfflineSpeechEngine @Inject constructor(
 	}
 
 	companion object {
+		// both 0.6B and the community 1.7B export were built with --max-total-len 512 (KV cache size); 20 s ≈ 260 audio tokens
+		private val QWEN_PREFIX = Regex("^\\s*language\\s+[A-Za-z]+\\s*<asr_text>")
+		/** Qwen3-ASR exports may emit "language Chinese<asr_text>" before the transcript; strip it. */
+		fun cleanQwenText(raw: String): String = raw.replace(QWEN_PREFIX, "").replace("<asr_text>", "").trim()
+		const val QWEN_MAX_TOTAL_LEN = 512
+		const val QWEN_MAX_NEW_TOKENS = 192
+		const val LARGE_MODEL_BYTES = 1_500_000_000L
+		/** Model weights are mmapped/copied by onnxruntime: weights + 30% + 512 MB working margin. */
+		fun requiredRamBytes(modelBytes: Long): Long = modelBytes + modelBytes * 3 / 10 + 512L * 1024 * 1024
 		fun buildConfig(engine: String, dir: File, numThreads: Int): OfflineRecognizerConfig {
 			fun p(name: String) = File(dir, name).also { require(it.exists()) { "缺少模型檔 ${it.name}" } }.absolutePath
 			val modelConfig = when (engine) {
@@ -110,7 +137,7 @@ class OfflineSpeechEngine @Inject constructor(
 				OfflineEngines.QWEN3 -> OfflineModelConfig(
 					qwen3Asr = OfflineQwen3AsrModelConfig(
 						convFrontend = p("conv_frontend.onnx"), encoder = p("encoder.int8.onnx"), decoder = p("decoder.int8.onnx"),
-						tokenizer = p("tokenizer"), maxTotalLen = 512, maxNewTokens = 128, temperature = 1e-6f, topP = 0.8f, seed = 42,
+						tokenizer = p("tokenizer"), maxTotalLen = QWEN_MAX_TOTAL_LEN, maxNewTokens = QWEN_MAX_NEW_TOKENS, temperature = 1e-6f, topP = 0.8f, seed = 42,
 					),
 					numThreads = numThreads, provider = "cpu", debug = false,
 				)

@@ -25,12 +25,21 @@ class STTModelDownloadController(context: Context) : STTWorkerController(context
             .build()
     }
 
-    fun startWorker(modelId: String): Uuid {
+    private val wifiOnlyConstraints by lazy {
+        Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.UNMETERED)
+            .setRequiresStorageNotLow(true)
+            .setRequiresBatteryNotLow(true)
+            .build()
+    }
+
+    /** [allowMetered] = false waits for Wi‑Fi/unmetered; true only after the user explicitly accepts mobile data. */
+    fun startWorker(modelId: String, allowMetered: Boolean = false): Uuid {
         val workRequest = OneTimeWorkRequestBuilder<STTModelDownloaderWorker>()
             .setInitialDelay(200.milliseconds.toJavaDuration())
             .addTag(WorkerParams.WORKER_TAG_STT_MODEL)
             .setInputData(workDataOf(WorkerParams.WORK_DATA_STT_MODEL_ID to modelId))
-            .setConstraints(constrains)
+            .setConstraints(if (allowMetered) constrains else wifiOnlyConstraints)
             .build()
 
         workManager.enqueue(workRequest)

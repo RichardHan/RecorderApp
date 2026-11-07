@@ -47,6 +47,26 @@ class SherpaJniSmokeTest {
 		check(text.isNotBlank()) { "empty result" }
 	}
 
+	/** Qwen3-ASR 1.7B (community int8 export) with the app's exact config; prints per-clip timings, token counts and peak RSS. */
+	@Test fun qwen3_1_7b() {
+		val dir = System.getenv("SHERPA_SMOKE_QWEN17"); val wavs = System.getenv("SHERPA_SMOKE_WAVS")
+		assumeTrue(System.getenv("SHERPA_LINUX_JNI_DIR") != null && dir != null && wavs != null)
+		fun hwm() = File("/proc/self/status").readLines().first { it.startsWith("VmHWM") }.trim()
+		val t = System.currentTimeMillis()
+		val r = OfflineRecognizer(config = OfflineSpeechEngine.buildConfig(OfflineEngines.QWEN3, File(dir!!), 2))
+		println("SMOKE17 load=${System.currentTimeMillis() - t}ms ${hwm()}")
+		for (path in wavs!!.split(',')) {
+			val samples = wav(path)
+			val s = r.createStream(); s.acceptWaveform(samples, 16_000)
+			val t2 = System.currentTimeMillis(); r.decode(s)
+			val res = r.getResult(s)
+			println("SMOKE17 ${File(path).name} audio=${samples.size / 16}ms decode=${System.currentTimeMillis() - t2}ms tokens=${res.tokens.size} ${hwm()} text=${res.text}")
+			s.release()
+			check(res.text.isNotBlank()) { "empty result for $path" }
+		}
+		r.release()
+	}
+
 	@Test fun senseVoice() = run(OfflineEngines.SENSEVOICE, "SHERPA_SMOKE_SENSEVOICE")
 	@Test fun qwen3() = run(OfflineEngines.QWEN3, "SHERPA_SMOKE_QWEN")
 	@Test fun fireRedAed() = run(OfflineEngines.FIRERED_AED, "SHERPA_SMOKE_FIRERED")

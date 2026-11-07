@@ -70,6 +70,7 @@ import kotlin.math.roundToInt
 internal fun STTModelOptionCard(
     sttModel: SpeechToTextUIModel,
     onDownload: () -> Unit,
+    onCancelDownload: () -> Unit = {},
     onDelete: () -> Unit,
     onSelect: () -> Unit,
     onUnSelect: () -> Unit,
@@ -253,6 +254,7 @@ internal fun STTModelOptionCard(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.tertiary,
                         )
+                        androidx.compose.material3.TextButton(onClick = onCancelDownload) { Text("取消（保留已下載部分）") }
                     }
                 }
             }
