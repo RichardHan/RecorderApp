@@ -1,5 +1,6 @@
 package com.eva.feature_recorder.composable
 
+import com.eva.cloudtranscribe.live.MergedLine.Kind as K
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,9 +18,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -46,7 +48,10 @@ internal fun cloudStatusText(s: LiveCloudState): String = buildString {
 	s.transcribeError?.let { append("\n⚠ 轉錄：$it") }
 }
 
-/** Simultaneously visible sections, top to bottom: 即時字幕, 雲端稿, 重點 (no tabs). Each section scrolls on its own. */
+/**
+ * Two areas: top = merged transcript (latest offline captions, replaced by cloud text only where cloud covered the
+ * audio) with a short "雲端已更新" note; bottom = key points. No tabs, no third panel.
+ */
 @Composable
 internal fun LiveTranscriptPanes(
 	offline: LiveTranscriptState,
@@ -57,13 +62,65 @@ internal fun LiveTranscriptPanes(
 	fontFamily: FontFamily = FontFamily.Default,
 ) {
 	Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-		SectionTitle("即時字幕")
-		if (showOffline) RecorderLiveTranscriptionText(offline, Modifier.fillMaxWidth().weight(1f), isActive, fontFamily)
-		else Text("即時字幕已關閉（不影響雲端稿與重點）", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-		SectionTitle("雲端稿")
-		CloudTranscriptPane(cloud, Modifier.fillMaxWidth().weight(1f), fontFamily)
+		SectionTitle("逐字稿（離線即時＋雲端校正）")
+		MergedTranscriptPane(offline, cloud, isActive, showOffline, Modifier.fillMaxWidth().weight(1.4f), fontFamily)
 		SectionTitle("重點")
 		KeyPointsPane(cloud, Modifier.fillMaxWidth().weight(1f))
+	}
+}
+
+@Composable
+private fun MergedTranscriptPane(
+	offline: LiveTranscriptState,
+	cloud: LiveCloudState,
+	isActive: Boolean,
+	showOffline: Boolean,
+	modifier: Modifier,
+	fontFamily: FontFamily,
+) {
+	val merged = remember(cloud.cloudSpans, cloud.offlineTimed, offline.finalized) {
+		com.eva.cloudtranscribe.live.LiveMerge.merge(cloud.cloudSpans, cloud.offlineTimed, offline.finalized)
+	}
+	val listState = rememberLazyListState()
+	val total = merged.size + if (offline.partial.isNotBlank()) 1 else 0
+	val atBottom by remember { derivedStateOf { val i = listState.layoutInfo; (i.visibleItemsInfo.lastOrNull()?.index ?: -1) >= i.totalItemsCount - 2 } }
+	LaunchedEffect(total) { if (total > 0 && atBottom) listState.animateScrollToItem(total - 1) }
+	// short "cloud updated" note when a new cloud chunk lands
+	val latestEnd = com.eva.cloudtranscribe.live.LiveMerge.latestCloudEndMs(cloud.cloudSpans)
+	var flash by remember { mutableStateOf(false) }
+	LaunchedEffect(latestEnd) { if (latestEnd != null) { flash = true; kotlinx.coroutines.delay(5_000); flash = false } }
+
+	Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.medium, modifier = modifier) {
+		Column(Modifier.fillMaxSize().padding(10.dp)) {
+			Text(
+				buildString {
+					append(if (showOffline) liveStatusText(offline, isActive) else "離線即時字幕已關閉")
+					append("・").append(cloudStatusText(cloud).lineSequence().first())
+					latestEnd?.let { append("\n☁ 雲端已校正至 %d:%02d".format(it / 60_000, it / 1000 % 60)) }
+					if (cloud.skippedMs > 0) append("\n⚠ 約 ${cloud.skippedMs / 1000} 秒未上傳雲端（錄音完整保存）")
+					cloud.transcribeError?.let { append("\n⚠ 雲端：$it") }
+					offline.message?.let { append("\n⚠ 離線：$it") }
+				},
+				style = MaterialTheme.typography.labelMedium,
+				color = if (flash) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+			)
+			LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.weight(1f).padding(top = 6.dp)) {
+				items(merged) { line ->
+					val t = line.startMs?.let { "%d:%02d ".format(it / 60_000, it / 1000 % 60) } ?: ""
+					when (line.kind) {
+						K.CLOUD -> Text("$t☁ ${line.text}", fontFamily = fontFamily, style = MaterialTheme.typography.bodyMedium)
+						K.OFFLINE_PROVISIONAL -> Text("${t}暫定 ${line.text}", fontFamily = fontFamily, fontStyle = FontStyle.Italic,
+							style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+						K.OFFLINE_UNALIGNED -> Text("離線（無時間戳，未對齊）${line.text}", fontFamily = fontFamily, fontStyle = FontStyle.Italic,
+							style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+						K.CLOUD_FAILED -> Text("$t⚠ 雲端：${line.text}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+					}
+				}
+				if (offline.partial.isNotBlank()) item {
+					Text(offline.partial, fontFamily = fontFamily, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant)
+				}
+			}
+		}
 	}
 }
 

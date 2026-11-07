@@ -77,6 +77,8 @@ data class LiveCloudState(
 	val phase: LiveCloudPhase = LiveCloudPhase.OFF,
 	val cloudSpans: List<CloudSpan> = emptyList(),
 	val provisional: List<OfflineLine> = emptyList(),
+	/** All timed offline lines received (immutable copy; merge view decides what is covered). */
+	val offlineTimed: List<OfflineLine> = emptyList(),
 	val keyPoints: String = "",
 	val keyPointsAtMs: Long? = null,
 	val transcribeError: String? = null,

@@ -85,3 +85,38 @@ class SessionGuard {
 	@Synchronized fun close() { current = null }
 	fun isCurrent(id: String): Boolean = id == current
 }
+
+/** One line of the merged live view. */
+data class MergedLine(val startMs: Long?, val text: String, val kind: Kind) {
+	enum class Kind { CLOUD, OFFLINE_PROVISIONAL, OFFLINE_UNALIGNED, CLOUD_FAILED }
+}
+
+/**
+ * Merged live transcript: cloud text replaces ONLY the audio ranges it successfully covered; offline lines outside
+ * those ranges stay (provisional). Failed/skipped cloud chunks keep their offline lines plus a compact marker.
+ * Offline lines without timestamps (Vosk) are never aligned: when no timed offline lines exist they are listed
+ * separately as unaligned. Handles out-of-order spans, gaps and partial overlap by start-time containment only.
+ */
+object LiveMerge {
+	fun merge(
+		spans: List<CloudSpan>,
+		timedOffline: List<OfflineLine>,
+		untimedOffline: List<String> = emptyList(),
+	): List<MergedLine> {
+		val ok = spans.filter { it.ok }
+		val out = ArrayList<MergedLine>()
+		ok.filter { it.text.isNotBlank() }.forEach { out += MergedLine(it.startMs, it.text.trim(), MergedLine.Kind.CLOUD) }
+		spans.filter { !it.ok }.forEach { sp ->
+			// a failed chunk whose range was later covered by a successful one is not shown
+			if (ok.none { it.startMs <= sp.startMs && it.endMs >= sp.endMs })
+				out += MergedLine(sp.startMs, sp.error ?: "雲端轉錄失敗", MergedLine.Kind.CLOUD_FAILED)
+		}
+		TranscriptMerge.provisional(spans, timedOffline).forEach { out += MergedLine(it.startMs, it.text, MergedLine.Kind.OFFLINE_PROVISIONAL) }
+		out.sortWith(compareBy<MergedLine> { it.startMs ?: Long.MAX_VALUE }.thenBy { it.kind.ordinal })
+		if (timedOffline.isEmpty()) untimedOffline.filter { it.isNotBlank() }.forEach { out += MergedLine(null, it, MergedLine.Kind.OFFLINE_UNALIGNED) }
+		return out
+	}
+
+	/** End of the latest successful cloud chunk, for the "雲端已更新" indicator. */
+	fun latestCloudEndMs(spans: List<CloudSpan>): Long? = spans.filter { it.ok }.maxOfOrNull { it.endMs }
+}
