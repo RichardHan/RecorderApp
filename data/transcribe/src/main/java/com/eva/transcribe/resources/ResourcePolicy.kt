@@ -37,16 +37,6 @@ data class ModelResources(
     val diskNeeded: Long, val ramNeeded: Long?, val weights: Long?,
 )
 
-/** Only an actual problem produces text; a healthy device shows nothing. */
-fun resourceWarning(s: ResourceSnapshot): String? {
-    val lowRam = s.lowMemory == true
-    val lowDisk = s.diskFree != null && s.diskFree < LOW_DISK_BYTES
-    return when {
-        lowRam && lowDisk -> "⚠ 手機 RAM 與儲存空間都不足"
-        lowRam -> "⚠ 手機 RAM 不足（系統低記憶體）"
-        lowDisk -> "⚠ 儲存空間不足 1 GiB"
-        else -> null
-    }
-}
-
-const val LOW_DISK_BYTES = 1L shl 30
+/** Only an actual system low-memory state produces text; per-model storage/RAM demand warnings live in resourceDescription. */
+fun resourceWarning(s: ResourceSnapshot): String? =
+    if (s.lowMemory == true) "⚠ 手機 RAM 不足（系統低記憶體）" else null
