@@ -22,7 +22,7 @@ android {
         unitTests.all { test ->
             // optional Linux JNI smoke test: SHERPA_LINUX_JNI_DIR=<dir with libsherpa-onnx-jni.so>
             System.getenv("SHERPA_LINUX_JNI_DIR")?.let { test.systemProperty("java.library.path", it) }
-            listOf("SHERPA_LINUX_JNI_DIR", "SHERPA_SMOKE_SENSEVOICE", "SHERPA_SMOKE_QWEN", "SHERPA_SMOKE_FIRERED", "SHERPA_SMOKE_WAV")
+            listOf("SHERPA_LINUX_JNI_DIR", "SHERPA_SMOKE_SENSEVOICE", "SHERPA_SMOKE_QWEN", "SHERPA_SMOKE_FIRERED", "SHERPA_SMOKE_WAV", "SHERPA_SMOKE_QWEN17", "SHERPA_SMOKE_WAVS")
                 .forEach { k -> System.getenv(k)?.let { test.environment(k, it) } }
             test.maxHeapSize = "4g"
         }

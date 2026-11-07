@@ -140,18 +140,78 @@ class ExtractorTests {
 }
 
 class CatalogueTests {
-	@Test fun bundledCatalogueIsValid() {
+	private fun catalogue(): ModelsMetadataList {
 		val f = listOf(File("src/main/assets/vosk_models_metadata.json"), File("data/transcribe/src/main/assets/vosk_models_metadata.json")).first { it.exists() }
-		val list = Json { ignoreUnknownKeys = true }.decodeFromString(ModelsMetadataList.serializer(), f.readText())
+		return Json { ignoreUnknownKeys = true }.decodeFromString(ModelsMetadataList.serializer(), f.readText())
+	}
+
+	@Test fun bundledCatalogueIsValid() {
+		val list = catalogue()
 		val sherpa = list.models.filter { it.engine.startsWith("sherpa-") }
 		assertEquals(setOf("sherpa-sensevoice", "sherpa-qwen3-asr", "sherpa-firered-aed"), sherpa.map { it.engine }.toSet())
+		assertEquals(4, sherpa.size)
 		assertTrue(list.models.any { it.engine == "vosk" })
-		sherpa.forEach { m ->
-			assertEquals("tar.bz2", m.archiveFormat)
+		assertEquals("model ids are unique", list.models.size, list.models.map { it.modelId }.toSet().size)
+		sherpa.filter { it.archiveFormat == "tar.bz2" }.forEach { m ->
 			assertTrue(m.modelUri.startsWith("https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/"))
 			assertTrue(Regex("[0-9a-f]{64}").matches(m.checksum!!))
+		}
+		sherpa.forEach { m ->
+			assertTrue(m.archiveFormat in setOf("tar.bz2", "files"))
 			assertTrue(m.files.isNotEmpty() && m.files.all { Regex("[0-9a-f]{64}").matches(it.sha256) && it.sizeBytes > 0 })
+			assertTrue(m.files.all { com.eva.transcribe.data.PerFileModelPaths.isSafe(it.path) })
 		}
 		assertFalse("no FireRed CTC in place of AED", sherpa.any { it.modelUri.contains("ctc") })
+	}
+
+	@Test fun qwen17bIsPinnedPerFileModel() {
+		val m = catalogue().models.single { it.modelId == "sherpa-qwen3-asr-1.7b-int8" }
+		val rev = "69eb686fd94a4a865bb5340a3d6ac0d7f1fec0d5"
+		assertEquals("sherpa-qwen3-asr", m.engine)
+		assertEquals("files", m.archiveFormat)
+		assertEquals(rev, m.version)
+		assertEquals("https://huggingface.co/thieunv-asilla/sherpa-onnx-qwen3-asr-1.7B-int8/resolve/$rev", m.modelUri)
+		assertTrue(m.displayName.contains("1.7B"))
+		assertEquals(
+			setOf("conv_frontend.onnx", "encoder.int8.onnx", "decoder.int8.onnx", "tokenizer/vocab.json", "tokenizer/merges.txt", "tokenizer/tokenizer_config.json"),
+			m.files.map { it.path }.toSet(),
+		)
+		assertEquals(2_404_222_421L, m.files.sumOf { it.sizeBytes })
+		assertEquals(m.sizeBytes, m.files.sumOf { it.sizeBytes })
+		val dec = m.files.single { it.path == "decoder.int8.onnx" }
+		assertTrue("total > Int.MAX_VALUE: sizes and progress must stay Long", m.files.sumOf { it.sizeBytes } > Int.MAX_VALUE)
+		assertEquals("c43c853fa6e97d08365cb8a5502b360b595cd43c00dc60e4d8ca7cc18cad460b", dec.sha256)
+		// 0.6B remains, distinct id and name
+		assertTrue(catalogue().models.single { it.modelId == "sherpa-qwen3-asr-0.6b-int8" }.displayName.contains("0.6B"))
+	}
+
+	@Test fun appConfigResolvesManifestFiles() {
+		val m = catalogue().models.single { it.modelId == "sherpa-qwen3-asr-1.7b-int8" }
+		val dir = kotlin.io.path.createTempDirectory("q17").toFile()
+		m.files.forEach { File(dir, it.path).apply { parentFile.mkdirs(); writeText("x") } }
+		val cfg = com.eva.transcribe.offline.OfflineSpeechEngine.buildConfig("sherpa-qwen3-asr", dir, 2)
+		assertEquals(File(dir, "decoder.int8.onnx").absolutePath, cfg.modelConfig.qwen3Asr.decoder)
+		assertEquals(512, cfg.modelConfig.qwen3Asr.maxTotalLen)
+		assertEquals(128, cfg.featConfig.featureDim)
+		dir.deleteRecursively()
+	}
+}
+
+class PerFileModelTests {
+	@Test fun unsafePathsRejected() {
+		val ok = com.eva.transcribe.data.PerFileModelPaths::isSafe
+		assertTrue(ok("tokenizer/vocab.json")); assertTrue(ok("decoder.int8.onnx"))
+		listOf("../x", "/abs", "a/../b", "a\\b", ".hidden", "a/./b", "", "x.part").forEach { assertFalse(it, ok(it)) }
+	}
+
+	@Test fun qwenPrefixStripped() {
+		val c = com.eva.transcribe.offline.OfflineSpeechEngine::cleanQwenText
+		assertEquals("哦，这么technical的。", c("language Chinese<asr_text>哦，这么technical的。"))
+		assertEquals("所以，我上学期也学了Python。", c("所以，我上学期也学了Python。"))
+	}
+
+	@Test fun ramRequirementUsesLongs() {
+		val need = com.eva.transcribe.offline.OfflineSpeechEngine.requiredRamBytes(2_399_761_248L)
+		assertTrue(need > 3_500_000_000L && need < 4_000_000_000L)
 	}
 }
