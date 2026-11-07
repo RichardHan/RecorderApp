@@ -38,13 +38,47 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import com.eva.cloudtranscribe.api.ProbeTransport
+import com.eva.cloudtranscribe.live.SummaryProbe
 
 @HiltViewModel
 internal class LiveCloudSettingsViewModel @Inject constructor(
 	private val repo: LiveCloudSettingsRepository,
 	private val summaryKeys: SummaryApiKeyStore,
-	asrKeys: ApiKeyStore,
+	private val asrKeys: ApiKeyStore,
 ) : ViewModel() {
+	var testing by mutableStateOf(false); private set
+	var testResult by mutableStateOf<String?>(null); private set
+	private var testJob: Job? = null
+	private var probeTransport: ProbeTransport? = null
+
+	/** Single in-flight, bounded, cancellable test of the SAVED summary settings. */
+	fun testSaved() {
+		if (testing) return
+		testing = true; testResult = null
+		testJob = viewModelScope.launch {
+			val transport = ProbeTransport(); probeTransport = transport
+			var timedOut = false
+			val watchdog = launch { delay(25_000); timedOut = true; transport.cancel() }
+			try {
+				val s = repo.current()
+				val r = withContext(Dispatchers.IO) { SummaryProbe.run(s, summaryKeys.read(), if (s.summaryReuseTranscribeKey) asrKeys.read() else null, transport) }
+				testResult = if (timedOut) "整體測試逾時（25 秒），已停止；未重試。" else r
+			} catch (e: CancellationException) {
+				testResult = "已取消測試；已送出的請求可能仍計費。"; throw e
+			} catch (e: Exception) {
+				testResult = "無法讀取已儲存的摘要設定／Key，請檢查後再試。"
+			} finally { watchdog.cancel(); transport.cancel(); probeTransport = null; testing = false }
+		}
+	}
+	fun cancelTest() { probeTransport?.cancel(); testJob?.cancel() }
+	override fun onCleared() { probeTransport?.cancel(); super.onCleared() }
+
 	val settings: StateFlow<LiveCloudSettings?> = repo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 	val hasSummaryKey: StateFlow<Boolean> = summaryKeys.hasKey
 	val hasAsrKey: StateFlow<Boolean> = asrKeys.hasKey
@@ -65,6 +99,7 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 	var confirmEnable by remember { mutableStateOf(false) }
 	var confirmReuse by remember { mutableStateOf(false) }
 	var msg by remember { mutableStateOf<String?>(null) }
+	var confirmTest by remember { mutableStateOf(false) }
 
 	Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
 		HorizontalDivider()
@@ -106,6 +141,14 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 		}
 		Button(onClick = { viewModel.save(draft.normalized()); msg = "已儲存（下次開始錄音時生效）" }, modifier = Modifier.fillMaxWidth()) { Text("儲存進階設定") }
 		msg?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+		val dirty = draft.normalized() != current.normalized() || keyInput.isNotBlank()
+		if (dirty) Text("測試只使用已儲存的摘要設定（含 Prompt、Key 選擇）；請先儲存。", style = MaterialTheme.typography.bodySmall)
+		Text("測試會用內建短範例文字送出一次摘要請求（可能產生少量費用），不上傳錄音、不自動重試；進階模式未開啟也可測試。", style = MaterialTheme.typography.bodySmall)
+		Button(enabled = !dirty && !viewModel.testing, onClick = { confirmTest = true }) {
+			Text(if (viewModel.testing) "摘要測試中…" else "測試摘要設定")
+		}
+		if (viewModel.testing) TextButton(onClick = { viewModel.cancelTest() }) { Text("取消測試") }
+		viewModel.testResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 		if (draft.enabled) draft.validateSummary(hasSummaryKey, hasAsrKey)?.let {
 			Text("重點整理尚未可用：$it（雲端轉錄仍會照常進行）", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
 		}
@@ -124,6 +167,13 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 			}) { Text("我了解費用與上傳，開啟") }
 		},
 		dismissButton = { TextButton(onClick = { confirmEnable = false }) { Text("取消") } },
+	)
+	if (confirmTest) AlertDialog(
+		onDismissRequest = { confirmTest = false },
+		title = { Text("測試已儲存的摘要設定？") },
+		text = { Text("會用已儲存的摘要 Endpoint、模型（${current.summaryModel}）、Prompt 與${if (current.summaryReuseTranscribeKey) "沿用的轉錄 Key" else "摘要 Key"}，送出一次短範例文字的摘要請求（上限約 ${SummaryProbe.TOKEN_LIMIT} tokens）。可能產生少量費用；不上傳錄音，不自動重試。") },
+		confirmButton = { TextButton(onClick = { confirmTest = false; viewModel.testSaved() }) { Text("同意費用，測試一次") } },
+		dismissButton = { TextButton(onClick = { confirmTest = false }) { Text("取消") } },
 	)
 	if (confirmReuse) AlertDialog(
 		onDismissRequest = { confirmReuse = false },
