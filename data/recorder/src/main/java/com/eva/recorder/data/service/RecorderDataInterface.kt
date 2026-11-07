@@ -12,6 +12,7 @@ internal interface RecorderDataInterface {
     val recorderState: StateFlow<RecorderState>
     val bookMarks: Flow<Set<Duration>>
     val amplitudes: Flow<List<RecordedPoint>>
-    val transcript: Flow<String>
+    val transcript: Flow<com.eva.recorder.domain.recorder.LiveTranscriptState>
     val warnings: Flow<String>
+    val liveCloud: Flow<com.eva.cloudtranscribe.live.LiveCloudState>
 }

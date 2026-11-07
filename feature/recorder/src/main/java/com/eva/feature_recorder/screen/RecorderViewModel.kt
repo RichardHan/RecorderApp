@@ -3,7 +3,7 @@ package com.eva.feature_recorder.screen
 import androidx.lifecycle.viewModelScope
 import com.eva.datastore.domain.models.TranscriptionSettings
 import com.eva.datastore.domain.repository.TranscriptionSettingsRepo
-import com.eva.feature_recorder.util.TranslationDataBlock
+import com.eva.recorder.domain.recorder.LiveTranscriptState
 import com.eva.recorder.domain.RecorderActionHandler
 import com.eva.recorder.domain.RecorderServiceBinder
 import com.eva.recorder.domain.models.RecorderAction
@@ -80,18 +80,28 @@ internal class RecorderViewModel @Inject constructor(
         )
 
 
+    /** Full live transcript (all finalized lines + partial + status); never truncated or auto-cleared. */
     @OptIn(ExperimentalCoroutinesApi::class)
-    val transcriptionsResult = recorderService.recorderState
+    val transcriptionsResult: StateFlow<LiveTranscriptState> = recorderService.recorderState
         .flatMapLatest { state ->
-            if (!state.canReadAmplitudes) flowOf(TranslationDataBlock())
-            else controlledTranscriptions(silenceThreshold = 2.seconds)
+            if (!state.canReadAmplitudes) flowOf(LiveTranscriptState())
+            else recorderService.transcriptions
         }
         .flowOn(Dispatchers.Default)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
-            initialValue = TranslationDataBlock(),
+            initialValue = LiveTranscriptState(),
         )
+
+    /** Advanced live cloud state; stays inactive (and no requests happen) unless the user opted in. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val liveCloud: StateFlow<com.eva.cloudtranscribe.live.LiveCloudState> = recorderService.recorderState
+        .flatMapLatest { state ->
+            if (!state.canReadAmplitudes) flowOf(com.eva.cloudtranscribe.live.LiveCloudState())
+            else recorderService.liveCloud
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, com.eva.cloudtranscribe.live.LiveCloudState())
 
     val transcribeSettings = transcriptionSettings.settingsFlow
         .stateIn(
@@ -126,43 +136,6 @@ internal class RecorderViewModel @Inject constructor(
             .onEach { _uiEvents.emit(UIEvents.ShowToast(it)) }
             .launchIn(viewModelScope)
     }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private fun controlledTranscriptions(
-        maxWords: Int = 6,
-        silenceThreshold: Duration = 1.seconds,
-    ): Flow<TranslationDataBlock> {
-
-        var blockCounter = 0
-        val space = "\\s+".toRegex()
-        val previousBlock = MutableStateFlow<List<String>>(emptyList())
-
-        return recorderService.transcriptions
-            .filter { it.isNotBlank() }
-            .transformLatest { newText ->
-                val words = newText.split(space)
-                    .filter(String::isNotBlank)
-
-                // check if elements have any match
-                if (!previousBlock.value.any { it in words })
-                    blockCounter++
-
-                val result = words.takeLast(maxWords).joinToString(" ")
-
-                if (result.isNotBlank()) {
-                    val activeBlock = TranslationDataBlock(blockCounter, result)
-                    emit(activeBlock)
-                    // set the new block of words
-                    previousBlock.value = words
-                }
-
-                // a delay to skip some
-                delay(silenceThreshold)
-                blockCounter++
-                emit(TranslationDataBlock(blockNumber = blockCounter))
-            }
-    }
-
 
     override fun onCleared() {
         recorderService.unBindService()

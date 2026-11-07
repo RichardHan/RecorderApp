@@ -72,6 +72,7 @@ internal fun AudioPlayerScreen(
     onRenameItem: (Long) -> Unit = {},
     onNavigateToRecordings: () -> Unit = {},
     onCloudTranscripts: () -> Unit = {},
+    transcriptPanel: (@Composable (Modifier) -> Unit)? = null,
 ) {
 
     val snackBarProvider = LocalSnackBarProvider.current
@@ -127,6 +128,7 @@ internal fun AudioPlayerScreen(
                     bookMarkState = bookMarkState,
                     onPlayerEvents = onPlayerEvents,
                     onBookmarkEvent = onBookmarkEvent,
+                    transcriptPanel = transcriptPanel,
                 )
             },
             onFailed = {
