@@ -38,6 +38,22 @@ class LiveUtterancePipeline(
 	private val _display = MutableStateFlow("")
 	val display: StateFlow<String> = _display.asStateFlow()
 
+	/** Every finalized line in audio order (text + visible skip markers); grows only, never truncated. */
+	private val _lines = MutableStateFlow<List<String>>(emptyList())
+	val lines: StateFlow<List<String>> = _lines.asStateFlow()
+
+	/** Decoded text lines with their start time (ms from pipeline start); skip markers excluded. */
+	private val _timed = MutableStateFlow<List<Pair<Long, String>>>(emptyList())
+	val timedLines: StateFlow<List<Pair<Long, String>>> = _timed.asStateFlow()
+
+	/** True while one utterance is being decoded. */
+	private val _decoding = MutableStateFlow(false)
+	val decoding: StateFlow<Boolean> = _decoding.asStateFlow()
+
+	/** Latest non-fatal problem (lagging / failed segment), cleared on next successful decode. */
+	private val _warning = MutableStateFlow<String?>(null)
+	val warning: StateFlow<String?> = _warning.asStateFlow()
+
 	var droppedSamples = 0L; private set
 	var failedUtterances = 0; private set
 	var decodedUtterances = 0; private set
@@ -49,13 +65,17 @@ class LiveUtterancePipeline(
 				is Item.Marker -> add(item.piece)
 				is Item.Work -> {
 					_display.value = "（分句辨識中…）"
-					val text = try { decode(item.u.samples) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) {
+					_decoding.value = true
+					val text = try { decode(item.u.samples) } catch (e: kotlinx.coroutines.CancellationException) { _decoding.value = false; throw e } catch (e: Exception) {
+						_decoding.value = false
 						failedUtterances++
 						add(Piece.Skipped(item.u.startSample, item.u.samples.size, "辨識失敗：${e.message}"))
+						_warning.value = "辨識失敗：${e.message}"
 						continue
 					}
+					_decoding.value = false
 					decodedUtterances++
-					if (text.isNotBlank()) { add(Piece.Text(item.u.startSample, text)); _display.value = text }
+					if (text.isNotBlank()) { add(Piece.Text(item.u.startSample, text)); _display.value = text; _warning.value = null }
 				}
 			}
 		}
@@ -64,7 +84,17 @@ class LiveUtterancePipeline(
 
 	private fun drainMarkers() { while (true) { val m = markers.tryReceive().getOrNull() ?: break; if (m is Item.Marker) add(m.piece) } }
 
-	@Synchronized private fun add(p: Piece) { pieces += p }
+	@Synchronized private fun add(p: Piece) {
+		pieces += p
+		val sorted = pieces.sortedBy { it.startSample }
+		_lines.value = sorted.map { render(it) }
+		if (p is Piece.Text) _timed.value = sorted.filterIsInstance<Piece.Text>().map { it.startSample * 1000 / 16_000 to it.text }
+	}
+
+	private fun render(p: Piece, sampleRate: Int = 16_000): String = when (p) {
+		is Piece.Text -> p.text
+		is Piece.Skipped -> "[⚠ ${fmt(p.startSample * 1000 / sampleRate)} 起約 ${p.samples / sampleRate} 秒：${p.reason}]"
+	}
 
 	/** Called from the audio thread: cheap, non-suspending. */
 	fun accept(buffer: ShortArray, length: Int) { segmenter.accept(buffer, length).forEach(::offer) }
@@ -75,6 +105,7 @@ class LiveUtterancePipeline(
 			val piece = Piece.Skipped(u.startSample, u.samples.size, "辨識跟不上，此段未辨識（錄音完整保存，可事後重轉）")
 			markers.trySend(Item.Marker(piece))
 			_display.value = "⚠ 辨識跟不上，已略過一段"
+			_warning.value = "辨識跟不上，已略過一段（錄音完整保存）"
 		}
 	}
 
@@ -94,12 +125,7 @@ class LiveUtterancePipeline(
 
 	@Synchronized fun pieces(): List<Piece> = pieces.sortedBy { it.startSample }
 
-	fun text(sampleRate: Int = 16_000): String = pieces().joinToString("\n") { p ->
-		when (p) {
-			is Piece.Text -> p.text
-			is Piece.Skipped -> "[⚠ ${fmt(p.startSample * 1000 / sampleRate)} 起約 ${p.samples / sampleRate} 秒：${p.reason}]"
-		}
-	}
+	fun text(sampleRate: Int = 16_000): String = pieces().joinToString("\n") { render(it, sampleRate) }
 
 	private fun fmt(ms: Long): String { val s = ms / 1000; return "%d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60) }
 }

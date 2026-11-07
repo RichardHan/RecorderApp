@@ -24,4 +24,5 @@ dependencies {
 	implementation(project(":core:utils"))
 	implementation(project(":data:recorder"))
 	implementation(project(":data:datastore"))
+	implementation(project(":data:cloudtranscribe"))
 }

@@ -189,6 +189,7 @@ internal fun CloudAiSettingsContent(
 		viewModel.testResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 		Text("僅文字連線測試，不代表支援音訊；沒有上傳錄音。", style = MaterialTheme.typography.bodySmall)
 		draft.validate(hasKey)?.let { Text("尚未可用：$it", color = MaterialTheme.colorScheme.error) }
+		LiveCloudSettingsSection()
 	}
 
 	if (confirmTest) AlertDialog(

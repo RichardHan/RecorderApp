@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -38,12 +39,55 @@ internal fun AudioPlayerScreenContent(
     isControllerReady: Boolean = false,
     isPlayerPlaying: Boolean = true,
     isBookmarksEnabled: Boolean = true,
+    transcriptPanel: (@Composable (Modifier) -> Unit)? = null,
 ) {
     val bookMarkTimeStamps by remember(bookmarks) {
         derivedStateOf {
             bookmarks.map(AudioBookmarkModel::timeStamp)
                 .toImmutableList()
         }
+    }
+
+    if (transcriptPanel != null) {
+        // compact layout: small waveform, saved transcript gets the free space, controls stay at the bottom
+        Column(
+            modifier = modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            PlayerDurationText(
+                track = trackData,
+                fontFamily = DownloadableFonts.SPLINE_SANS_MONO_FONT_FAMILY,
+            )
+            PlayerAmplitudeGraph2(
+                trackData = trackData,
+                bookMarksTimeStamps = bookMarkTimeStamps,
+                graphData = waveforms,
+                isSwipeToScrollEnabled = true,
+                onSeek = { amount -> onPlayerEvents(PlayerEvents.OnSeekingPlayer(amount)) },
+                onSeekEnd = { onPlayerEvents(PlayerEvents.OnSeekEndPlayer) },
+                timelineFontFamily = DownloadableFonts.PLUS_CODE_LATIN_FONT_FAMILY,
+                modifier = Modifier.fillMaxWidth().height(110.dp),
+            )
+            PlayerBookMarks(
+                trackData = trackData,
+                isBookmarkActionEnabled = isBookmarksEnabled,
+                bookmarks = bookmarks,
+                bookMarkState = bookMarkState,
+                onBookmarkEvent = onBookmarkEvent,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            transcriptPanel(Modifier.fillMaxWidth().weight(1f))
+            PlayerActionsAndSlider(
+                metaData = playerMetaData,
+                trackData = trackData,
+                isPlayerPlaying = isPlayerPlaying,
+                isControllerSet = isControllerReady,
+                onPlayerAction = onPlayerEvents,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        return
     }
 
     Box(

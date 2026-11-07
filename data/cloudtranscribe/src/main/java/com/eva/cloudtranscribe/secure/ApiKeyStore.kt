@@ -22,8 +22,22 @@ import kotlinx.coroutines.flow.asStateFlow
  * The plaintext is never logged or written anywhere else.
  */
 @Singleton
-class ApiKeyStore @Inject constructor(@ApplicationContext context: Context) {
-	private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+class ApiKeyStore @Inject constructor(@ApplicationContext context: Context) :
+	EncryptedKeyStore(context, PREFS_ASR, ALIAS_ASR) {
+	private companion object {
+		// unchanged from earlier versions so existing saved keys keep working
+		const val PREFS_ASR = "cloud_ai_secure"
+		const val ALIAS_ASR = "recorderapp_cloud_ai_api_key"
+	}
+}
+
+/** Separate key for the independent live key-point summary endpoint (own prefs file + own Keystore alias). */
+@Singleton
+class SummaryApiKeyStore @Inject constructor(@ApplicationContext context: Context) :
+	EncryptedKeyStore(context, "cloud_ai_summary_secure", "recorderapp_summary_api_key")
+
+open class EncryptedKeyStore(context: Context, prefsName: String, private val ALIAS: String) {
+	private val prefs = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
 	private val _hasKey = MutableStateFlow(prefs.contains(KEY_CIPHER))
 	val hasKey: StateFlow<Boolean> = _hasKey.asStateFlow()
 
@@ -70,8 +84,6 @@ class ApiKeyStore @Inject constructor(@ApplicationContext context: Context) {
 	}
 
 	private companion object {
-		const val PREFS = "cloud_ai_secure"
-		const val ALIAS = "recorderapp_cloud_ai_api_key"
 		const val KEY_IV = "iv"
 		const val KEY_CIPHER = "cipher"
 		const val TRANSFORM = "AES/GCM/NoPadding"

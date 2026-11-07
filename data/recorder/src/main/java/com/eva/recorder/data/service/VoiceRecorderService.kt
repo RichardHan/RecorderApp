@@ -73,6 +73,9 @@ internal class VoiceRecorderService : LifecycleService() {
     lateinit var transcriptStore: com.eva.cloudtranscribe.store.TranscriptStore
 
     @Inject
+    lateinit var liveCloud: com.eva.recorder.data.recorder.LiveCloudCoordinator
+
+    @Inject
     lateinit var cloudJobScheduler: com.eva.cloudtranscribe.work.CloudJobScheduler
 
     private val binder = LocalBinder()
@@ -97,8 +100,11 @@ internal class VoiceRecorderService : LifecycleService() {
                 bookMarks.map(LocalTime::toDuration).toSet()
             }
 
-        override val transcript: Flow<String>
+        override val transcript: Flow<com.eva.recorder.domain.recorder.LiveTranscriptState>
             get() = voiceRecorder.transcription
+
+        override val liveCloud: Flow<com.eva.cloudtranscribe.live.LiveCloudState>
+            get() = this@VoiceRecorderService.liveCloud.state
 
         override val warnings: Flow<String>
             get() = _warnings.receiveAsFlow()
@@ -141,6 +147,10 @@ internal class VoiceRecorderService : LifecycleService() {
             // initiate transcript
             lifecycleScope.launch {
                 voiceRecorder.initTranscriptions()
+            }
+            // advanced live cloud mode (default OFF → returns without any request)
+            lifecycleScope.launch {
+                runCatching { liveCloud.start() }.onFailure { Log.e(TAG, "live cloud start failed", it) }
             }
             Log.i(TAG, "SERVICE CREATED WITH OBSERVERS")
         } catch (e: Exception) {
@@ -243,6 +253,7 @@ internal class VoiceRecorderService : LifecycleService() {
     private fun onCancelRecording() {
         lifecycleScope.launch {
             // cancel recording
+            liveCloud.cancel()
             voiceRecorder.cancelRecording()
             //clear bookmarks
             clearBookMarks()
@@ -270,6 +281,8 @@ internal class VoiceRecorderService : LifecycleService() {
                     notificationHelper.showCompletedNotificationWithIntent(recordingId)
                     // flush the tail utterance and persist the live on-device transcript
                     saveLiveTranscript(recordingId)
+                    // live cloud: flush tail + final key points, saved as new immutable records (bounded wait)
+                    runCatching { liveCloud.finishAndSave(recordingId) }.onFailure { Log.e(TAG, "live cloud finish failed", it) }
                 },
                 onFailure = { error ->
                     val message = error.message ?: ""
@@ -384,6 +397,7 @@ internal class VoiceRecorderService : LifecycleService() {
         voiceRecorder.releaseResources()
         // release transcript
         voiceRecorder.transcriptCleanUp()
+        liveCloud.release()
         Log.i(TAG, "RECORDER SERVICE DESTROYED")
         super.onDestroy()
     }

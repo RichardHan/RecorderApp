@@ -14,7 +14,10 @@ data class LiveTranscript(
 
 interface TranscriptionProvider {
 
-	val transcription: Flow<String>
+	val transcription: Flow<LiveTranscriptState>
+
+	/** Offline finalized lines with start time in ms on the recorded-audio timeline (sentence-mode engines only). */
+	val offlineTimedLines: Flow<List<Pair<Long, String>>> get() = kotlinx.coroutines.flow.flowOf(emptyList())
 
 	suspend fun initTranscriptions()
 
