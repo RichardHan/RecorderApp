@@ -302,3 +302,37 @@ class LiveMergeTests {
 	@Test fun latestCloudEnd() = assertEquals(120_000L,
 		com.eva.cloudtranscribe.live.LiveMerge.latestCloudEndMs(listOf(CloudSpan(0, 60_000, "a"), CloudSpan(60_000, 120_000, "b"), CloudSpan(120_000, 180_000, "", ok = false))))
 }
+
+class SummaryPromptV2Tests {
+	private val S = com.eva.cloudtranscribe.live.LiveCloudSettings
+
+	@Test fun newDefaultIsConciseAndNotForcingCategories() {
+		val p = S.DEFAULT_SUMMARY_PROMPT
+		assertTrue(p.contains("目前無重點"))
+		assertTrue(p.contains("不必湊數"))
+		assertTrue(p.contains("原樣保留目前重點"))
+		assertTrue(p.contains("不要開場白"))
+		assertTrue(p.contains("暫定"))
+		assertFalse(p.contains("更新後的完整重點清單"))
+		assertFalse(p.contains("嗯"))
+		assertTrue(com.eva.cloudtranscribe.engine.Prompts.summary("x").contains("目前無重點"))
+	}
+	@Test fun legacyDefaultMigratesOnce_customKept() {
+		assertEquals(S.DEFAULT_SUMMARY_PROMPT, LiveCloudSettings(summaryPrompt = S.LEGACY_SUMMARY_PROMPT_V1).normalized().summaryPrompt)
+		assertEquals(S.DEFAULT_SUMMARY_PROMPT, LiveCloudSettings(summaryPrompt = "  " + S.LEGACY_SUMMARY_PROMPT_V1 + "\n").normalized().summaryPrompt)
+		val custom = S.LEGACY_SUMMARY_PROMPT_V1 + "另外列出風險。"
+		assertEquals(custom, LiveCloudSettings(summaryPrompt = custom).normalized().summaryPrompt)
+		assertEquals(S.DEFAULT_SUMMARY_PROMPT, LiveCloudSettings(summaryPrompt = S.DEFAULT_SUMMARY_PROMPT).normalized().normalized().summaryPrompt)
+		// realtime + test button both build through summaryPrompt(): legacy is migrated there too
+		assertTrue(com.eva.cloudtranscribe.live.TranscriptMerge.summaryPrompt(S.LEGACY_SUMMARY_PROMPT_V1, "", "t", "").startsWith(S.DEFAULT_SUMMARY_PROMPT))
+		assertTrue(com.eva.cloudtranscribe.live.SummaryProbe.buildPrompt(LiveCloudSettings(summaryPrompt = custom)).startsWith(custom))
+	}
+	@Test fun noNewPointsNeverErasesPrevious() {
+		assertEquals(null, S.acceptSummary("- 週三交報價", "目前無重點"))
+		assertEquals(null, S.acceptSummary("- 週三交報價", "目前無重點。"))
+		assertEquals(null, S.acceptSummary("- 週三交報價", "  "))
+		assertEquals(null, S.acceptSummary("- 週三交報價", "嗯".repeat(200)))
+		assertEquals("目前無重點", S.acceptSummary("", "目前無重點"))
+		assertEquals("- 改成週四交", S.acceptSummary("- 週三交報價", "- 改成週四交"))
+	}
+}

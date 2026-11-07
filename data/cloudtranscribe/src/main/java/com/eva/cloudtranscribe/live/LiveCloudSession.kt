@@ -187,7 +187,12 @@ class LiveCloudSession(
 			when (outcome) {
 				is CallOutcome.Text -> {
 					synchronized(lock) { summarizedVersion = versionAtStart; summarizedSpanCount = okSpans.size }
-					_state.update { it.copy(keyPoints = outcome.text, keyPointsAtMs = elapsed, summaryError = null, phase = if (transcribing) LiveCloudPhase.TRANSCRIBING else LiveCloudPhase.IDLE) }
+					val accepted = LiveCloudSettings.acceptSummary(snapshot.keyPoints, outcome.text)
+					_state.update {
+						// no new points / garbage reply: keep the previous valid key points unchanged
+						if (accepted == null) it.copy(summaryError = null, phase = if (transcribing) LiveCloudPhase.TRANSCRIBING else LiveCloudPhase.IDLE)
+						else it.copy(keyPoints = accepted, keyPointsAtMs = elapsed, summaryError = null, phase = if (transcribing) LiveCloudPhase.TRANSCRIBING else LiveCloudPhase.IDLE)
+					}
 				}
 				else -> _state.update {
 					it.copy(
