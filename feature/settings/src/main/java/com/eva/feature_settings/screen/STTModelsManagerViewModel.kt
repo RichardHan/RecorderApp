@@ -60,6 +60,16 @@ internal class STTModelsManagerViewModel @Inject constructor(
         field = MutableSharedFlow<UIEvents>()
 
 
+    init {
+        // Retire the old selection without deleting any user files or changing recording settings.
+        settingsRepo.settingsFlow.onEach { settings ->
+            if (settings.modelId == "vosk-en-in-small") {
+                settingsRepo.onUpdateModelId(null)
+                uiEvent.emit(UIEvents.ShowSnackBar("English (India) 已移除；舊檔案保留，請重新選擇逐字稿模型"))
+            }
+        }.launchIn(viewModelScope)
+    }
+
     fun onEvent(event: TranscriptionSettingsEvents) {
         when (event) {
             is TranscriptionSettingsEvents.OnDeleteDownloadedModel -> onDeleteModel(event.model.modelId)

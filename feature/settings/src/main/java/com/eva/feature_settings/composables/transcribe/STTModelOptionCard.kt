@@ -60,6 +60,8 @@ import androidx.graphics.shapes.star
 import com.eva.feature_settings.SettingsPreviewFakes
 import com.eva.feature_settings.utils.SpeechToTextUIModel
 import com.eva.transcribe.domain.models.STTModelState
+import com.eva.transcribe.domain.models.checkpointIdentifier
+import com.eva.transcribe.domain.models.recognitionMode
 import com.eva.ui.R
 import com.eva.ui.theme.RecorderAppTheme
 import com.eva.ui.theme.RoundedPolygonShape
@@ -71,6 +73,8 @@ internal fun STTModelOptionCard(
     sttModel: SpeechToTextUIModel,
     onDownload: () -> Unit,
     onCancelDownload: () -> Unit = {},
+    downloadAllowed: Boolean = true,
+    resourceText: String = "",
     onDelete: () -> Unit,
     onSelect: () -> Unit,
     onUnSelect: () -> Unit,
@@ -178,21 +182,12 @@ internal fun STTModelOptionCard(
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        STTModelCardDescription(
-                            locale = sttModel.model.locale,
-                            formattedSize = formattedSize,
-                            enabled = enabled,
-                            modifier = Modifier.height(IntrinsicSize.Min),
-                        )
-                        Text(
-                            text = when (sttModel.model.engine) {
-                                "vosk" -> "Vosk 串流辨識"
-                                "sherpa-sensevoice", "sherpa-qwen3-asr", "sherpa-firered-aed" -> "sherpa-onnx 離線分句辨識（停頓後出字）"
-                                else -> sttModel.model.engine
-                            } + "・下載 $formattedSize・授權 ${sttModel.model.license ?: "-"}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Text("模型：${sttModel.model.checkpointIdentifier()}", style = MaterialTheme.typography.bodyMedium)
+                        Text("版本：${sttModel.model.downloadedVersion}", style = MaterialTheme.typography.bodySmall)
+                        Text(sttModel.model.recognitionMode(), style = MaterialTheme.typography.bodySmall)
+                        Text("下載 $formattedSize · ${sttModel.model.license ?: "授權未知"}", style = MaterialTheme.typography.bodySmall)
+                        if (resourceText.isNotBlank()) Text(resourceText, style = MaterialTheme.typography.bodySmall)
+
                     }
                     TooltipBox(
                         positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
@@ -218,7 +213,7 @@ internal fun STTModelOptionCard(
                                     else -> showDialog = true
                                 }
                             },
-                            enabled = sttModel.model.state != STTModelState.DOWNLOADING,
+                            enabled = sttModel.model.state != STTModelState.DOWNLOADING && (sttModel.model.state != STTModelState.UN_AVAILABLE || downloadAllowed),
                             colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                         ) {
                             when (sttModel.model.state) {

@@ -48,7 +48,7 @@ internal class STTModelsRepositoryImpl(
                     } else if (err is Exception) trySend(Resource.Error(err))
                 }
                 .collectLatest { entities ->
-                    val models = entities.map { it.toModel() }
+                    val models = entities.filter { it.locale != "en-IN" }.map { it.toModel() }
                     send(Resource.Success(models))
                 }
         }.flowOn(Dispatchers.IO)
@@ -99,6 +99,7 @@ internal class STTModelsRepositoryImpl(
         return try {
             val readModel = dao.readModelById(modelId)
                 ?: return Result.failure(STTModelEntryUpdateFailedException())
+            if (readModel.locale == "en-IN") return Result.failure(IllegalStateException("English (India) 已移除，請在轉錄設定重新選擇模型；舊模型檔案未刪除"))
             Result.success(readModel.toModel())
         } catch (e: Exception) {
             if (e is CancellationException) throw e

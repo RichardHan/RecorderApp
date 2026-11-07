@@ -1,5 +1,7 @@
 package com.eva.transcribe
 
+import com.eva.transcribe.domain.models.checkpointIdentifier
+
 import com.eva.transcribe.archive.SafeTarBz2Extractor
 import com.eva.transcribe.data.models.ModelFileEntry
 import com.eva.transcribe.data.models.ModelsMetadataList
@@ -143,6 +145,20 @@ class CatalogueTests {
 	private fun catalogue(): ModelsMetadataList {
 		val f = listOf(File("src/main/assets/vosk_models_metadata.json"), File("data/transcribe/src/main/assets/vosk_models_metadata.json")).first { it.exists() }
 		return Json { ignoreUnknownKeys = true }.decodeFromString(ModelsMetadataList.serializer(), f.readText())
+	}
+
+	@Test fun exactCheckpointNamesAndRetiredIndianEnglish() {
+		val models = catalogue().models
+		assertFalse(models.any { it.locale == "en-IN" })
+		assertTrue(models.any { it.locale == "en-US" })
+		models.forEach { m ->
+			val model = com.eva.transcribe.domain.models.STTModel(modelId = m.modelId, name = m.name,
+				displayName = m.displayName, downloadURI = m.modelUri, archiveFormat = m.archiveFormat)
+			val id = model.checkpointIdentifier()
+			assertTrue(id.isNotBlank() && id != "Vosk")
+			if (m.archiveFormat == "zip") assertEquals(m.modelUri.substringAfterLast('/').removeSuffix(".zip"), id)
+			if (m.modelId == "vosk-en-us-small") assertEquals("vosk-model-small-en-us-0.15", id)
+		}
 	}
 
 	@Test fun bundledCatalogueIsValid() {
