@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.eva.feature_recorder.composable
 
 import androidx.compose.foundation.layout.Arrangement
@@ -52,30 +54,37 @@ internal fun RecorderContent(
 		// compact header (timer + waveform) so the multi-line live transcript gets most of the screen
 		Column(
 			horizontalAlignment = Alignment.CenterHorizontally,
-			verticalArrangement = Arrangement.spacedBy(8.dp),
+			verticalArrangement = Arrangement.spacedBy(4.dp),
 			modifier = Modifier
 				.fillMaxSize()
 				.padding(bottom = 112.dp)
 		) {
-			RecorderTimerText(
-				time = timer,
-				fontFamily = DownloadableFonts.SPLINE_SANS_MONO_FONT_FAMILY,
-				style = MaterialTheme.typography.headlineLarge,
-			)
-			AssociatedRecorderActions(
-				onAddBookMark = { onRecorderAction(RecorderAction.AddBookMarkAction) },
-				recorderState = recorderState,
-				transcriptionSettings = transcriptionSettings,
-				onOpenSettings = onNavigateToSettings,
-				onToggleLiveTranscription = onToggleLiveTranscription,
-				modifier = Modifier.align(Alignment.CenterHorizontally)
-			)
+			// compact header: timer and chips share one (wrapping) row so transcript + key points get the space
+			androidx.compose.foundation.layout.FlowRow(
+				horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+				verticalArrangement = Arrangement.Center,
+				itemVerticalAlignment = Alignment.CenterVertically,
+				modifier = Modifier.fillMaxWidth(),
+			) {
+				RecorderTimerText(
+					time = timer,
+					fontFamily = DownloadableFonts.SPLINE_SANS_MONO_FONT_FAMILY,
+					style = MaterialTheme.typography.titleLarge,
+				)
+				AssociatedRecorderActions(
+					onAddBookMark = { onRecorderAction(RecorderAction.AddBookMarkAction) },
+					recorderState = recorderState,
+					transcriptionSettings = transcriptionSettings,
+					onOpenSettings = onNavigateToSettings,
+					onToggleLiveTranscription = onToggleLiveTranscription,
+				)
+			}
 			RecorderAmplitudeGraph(
 				recoderPointsCallback = recordingPointsCallback,
 				bookMarksDeferred = bookMarksDeferred,
 				timelineFontFamily = DownloadableFonts.PLUS_CODE_LATIN_FONT_FAMILY,
-				aspectRatio = 4f,
-				minGraphHeight = 64.dp,
+				aspectRatio = 8f,
+				minGraphHeight = 48.dp,
 				modifier = Modifier.fillMaxWidth(),
 			)
 			if (liveCloud.active) {

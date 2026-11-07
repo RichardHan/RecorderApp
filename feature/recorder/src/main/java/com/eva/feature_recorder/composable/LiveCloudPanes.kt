@@ -105,7 +105,9 @@ private fun MergedTranscriptPane(
 				color = if (flash) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
 			)
 			LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.weight(1f).padding(top = 6.dp)) {
-				items(merged) { line ->
+				items(merged) { raw ->
+					// bounded render: a single runaway line can never flood the screen
+					val line = if (raw.text.length > 500) raw.copy(text = raw.text.take(500) + "…（已截斷顯示）") else raw
 					val t = line.startMs?.let { "%d:%02d ".format(it / 60_000, it / 1000 % 60) } ?: ""
 					when (line.kind) {
 						K.CLOUD -> Text("$t☁ ${line.text}", fontFamily = fontFamily, style = MaterialTheme.typography.bodyMedium)
@@ -114,6 +116,8 @@ private fun MergedTranscriptPane(
 						K.OFFLINE_UNALIGNED -> Text("離線（無時間戳，未對齊）${line.text}", fontFamily = fontFamily, fontStyle = FontStyle.Italic,
 							style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 						K.CLOUD_FAILED -> Text("$t⚠ 雲端：${line.text}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+						K.CLOUD_SUSPICIOUS -> Text("$t⚠ 雲端疑似重複幻覺，未採用（原文保留）：${line.text}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+						K.OFFLINE_SUSPICIOUS -> Text("$t⚠ 離線疑似重複輸出，未送重點：${line.text}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
 					}
 				}
 				if (offline.partial.isNotBlank()) item {

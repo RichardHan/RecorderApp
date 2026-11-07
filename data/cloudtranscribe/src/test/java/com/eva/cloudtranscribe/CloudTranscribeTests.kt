@@ -169,7 +169,7 @@ class EngineTests {
 	}
 
 	@Test fun hallucinationWarningOptional() = runBlocking {
-		val client = ScriptedClient { r, _ -> CallOutcome.Text(if (r.startsWith("0-")) "x".repeat(1000) else "short text") }
+		val client = ScriptedClient { r, _ -> CallOutcome.Text(if (r.startsWith("0-")) (0 until 1000).map { '一' + (it * 7919 % 2000) }.joinToString("") else "short text") }
 		val on = CloudTranscriptionEngine(client, MemCheckpoints(), cfg()).run(FakeSource(1_200_000))
 		assertTrue(on.text.contains("可能幻覺"))
 		val off = CloudTranscriptionEngine(client, MemCheckpoints(), cfg().copy(hallucinationWarning = false)).run(FakeSource(1_200_000))
@@ -265,5 +265,54 @@ class AudioAndStoreTests {
 		assertEquals(setOf("off1", "cloud1"), store.transcripts(7).map { it.id }.toSet())
 		assertEquals("a", store.transcript(7, "off1")!!.text)
 		dir.walkTopDown().filter { it.isFile }.forEach { assertFalse(it.readText().contains(KEY)) }
+	}
+}
+
+class HallucinationGuardTests {
+	private val guard = com.eva.cloudtranscribe.engine.RepetitionGuard
+	private val prompts = com.eva.cloudtranscribe.engine.Prompts
+
+	@Test fun flagsLongLoops() {
+		assertTrue(guard.isPathological("嗯".repeat(300)))
+		assertTrue(guard.isPathological(List(40) { "嗯" }.joinToString("\n")))
+		assertTrue(guard.isPathological("好的，".repeat(60)))
+	}
+	@Test fun keepsNormalFillers() {
+		assertFalse(guard.isPathological("嗯嗯"))
+		assertFalse(guard.isPathological("好好好，那我們開始"))
+		assertFalse(guard.isPathological("嗯嗯，我覺得這個 API 的 latency 太高了，我們下週再討論 deploy 的時程，好好好。"))
+		assertFalse(guard.isPathological(""))
+	}
+	@Test fun noSpeechMarkerParsed() {
+		assertTrue(prompts.isNoSpeech("[NO SPEECH]"))
+		assertTrue(prompts.isNoSpeech("  [NO SPEECH]\n"))
+		assertFalse(prompts.isNoSpeech("他說 no speech"))
+	}
+	@Test fun promptHasMarkerAndNoFillerPriming() {
+		for (p in listOf(prompts.TRANSCRIBE, prompts.TRANSCRIBE_ALT)) {
+			assertTrue(p.contains(prompts.NO_SPEECH))
+			assertTrue(p.contains("聽不清楚"))
+			assertFalse(p.contains("嗯"))
+		}
+	}
+	@Test fun engineMapsNoSpeechToSilentAndLoopToFailedKeepingRaw() = runBlocking {
+		val loop = "嗯".repeat(300)
+		val client = ScriptedClient { r, _ -> if (r.startsWith("0-")) CallOutcome.Text("[NO SPEECH]") else CallOutcome.Text(loop) }
+		val res = CloudTranscriptionEngine(client, MemCheckpoints(), cfg()).run(FakeSource(400_000))
+		assertEquals(SegmentStatus.SILENT, res.segments[0].status)
+		assertEquals(SegmentStatus.FAILED, res.segments[1].status)
+		assertEquals(loop, res.segments[1].text)
+		assertFalse(res.text.contains("嗯嗯嗯嗯"))
+		assertFalse(res.text.contains("NO SPEECH"))
+	}
+	@Test fun emptyOrSuspiciousCloudNeverHidesOffline() {
+		val offline = listOf(com.eva.cloudtranscribe.live.OfflineLine(1_000, "離線文字"))
+		val spans = listOf(
+			com.eva.cloudtranscribe.live.CloudSpan(0, 30_000, ""),
+			com.eva.cloudtranscribe.live.CloudSpan(30_000, 60_000, "嗯".repeat(300), suspicious = true),
+		)
+		assertEquals(1, com.eva.cloudtranscribe.live.TranscriptMerge.provisional(spans, offline).size)
+		assertEquals(0L, com.eva.cloudtranscribe.live.TranscriptMerge.coveredEndMs(spans))
+		assertEquals("", com.eva.cloudtranscribe.live.TranscriptMerge.cloudText(spans))
 	}
 }

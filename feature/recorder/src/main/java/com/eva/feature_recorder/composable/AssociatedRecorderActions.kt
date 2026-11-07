@@ -62,7 +62,7 @@ internal fun AssociatedRecorderActions(
 
 	Row(
 		modifier = modifier,
-		horizontalArrangement = Arrangement.spacedBy(12.dp),
+		horizontalArrangement = Arrangement.spacedBy(6.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
 		// real on/off switch for live on-device captions (persists the preference; service follows it live)

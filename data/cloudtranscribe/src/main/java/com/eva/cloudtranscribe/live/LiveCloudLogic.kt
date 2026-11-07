@@ -30,17 +30,17 @@ object SummaryGate {
 /** Merges cloud spans with provisional offline lines without duplicating audio already covered by cloud. */
 object TranscriptMerge {
 	/** End of the contiguous-or-not region covered by any cloud span attempt (failed spans count: offline stays visible there). */
-	fun coveredEndMs(spans: List<CloudSpan>): Long = spans.filter { it.ok }.maxOfOrNull { it.endMs } ?: 0L
+	fun coveredEndMs(spans: List<CloudSpan>): Long = spans.filter { it.covers }.maxOfOrNull { it.endMs } ?: 0L
 
 	/** Offline lines that are not inside any successful cloud span; these are shown/sent as provisional. */
 	fun provisional(spans: List<CloudSpan>, offline: List<OfflineLine>): List<OfflineLine> {
-		val ok = spans.filter { it.ok }
+		val ok = spans.filter { it.covers }
 		return offline.filter { line -> ok.none { line.startMs >= it.startMs && line.startMs < it.endMs } }
 			.sortedBy { it.startMs }
 	}
 
 	fun cloudText(spans: List<CloudSpan>): String =
-		spans.sortedBy { it.startMs }.filter { it.ok && it.text.isNotBlank() }.joinToString("\n") { it.text.trim() }
+		spans.sortedBy { it.startMs }.filter { it.covers }.joinToString("\n") { it.text.trim() }
 
 	/** Builds the summary request text: previous key points + new cloud text + provisional offline text. Never rewrites the transcript. */
 	fun summaryPrompt(
@@ -88,7 +88,7 @@ class SessionGuard {
 
 /** One line of the merged live view. */
 data class MergedLine(val startMs: Long?, val text: String, val kind: Kind) {
-	enum class Kind { CLOUD, OFFLINE_PROVISIONAL, OFFLINE_UNALIGNED, CLOUD_FAILED }
+	enum class Kind { CLOUD, OFFLINE_PROVISIONAL, OFFLINE_UNALIGNED, CLOUD_FAILED, CLOUD_SUSPICIOUS, OFFLINE_SUSPICIOUS }
 }
 
 /**
@@ -103,20 +103,25 @@ object LiveMerge {
 		timedOffline: List<OfflineLine>,
 		untimedOffline: List<String> = emptyList(),
 	): List<MergedLine> {
-		val ok = spans.filter { it.ok }
+		val ok = spans.filter { it.covers }
 		val out = ArrayList<MergedLine>()
-		ok.filter { it.text.isNotBlank() }.forEach { out += MergedLine(it.startMs, it.text.trim(), MergedLine.Kind.CLOUD) }
-		spans.filter { !it.ok }.forEach { sp ->
+		ok.forEach { out += MergedLine(it.startMs, it.text.trim(), MergedLine.Kind.CLOUD) }
+		spans.filter { !it.ok || it.suspicious }.forEach { sp ->
 			// a failed chunk whose range was later covered by a successful one is not shown
 			if (ok.none { it.startMs <= sp.startMs && it.endMs >= sp.endMs })
-				out += MergedLine(sp.startMs, sp.error ?: "雲端轉錄失敗", MergedLine.Kind.CLOUD_FAILED)
+				out += if (sp.suspicious) MergedLine(sp.startMs, com.eva.cloudtranscribe.engine.RepetitionGuard.preview(sp.text), MergedLine.Kind.CLOUD_SUSPICIOUS)
+				else MergedLine(sp.startMs, sp.error ?: "雲端轉錄失敗", MergedLine.Kind.CLOUD_FAILED)
 		}
-		TranscriptMerge.provisional(spans, timedOffline).forEach { out += MergedLine(it.startMs, it.text, MergedLine.Kind.OFFLINE_PROVISIONAL) }
+		TranscriptMerge.provisional(spans, timedOffline).forEach {
+			out += if (com.eva.cloudtranscribe.engine.RepetitionGuard.isPathological(it.text))
+				MergedLine(it.startMs, com.eva.cloudtranscribe.engine.RepetitionGuard.preview(it.text), MergedLine.Kind.OFFLINE_SUSPICIOUS)
+			else MergedLine(it.startMs, it.text, MergedLine.Kind.OFFLINE_PROVISIONAL)
+		}
 		out.sortWith(compareBy<MergedLine> { it.startMs ?: Long.MAX_VALUE }.thenBy { it.kind.ordinal })
 		if (timedOffline.isEmpty()) untimedOffline.filter { it.isNotBlank() }.forEach { out += MergedLine(null, it, MergedLine.Kind.OFFLINE_UNALIGNED) }
 		return out
 	}
 
 	/** End of the latest successful cloud chunk, for the "雲端已更新" indicator. */
-	fun latestCloudEndMs(spans: List<CloudSpan>): Long? = spans.filter { it.ok }.maxOfOrNull { it.endMs }
+	fun latestCloudEndMs(spans: List<CloudSpan>): Long? = spans.filter { it.covers }.maxOfOrNull { it.endMs }
 }

@@ -130,18 +130,23 @@ class LiveCloudSession(
 		transcribing = false
 		if (!guard.isCurrent(sessionId)) return
 		val span = when (outcome) {
-			is CallOutcome.Text -> CloudSpan(chunk.startMs, chunk.endMs, outcome.text)
+			is CallOutcome.Text -> when {
+				com.eva.cloudtranscribe.engine.Prompts.isNoSpeech(outcome.text) -> CloudSpan(chunk.startMs, chunk.endMs, "")
+				com.eva.cloudtranscribe.engine.RepetitionGuard.isPathological(outcome.text) ->
+					CloudSpan(chunk.startMs, chunk.endMs, outcome.text, ok = true, suspicious = true, error = com.eva.cloudtranscribe.engine.RepetitionGuard.WARNING)
+				else -> CloudSpan(chunk.startMs, chunk.endMs, outcome.text)
+			}
 			CallOutcome.Empty -> CloudSpan(chunk.startMs, chunk.endMs, "")
 			CallOutcome.ContentFiltered -> CloudSpan(chunk.startMs, chunk.endMs, "", ok = false, error = "內容被服務過濾")
 			is CallOutcome.Failure -> CloudSpan(chunk.startMs, chunk.endMs, "", ok = false, error = outcome.message)
 		}
 		synchronized(lock) {
-			if (span.ok) { successfulChunks++; if (span.text.isNotBlank()) contentVersion++ }
+			if (span.ok && !span.suspicious) { successfulChunks++; if (span.covers) contentVersion++ }
 		}
 		_state.update {
 			it.copy(
 				cloudSpans = (it.cloudSpans + span).sortedBy { s -> s.startMs },
-				transcribeError = if (span.ok) null else span.error,
+				transcribeError = if (span.ok && !span.suspicious) null else span.error,
 				phase = LiveCloudPhase.IDLE,
 				pendingChunks = queue.size(),
 			)
@@ -171,9 +176,9 @@ class LiveCloudSession(
 		if (!run || closed && !force) return null
 		val versionAtStart = synchronized(lock) { contentVersion }
 		val snapshot = _state.value
-		val okSpans = snapshot.cloudSpans.filter { it.ok }
+		val okSpans = snapshot.cloudSpans.filter { it.covers }
 		val newCloud = TranscriptMerge.cloudText(okSpans.drop(summarizedSpanCount))
-		val provisionalText = snapshot.provisional.joinToString("\n") { it.text }
+		val provisionalText = snapshot.provisional.filterNot { com.eva.cloudtranscribe.engine.RepetitionGuard.isPathological(it.text) }.joinToString("\n") { it.text }
 		val prompt = TranscriptMerge.summaryPrompt(settings.summaryPrompt, snapshot.keyPoints, newCloud, provisionalText)
 		val job = scope.launch {
 			_state.update { it.copy(phase = LiveCloudPhase.SUMMARIZING) }
