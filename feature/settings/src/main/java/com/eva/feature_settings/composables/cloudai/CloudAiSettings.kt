@@ -108,20 +108,6 @@ internal class CloudAiSettingsViewModel @Inject constructor(
 	fun removeKey() = keys.clear()
 }
 
-/** Cloud tab: switch between Google Drive backup and AI (cloud transcription / summary) settings. */
-@Composable
-internal fun CloudTabContent(modifier: Modifier = Modifier) {
-	var tab by rememberSaveable { mutableIntStateOf(0) }
-	Column(modifier.fillMaxSize()) {
-		SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-			listOf("Google Drive", "AI 轉錄／摘要").forEachIndexed { i, label ->
-				SegmentedButton(selected = tab == i, onClick = { tab = i }, shape = SegmentedButtonDefaults.itemShape(i, 2)) { Text(label) }
-			}
-		}
-		if (tab == 0) DriveSettingsContent() else CloudAiSettingsContent()
-	}
-}
-
 @Composable
 internal fun CloudAiSettingsContent(
 	modifier: Modifier = Modifier,

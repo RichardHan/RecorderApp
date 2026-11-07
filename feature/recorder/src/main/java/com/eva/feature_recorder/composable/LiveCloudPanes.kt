@@ -12,7 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -62,15 +62,17 @@ internal fun LiveTranscriptPanes(
 	var tab by rememberSaveable { mutableIntStateOf(0) }
 	val current = tabs.getOrElse(tab) { tabs.first() }
 	Column(modifier) {
-		PrimaryTabRow(selectedTabIndex = tabs.indexOf(current)) {
-			tabs.forEachIndexed { i, t -> Tab(selected = t == current, onClick = { tab = i }, text = { Text(t) }) }
-		}
-		val paneModifier = Modifier.fillMaxWidth().weight(1f).padding(top = 6.dp)
+		val paneModifier = Modifier.fillMaxWidth().weight(1f).padding(bottom = 4.dp)
 		when (current) {
 			"即時字幕" -> RecorderLiveTranscriptionText(offline, paneModifier, isActive, fontFamily)
 			"雲端稿" -> CloudTranscriptPane(cloud, paneModifier, fontFamily)
 			else -> KeyPointsPane(cloud, paneModifier)
 		}
+		// view switcher at the bottom, just above the recorder controls (user request)
+		SecondaryTabRow(selectedTabIndex = tabs.indexOf(current)) {
+			tabs.forEachIndexed { i, t -> Tab(selected = t == current, onClick = { tab = i }, text = { Text(t) }) }
+		}
+
 	}
 }
 

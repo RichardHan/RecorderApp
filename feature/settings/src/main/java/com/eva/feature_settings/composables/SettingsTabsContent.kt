@@ -12,7 +12,7 @@ import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -37,6 +37,7 @@ internal fun SettingsTabContent(
     modifier: Modifier = Modifier,
     transcriptionSettings: @Composable () -> Unit = {},
 	cloudSettings: @Composable () -> Unit = {},
+	aiSettings: @Composable () -> Unit = {},
     initialTab: SettingsTabs = SettingsTabs.AUDIO_SETTINGS,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
@@ -55,8 +56,10 @@ internal fun SettingsTabContent(
         modifier = modifier.padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        PrimaryTabRow(
+        // 5 tabs: scrollable so no label (e.g. "AI") is clipped on narrow phones
+        PrimaryScrollableTabRow(
             selectedTabIndex = selectedTabIndex,
+            edgePadding = 0.dp,
         ) {
             SettingsTabs.entries.forEach { tab ->
                 Tab(
@@ -114,6 +117,7 @@ internal fun SettingsTabContent(
                 SettingsTabs.FILES_SETTINGS.tabIndex -> filesSettings()
                 SettingsTabs.TRANSCRIPTIONS_SETTINGS.tabIndex -> transcriptionSettings()
 				SettingsTabs.CLOUD_SETTINGS.tabIndex -> cloudSettings()
+				SettingsTabs.AI_SETTINGS.tabIndex -> aiSettings()
                 else -> {}
             }
         }
