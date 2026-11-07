@@ -200,3 +200,56 @@ class LiveCloudTests {
 		assertEquals(-1, PlaybackTranscripts.activeIndex(lines, 150_000))
 	}
 }
+
+class SummaryProbeTests {
+	private val base = com.eva.cloudtranscribe.live.LiveCloudSettings(summaryBaseUrl = "https://rone.example/v1", summaryPrompt = "自訂重點Prompt")
+	private class Fake(val code: Int = 200, val body: String = """{"choices":[{"message":{"content":"- 報價單週三前完成"}}]}""", val ex: java.io.IOException? = null) : com.eva.cloudtranscribe.api.HttpTransport {
+		val urls = mutableListOf<String>(); val headers = mutableListOf<Map<String, String>>(); val bodies = mutableListOf<String>()
+		override fun postJson(url: String, headers: Map<String, String>, body: String, timeoutSeconds: Int): com.eva.cloudtranscribe.api.HttpResponse {
+			urls += url; this.headers += headers; bodies += body; ex?.let { throw it }
+			return com.eva.cloudtranscribe.api.HttpResponse(code, body = this.body)
+		}
+	}
+	private fun run(s: com.eva.cloudtranscribe.live.LiveCloudSettings, f: Fake, sk: String? = "SUMKEY", ak: String? = "ASRKEY") =
+		com.eva.cloudtranscribe.live.SummaryProbe.run(s, sk, ak, f)
+
+	@Test fun usesSeparateEndpointModelKeyAndPrompt() {
+		val f = Fake(); val r = run(base, f)
+		assertTrue(r, r.startsWith("摘要測試成功"))
+		assertEquals("https://rone.example/v1/chat/completions", f.urls.single())
+		assertEquals("Bearer SUMKEY", f.headers.single()["Authorization"])
+		assertTrue(f.bodies.single().contains("deepseek-v4.1-flash") && f.bodies.single().contains("自訂重點Prompt") && f.bodies.single().contains("報價單"))
+		assertTrue(f.bodies.single().contains("\"max_tokens\":200"))
+		assertFalse(f.bodies.single().contains("reasoning_effort"))
+	}
+	@Test fun reuseOnlyWhenExplicit() {
+		val f = Fake(); run(base.copy(summaryReuseTranscribeKey = true), f)
+		assertEquals("Bearer ASRKEY", f.headers.single()["Authorization"])
+		assertTrue(run(base, Fake(), sk = null).contains("尚未設定摘要 API Key"))
+		assertTrue(run(base.copy(summaryReuseTranscribeKey = true), Fake(), ak = null).contains("轉錄 Key 尚未設定"))
+	}
+	@Test fun validatesEndpointAndModelWithoutCalling() {
+		val f = Fake()
+		assertTrue(run(base.copy(summaryBaseUrl = "http://x"), f).contains("HTTPS"))
+		assertTrue(run(base.copy(summaryModel = ""), f).contains("模型"))
+		assertTrue(f.urls.isEmpty())
+	}
+	@Test fun worksWhenAdvancedModeDisabled() = assertFalse(base.enabled).also { assertTrue(run(base, Fake()).startsWith("摘要測試成功")) }
+	@Test fun authErrorIsSafeAndNotRetried() {
+		val f = Fake(401, """{"error":"bad key SUMKEY secret-detail"}""")
+		val r = run(base, f)
+		assertTrue(r.contains("HTTP 401")); assertFalse(r.contains("SUMKEY")); assertFalse(r.contains("secret-detail"))
+		assertEquals(1, f.urls.size)
+	}
+	@Test fun timeoutAndRateLimitAndEmpty() {
+		assertTrue(run(base, Fake(ex = java.net.SocketTimeoutException("http://SUMKEY"))).contains("逾時"))
+		assertTrue(run(base, Fake(429)).contains("HTTP 429"))
+		assertTrue(run(base, Fake(body = """{"choices":[{"message":{"content":""}}]}""")).contains("未回傳有效文字"))
+	}
+	@Test fun previewRedactsKey() {
+		val r = run(base, Fake(body = """{"choices":[{"message":{"content":"echo SUMKEY ok"}}]}"""))
+		assertFalse(r.contains("SUMKEY"))
+	}
+	@Test fun promptUsesEmptyPreviousSummary() =
+		assertTrue(com.eva.cloudtranscribe.live.SummaryProbe.buildPrompt(base).contains("（尚無）"))
+}
