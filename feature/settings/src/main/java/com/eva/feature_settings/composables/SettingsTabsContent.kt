@@ -12,7 +12,7 @@ import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryScrollableTabRow
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -23,6 +23,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,12 +58,10 @@ internal fun SettingsTabContent(
         modifier = modifier.padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        // 5 tabs: scrollable so no label (e.g. "AI") is clipped on narrow phones
-        PrimaryScrollableTabRow(
-            selectedTabIndex = selectedTabIndex,
-            edgePadding = 0.dp,
-        ) {
+        // 5 fixed equal-width tabs, all visible at once (short single-line labels; full name for accessibility)
+        PrimaryTabRow(selectedTabIndex = selectedTabIndex) {
             SettingsTabs.entries.forEach { tab ->
+                val fullName = tab.textRes
                 Tab(
                     selected = tab.tabIndex == selectedTabIndex,
                     onClick = {
@@ -69,31 +69,15 @@ internal fun SettingsTabContent(
                         if (index != selectedTabIndex)
                             scope.launch { pagerState.animateScrollToPage(index) }
                     },
+                    modifier = Modifier.semantics { contentDescription = fullName },
                     text = {
-                        Column(
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Text(
-                                text = tab.textRes,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            if (tab == SettingsTabs.TRANSCRIPTIONS_SETTINGS) {
-                                Surface(
-                                    color = MaterialTheme.colorScheme.tertiaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                                    shape = RoundedCornerShape(12.dp),
-                                ) {
-                                    Text(
-                                        text = "Alpha",
-                                        maxLines = 1,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    )
-                                }
-                            }
-                        }
+                        Text(
+                            text = tab.shortLabel,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
                     },
                 )
             }
