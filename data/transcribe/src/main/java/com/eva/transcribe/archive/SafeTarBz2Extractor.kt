@@ -27,7 +27,10 @@ object SafeTarBz2Extractor {
 		return parts.drop(1).joinToString("/")
 	}
 
-	fun extract(archive: InputStream, destination: File, files: List<ModelFileEntry>, isCancelled: () -> Boolean = { false }) {
+	fun extract(
+		archive: InputStream, destination: File, files: List<ModelFileEntry>, isCancelled: () -> Boolean = { false },
+		onBytes: (written: Long, total: Long) -> Unit = { _, _ -> },
+	) {
 		require(files.isNotEmpty()) { "Manifest is empty" }
 		val wanted = files.associateBy { it.path }
 		val limit = files.sumOf { it.sizeBytes }
@@ -58,6 +61,7 @@ object SafeTarBz2Extractor {
 						written += n; total += n
 						if (written > spec.sizeBytes || total > limit) throw IOException("Archive exceeds manifest size")
 						md.update(buf, 0, n)
+						onBytes(total, limit)
 						o.write(buf, 0, n)
 					}
 				}
