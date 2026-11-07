@@ -4,6 +4,8 @@ package com.eva.recorder.domain.recorder
 enum class LiveTranscriptStatus {
 	/** Transcription off or no model selected. */
 	DISABLED,
+	/** Switch on but no downloaded model selected. */
+	NO_MODEL,
 	LOADING,
 	/** Listening; sentence-mode engines only emit text after a pause. */
 	LISTENING,
