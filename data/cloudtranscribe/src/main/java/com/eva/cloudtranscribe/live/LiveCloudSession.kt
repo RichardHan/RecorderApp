@@ -153,7 +153,10 @@ class LiveCloudSession(
 	private fun publishProvisional() {
 		val lines = synchronized(lock) { offline }
 		_state.update { s ->
-			s.copy(provisional = if (settings.offlineSupplement) TranscriptMerge.provisional(s.cloudSpans, lines) else emptyList())
+			s.copy(
+				provisional = if (settings.offlineSupplement) TranscriptMerge.provisional(s.cloudSpans, lines) else emptyList(),
+				offlineTimed = lines,
+			)
 		}
 	}
 

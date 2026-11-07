@@ -1,5 +1,6 @@
 package com.eva.cloudtranscribe
 
+import com.eva.cloudtranscribe.live.MergedLine.Kind as K
 import com.eva.cloudtranscribe.api.CallOutcome
 import com.eva.cloudtranscribe.live.BoundedChunkQueue
 import com.eva.cloudtranscribe.live.CloudSpan
@@ -252,4 +253,51 @@ class SummaryProbeTests {
 	}
 	@Test fun promptUsesEmptyPreviousSummary() =
 		assertTrue(com.eva.cloudtranscribe.live.SummaryProbe.buildPrompt(base).contains("（尚無）"))
+}
+
+class LiveMergeTests {
+	private fun m(spans: List<CloudSpan>, off: List<OfflineLine>, untimed: List<String> = emptyList()) =
+		com.eva.cloudtranscribe.live.LiveMerge.merge(spans, off, untimed)
+
+	@Test fun beforeCloudShowsAllOfflineProvisional() =
+		assertEquals(listOf("a", "b"), m(emptyList(), listOf(OfflineLine(0, "a"), OfflineLine(5_000, "b"))).map { it.text })
+
+	@Test fun cloudReplacesOnlyCoveredRangeKeepsNewestOffline() {
+		val r = m(listOf(CloudSpan(0, 60_000, "雲一")), listOf(OfflineLine(1_000, "離一"), OfflineLine(61_000, "離二")))
+		assertEquals(listOf("雲一" to K.CLOUD, "離二" to K.OFFLINE_PROVISIONAL), r.map { it.text to it.kind })
+	}
+
+	@Test fun outOfOrderSpansAndGapsSortedByTime() {
+		val r = m(listOf(CloudSpan(120_000, 180_000, "雲三"), CloudSpan(0, 60_000, "雲一")),
+			listOf(OfflineLine(70_000, "離gap"), OfflineLine(130_000, "離覆蓋")))
+		assertEquals(listOf("雲一", "離gap", "雲三"), r.map { it.text })
+	}
+
+	@Test fun failedChunkKeepsOfflineAndMarker() {
+		val r = m(listOf(CloudSpan(0, 60_000, "", ok = false, error = "HTTP 500")), listOf(OfflineLine(1_000, "離")))
+		assertEquals(listOf(K.CLOUD_FAILED, K.OFFLINE_PROVISIONAL), r.map { it.kind })
+	}
+
+	@Test fun failedLaterCoveredIsHidden() {
+		val r = m(listOf(CloudSpan(0, 60_000, "", ok = false), CloudSpan(0, 60_000, "雲")), emptyList())
+		assertEquals(listOf("雲"), r.map { it.text })
+	}
+
+	@Test fun emptyCloudSpanStillCoversOffline() =
+		assertTrue(m(listOf(CloudSpan(0, 60_000, "")), listOf(OfflineLine(1_000, "雜訊"))).isEmpty())
+
+	@Test fun partialOverlapUsesLineStartOnly() {
+		// offline line starting at 59.5s belongs to the covered chunk; one at 60s does not
+		val r = m(listOf(CloudSpan(0, 60_000, "雲")), listOf(OfflineLine(59_500, "跨界"), OfflineLine(60_000, "下一段")))
+		assertEquals(listOf("雲", "下一段"), r.map { it.text })
+	}
+
+	@Test fun untimedVoskNeverAligned() {
+		val r = m(listOf(CloudSpan(0, 60_000, "雲")), emptyList(), listOf("vosk一", "vosk二"))
+		assertEquals(listOf(K.CLOUD, K.OFFLINE_UNALIGNED, K.OFFLINE_UNALIGNED), r.map { it.kind })
+		assertNull(r[1].startMs)
+	}
+
+	@Test fun latestCloudEnd() = assertEquals(120_000L,
+		com.eva.cloudtranscribe.live.LiveMerge.latestCloudEndMs(listOf(CloudSpan(0, 60_000, "a"), CloudSpan(60_000, 120_000, "b"), CloudSpan(120_000, 180_000, "", ok = false))))
 }
