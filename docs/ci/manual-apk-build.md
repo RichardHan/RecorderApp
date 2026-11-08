@@ -52,3 +52,7 @@ AGP 會優先從 `ANDROID_USER_HOME` 找 debug keystore。restore 步驟會把 `
 ## sherpa-onnx AAR 下載
 
 `settings.gradle.kts` 會從官方 GitHub release 下載 sherpa-onnx AAR，只試一次。workflow 會先用同一個網址做相同的有限次重試（6 次），以 `settings.gradle.kts` 裡固定的 SHA-256 驗證，再透過文件化的 `SHERPA_ONNX_AAR` 環境變數交給 Gradle（Gradle 會再驗一次 hash）。
+
+## Gradle 依賴下載重試
+
+build 指令帶 `org.gradle.internal.repository.max.tentatives=6`、`initial.backoff=5000`，以及 HTTP 連線/讀取逾時（60s/120s）。這些是 Gradle 的內部屬性（可用但官方不保證支援），只在 CI 指令列設定，不影響本機 build。
