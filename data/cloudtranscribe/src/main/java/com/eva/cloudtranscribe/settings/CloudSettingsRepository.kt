@@ -30,7 +30,8 @@ class CloudSettingsRepository @Inject constructor(@ApplicationContext private va
 	suspend fun update(transform: (CloudSettings) -> CloudSettings) {
 		context.cloudAiPrefs.edit { prefs ->
 			val now = prefs[key]?.let { runCatching { json.decodeFromString(CloudSettings.serializer(), it) }.getOrNull() } ?: CloudSettings()
-			prefs[key] = json.encodeToString(CloudSettings.serializer(), transform(now))
+			val updated = transform(now)
+			prefs[key] = json.encodeToString(CloudSettings.serializer(), updated.copy(vocabularyHints = updated.normalizedVocabularyHints))
 		}
 	}
 }
