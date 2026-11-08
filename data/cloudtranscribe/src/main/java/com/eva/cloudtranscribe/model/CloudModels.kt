@@ -127,4 +127,7 @@ data class SummaryRecord(
 	val style: SummaryStyle = SummaryStyle.BRIEF,
 	/** Exact endpoint approved when the request was queued; null for legacy summaries. */
 	val approvedEndpoint: String? = null,
+	/** Immutable evidence used by this summary, even if its transcript is retried later. */
+	val sourceSnapshot: List<MeetingNotes.Source> = emptyList(),
+	val sourceTranscriptUpdatedAtMillis: Long? = null,
 )

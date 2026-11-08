@@ -1,20 +1,23 @@
 package com.eva.cloudtranscribe.model
 
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 
 /** Structured post-recording notes. Source IDs validate provenance existence, not the model's factual claims. */
 object MeetingNotes {
+	@Serializable
 	data class Source(val id: String, val text: String, val startMs: Long? = null, val endMs: Long? = null)
 	data class Rendered(val text: String, val complete: Boolean)
 
 	fun sources(record: TranscriptRecord): List<Source> {
-		val parts = record.segments.sortedBy { it.startMs }
-			.flatMap { if (it.parts.isEmpty()) listOf(it) else it.parts.sortedBy { p -> p.startMs } }
-			.filter { it.status == SegmentStatus.OK && it.text.isNotBlank() }
+		val parts = record.segments.sortedBy { it.startMs }.flatMap { parent ->
+			if (parent.parts.isEmpty()) listOf("S${parent.index + 1}" to parent)
+			else parent.parts.sortedBy { it.startMs }.map { "S${parent.index + 1}P${it.index + 1}" to it }
+		}.filter { (_, s) -> s.status == SegmentStatus.OK && s.text.isNotBlank() }
 		if (parts.isEmpty()) return if (record.text.isBlank() || record.segments.isNotEmpty()) emptyList() else listOf(Source("T1", record.text))
-		return parts.mapIndexed { i, s ->
+		return parts.map { (id, s) ->
 			val timed = s.startMs >= 0 && s.endMs > s.startMs
-			Source("S${i + 1}", s.text, s.startMs.takeIf { timed }, s.endMs.takeIf { timed })
+			Source(id, s.text, s.startMs.takeIf { timed }, s.endMs.takeIf { timed })
 		}
 	}
 
@@ -44,7 +47,9 @@ $data"""
 			val valid = sources(record).associateBy { it.id }
 			var complete = record.status == RunStatus.SUCCESS
 			fun citation(o: JsonObject): String {
-				val ids = (o["sourceIds"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }.orEmpty()
+				val refs = o["sourceIds"] as? JsonArray
+				if (refs == null || refs.any { it !is JsonPrimitive || !it.isString || it.content.isBlank() }) { complete = false; return "來源待核" }
+				val ids = refs.map { it.jsonPrimitive.content }
 				if (ids.isEmpty() || ids.any { it !in valid }) { complete = false; return "來源待核" }
 				return ids.distinct().joinToString("、") { id ->
 					val s = valid.getValue(id)

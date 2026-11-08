@@ -60,4 +60,16 @@ class MeetingNotesTests {
 		assertEquals(SummaryStyle.BRIEF, decoded.style)
 		assertEquals("old summary", decoded.text)
 	}
+	@Test fun `retrying an earlier failed segment does not renumber later citations`() {
+		val failed = SegmentResult(0, 0, 1000, SegmentStatus.FAILED)
+		val good = SegmentResult(1, 1000, 2000, SegmentStatus.OK, "Decision")
+		assertEquals("S2", MeetingNotes.sources(record(segments = listOf(failed, good))).single().id)
+		val repaired = failed.copy(status = SegmentStatus.OK, text = "Recovered")
+		assertEquals("S2", MeetingNotes.sources(record(segments = listOf(repaired, good))).last().id)
+	}
+	@Test fun `malformed citation elements are not silently discarded`() {
+		val malformed = response().replace("[\"T1\"]", "[\"T1\",{}]")
+		assertFalse(MeetingNotes.render(malformed, record()).complete)
+	}
+
 }
