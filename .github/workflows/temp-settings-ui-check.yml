@@ -3,7 +3,8 @@ name: TEMP settings ui check
 # Temporary verification for PR #2: the full instrumented workflow exceeds its 45-minute job limit, so this runs only
 # the affected module's UI test. Removed again once the focused run is green.
 on:
-  workflow_dispatch:
+  push:
+    branches: [ feat/meeting-agenda-context ]
 
 permissions:
   contents: read
