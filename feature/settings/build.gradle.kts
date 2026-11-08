@@ -11,8 +11,9 @@ android {
 	}
 	packaging {
 		resources {
-			// two google-auth jars (via :data:drive) both ship META-INF/INDEX.LIST and break the androidTest APK merge
-			excludes += "META-INF/INDEX.LIST"
+			// two google-auth jars (via :data:drive) ship the same META-INF/INDEX.LIST and META-INF/DEPENDENCIES, which
+			// breaks the androidTest APK merge; same exclusion list as :app
+			excludes += "/META-INF/{AL2.0,LGPL2.1,INDEX.LIST,DEPENDENCIES}"
 		}
 	}
 }
