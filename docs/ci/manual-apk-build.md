@@ -44,3 +44,7 @@ workflow 在 build 前先執行「Pre-fetch Gradle wrapper distribution」步驟
 - 若 setup-gradle 快取已有安裝好的發行版（`.ok` 標記存在）就直接略過。
 
 這只降低暫時性網路錯誤的影響；官方來源長時間無法連線時，build 仍會失敗。
+
+## Debug keystore 路徑
+
+AGP 會優先從 `ANDROID_USER_HOME` 找 debug keystore。restore 步驟會把 `ANDROID_USER_HOME` 設成 `$HOME/.android`，並在 build 前用 keytool 比對憑證 SHA-256（只印公開指紋）；不符就直接失敗，不會產出用別把 key 簽的 APK。
