@@ -236,7 +236,7 @@ class CloudSummaryWorker @AssistedInject constructor(
 			if (outcome is CallOutcome.Text) {
 				if (record.style == SummaryStyle.BRIEF) return done(record.copy(status = RunStatus.SUCCESS, text = outcome.text))
 				val rendered = MeetingNotes.render(outcome.text, transcript)
-				return done(record.copy(status = if (rendered.complete) RunStatus.SUCCESS else RunStatus.PARTIAL, text = rendered.text))
+				return done(record.copy(status = if (rendered.complete) RunStatus.SUCCESS else RunStatus.PARTIAL, text = rendered.text, sourceSnapshot = MeetingNotes.sources(transcript), sourceTranscriptUpdatedAtMillis = transcript.updatedAtMillis))
 			}
 			if (outcome !is CallOutcome.Failure || !outcome.retryable) return@repeat
 			kotlinx.coroutines.delay(2000L * (attempt + 1))

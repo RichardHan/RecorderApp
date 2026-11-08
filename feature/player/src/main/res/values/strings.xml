@@ -9,4 +9,5 @@
     <string name="summary_partial_source">來源逐字稿不完整，摘要可能遺漏內容。</string>
     <string name="summary_confirm_send">確認傳送文字</string>
     <string name="summary_cancel">取消</string>
+    <string name="summary_evidence">顯示／收合產生當時的來源文字</string>
 </resources>

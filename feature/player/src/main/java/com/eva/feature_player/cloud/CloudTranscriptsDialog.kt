@@ -221,6 +221,13 @@ fun CloudTranscriptsDialog(
 							if (s.style == SummaryStyle.MEETING_NOTES) Text(stringResource(R.string.summary_meeting_notes), style = MaterialTheme.typography.labelMedium)
 							s.error?.let { Text("錯誤：$it", color = MaterialTheme.colorScheme.error) }
 							if (s.text.isNotBlank()) SelectionContainer { Text(s.text, style = MaterialTheme.typography.bodySmall) }
+							if (s.sourceSnapshot.isNotEmpty()) {
+								var showEvidence by remember(s.id) { mutableStateOf(false) }
+								TextButton({ showEvidence = !showEvidence }) { Text(stringResource(R.string.summary_evidence)) }
+								if (showEvidence) SelectionContainer {
+									Text(s.sourceSnapshot.joinToString("\n\n") { "[${it.id}] ${it.text}" }, style = MaterialTheme.typography.bodySmall)
+								}
+							}
 							TextButton({ confirmDelete = "s:" + s.id }) { Text("刪除摘要") }
 						}
 					}
