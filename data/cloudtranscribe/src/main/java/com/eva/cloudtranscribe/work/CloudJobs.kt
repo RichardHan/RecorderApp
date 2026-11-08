@@ -27,7 +27,6 @@ import com.eva.cloudtranscribe.api.UrlConnectionTransport
 import com.eva.cloudtranscribe.audio.PcmDecoder
 import com.eva.cloudtranscribe.audio.PcmFileSource
 import com.eva.cloudtranscribe.engine.CloudTranscriptionEngine
-import com.eva.cloudtranscribe.engine.EngineConfig
 import com.eva.cloudtranscribe.engine.Prompts
 import com.eva.cloudtranscribe.model.CloudSettings
 import com.eva.cloudtranscribe.model.Provenance
@@ -70,12 +69,7 @@ class CloudJobScheduler @Inject constructor(
 		s.validate(keys.hasKey.value)?.let { return Result.failure(IllegalStateException(it)) }
 		val runId = resumeRunId ?: "cloud-${System.currentTimeMillis()}-${UUID.randomUUID().toString().take(6)}"
 		val existing = resumeRunId?.let { store.transcript(recordingId, it) }
-		val snapshot = existing?.provenance ?: Provenance(
-			engine = "cloud", providerType = s.providerType, endpointHost = Redactor.hostOf(s.baseUrl),
-			model = s.transcribeModel, reasoningEffort = s.reasoningEffort.wire,
-			chunkSeconds = s.normalizedChunkSeconds, workers = s.normalizedWorkers,
-			audioFormat = "mp3 16kHz mono 64kbps", trigger = trigger,
-		)
+		val snapshot = transcriptionProvenance(s, existing?.provenance, trigger)
 		val now = System.currentTimeMillis()
 		store.saveTranscript(
 			(existing ?: TranscriptRecord(runId, recordingId, TranscriptSource.CLOUD, snapshot, now, status = RunStatus.QUEUED))
@@ -158,12 +152,7 @@ class CloudTranscribeWorker @AssistedInject constructor(
 			val uri = recordingUri(recordingId)
 			if (!pcm.exists() || pcm.length() == 0L) PcmDecoder.decodeToFile(applicationContext, uri, pcm)
 			val client = CloudAiClients.create(s, apiKey, UrlConnectionTransport(), p.model)
-			val engine = CloudTranscriptionEngine(client, store.checkpoints(recordingId, runId), EngineConfig(
-				chunkSeconds = p.chunkSeconds ?: s.normalizedChunkSeconds,
-				workers = p.workers ?: s.normalizedWorkers,
-				hallucinationWarning = s.hallucinationWarning,
-				skipSilentChunks = s.skipSilentChunks,
-			))
+			val engine = CloudTranscriptionEngine(client, store.checkpoints(recordingId, runId), transcriptionEngineConfig(s, p))
 			val result = engine.run(PcmFileSource(pcm)) { done, total ->
 				setProgress(workDataOf(CloudJobScheduler.PROGRESS_DONE to done, CloudJobScheduler.PROGRESS_TOTAL to total))
 				store.transcript(recordingId, runId)?.let { store.saveTranscript(it.copy(completedSegments = done, totalSegments = total, updatedAtMillis = System.currentTimeMillis())) }

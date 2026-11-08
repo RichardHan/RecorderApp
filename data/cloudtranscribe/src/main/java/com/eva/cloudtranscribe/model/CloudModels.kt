@@ -24,9 +24,12 @@ data class CloudSettings(
 	val hallucinationWarning: Boolean = true,
 	/** Skip upload of chunks that measure as near-silent. Off by default: quiet speech must not be lost. */
 	val skipSilentChunks: Boolean = false,
+	/** Optional spelling hints sent only with post-recording cloud transcription. */
+	val vocabularyHints: List<String> = emptyList(),
 ) {
 	val normalizedChunkSeconds: Int get() = chunkSeconds.coerceIn(MIN_CHUNK_SECONDS, MAX_CHUNK_SECONDS)
 	val normalizedWorkers: Int get() = workers.coerceIn(1, MAX_WORKERS)
+	val normalizedVocabularyHints: List<String> get() = VocabularyHints.normalize(vocabularyHints)
 
 	/** Returns a human readable problem or null when usable. */
 	fun validate(hasApiKey: Boolean): String? = when {
@@ -87,6 +90,8 @@ data class Provenance(
 	val workers: Int? = null,
 	val audioFormat: String? = null,
 	val trigger: String = "manual",
+	/** Normalized run snapshot. Empty for older runs; retries never adopt newly saved hints. */
+	val vocabularyHints: List<String> = emptyList(),
 )
 
 /**

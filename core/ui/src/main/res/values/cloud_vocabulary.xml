@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="cloud_vocabulary_label">會後雲端轉錄詞彙（選填）</string>
+	<string name="cloud_vocabulary_help">每行一個人名或專有名詞，最多 %1$d 個，每個最多 %2$d 字元。空白行與重複詞彙會移除；留空可停用。</string>
+	<string name="cloud_vocabulary_limit_error">請減少至最多 %1$d 個詞彙，每個不超過 %2$d 字元，才能儲存。</string>
+	<string name="cloud_vocabulary_privacy">詞彙只作為錄音完成後雲端轉錄的拼字提示，會隨音訊送至上方設定的服務；若已開啟自動轉錄，也會自動傳送詞彙。儲存詞彙不會啟用自動轉錄，不影響離線或即時轉錄，也不會單獨發送請求。變更只套用新任務，重試會保留該任務原有詞彙。請勿填入密碼或敏感資訊。</string>
+	<string name="cloud_vocabulary_auto_notice">若已儲存會後雲端轉錄詞彙，詞彙也會隨每次錄音一起送出。</string>
+</resources>

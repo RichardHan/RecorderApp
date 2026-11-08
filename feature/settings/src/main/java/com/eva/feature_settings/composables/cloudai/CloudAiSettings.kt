@@ -31,6 +31,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -41,6 +42,8 @@ import androidx.lifecycle.viewModelScope
 import com.eva.cloudtranscribe.model.CloudSettings
 import com.eva.cloudtranscribe.model.ProviderType
 import com.eva.cloudtranscribe.model.ReasoningEffort
+import com.eva.cloudtranscribe.model.VocabularyHints
+import com.eva.ui.R
 import com.eva.cloudtranscribe.secure.ApiKeyStore
 import com.eva.cloudtranscribe.settings.CloudSettingsRepository
 import com.eva.feature_settings.composables.drive.DriveSettingsContent
@@ -121,6 +124,7 @@ internal fun CloudAiSettingsContent(
 	var confirmTest by remember { mutableStateOf(false) }
 	var confirmAuto by remember { mutableStateOf(false) }
 	var savedMsg by remember { mutableStateOf<String?>(null) }
+	val vocabularyWithinLimits = VocabularyHints.isWithinLimits(draft.vocabularyHints)
 
 	Column(
 		modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -138,6 +142,22 @@ internal fun CloudAiSettingsContent(
 			isError = draft.baseUrl.isNotBlank() && !draft.baseUrl.startsWith("https://"))
 		OutlinedTextField(draft.transcribeModel, { draft = draft.copy(transcribeModel = it.trim()) }, Modifier.fillMaxWidth(), label = { Text("轉錄模型") }, singleLine = true)
 		OutlinedTextField(draft.summaryModel, { draft = draft.copy(summaryModel = it.trim()) }, Modifier.fillMaxWidth(), label = { Text("摘要模型") }, singleLine = true)
+		OutlinedTextField(
+			value = draft.vocabularyHints.joinToString("\n"),
+			onValueChange = { draft = draft.copy(vocabularyHints = it.lines()) },
+			modifier = Modifier.fillMaxWidth(),
+			label = { Text(stringResource(R.string.cloud_vocabulary_label)) },
+			supportingText = {
+				Text(stringResource(
+					if (vocabularyWithinLimits) R.string.cloud_vocabulary_help else R.string.cloud_vocabulary_limit_error,
+					VocabularyHints.MAX_TERMS, VocabularyHints.MAX_TERM_LENGTH,
+				))
+			},
+			isError = !vocabularyWithinLimits,
+			minLines = 3, maxLines = 6,
+			keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
+		)
+		Text(stringResource(R.string.cloud_vocabulary_privacy), style = MaterialTheme.typography.bodySmall)
 		Text("reasoning_effort（名稱含 transcribe / flash-lite 的模型一律不送）", style = MaterialTheme.typography.titleSmall)
 		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 			ReasoningEffort.entries.forEach { e -> FilterChip(draft.reasoningEffort == e, { draft = draft.copy(reasoningEffort = e) }, { Text(e.wire ?: "off") }) }
@@ -150,8 +170,10 @@ internal fun CloudAiSettingsContent(
 		SwitchRow("幻覺長度警示", draft.hallucinationWarning) { draft = draft.copy(hallucinationWarning = it) }
 		SwitchRow("錄音完成後自動雲端轉錄（預設關閉）", draft.autoAfterRecording) { if (it) confirmAuto = true else draft = draft.copy(autoAfterRecording = false) }
 		if (draft.autoAfterRecording) SwitchRow("自動轉錄只在 Wi‑Fi／不計量網路", draft.autoWifiOnly) { draft = draft.copy(autoWifiOnly = it) }
-		Button(onClick = {
-			viewModel.save(draft.copy(chunkSeconds = draft.normalizedChunkSeconds, workers = draft.normalizedWorkers))
+		Button(enabled = vocabularyWithinLimits, onClick = {
+			draft = draft.copy(chunkSeconds = draft.normalizedChunkSeconds, workers = draft.normalizedWorkers,
+				vocabularyHints = draft.normalizedVocabularyHints)
+			viewModel.save(draft)
 			savedMsg = "已儲存"
 		}, modifier = Modifier.fillMaxWidth()) { Text("儲存設定") }
 		savedMsg?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
@@ -189,7 +211,7 @@ internal fun CloudAiSettingsContent(
 	if (confirmAuto) AlertDialog(
 		onDismissRequest = { confirmAuto = false },
 		title = { Text("開啟自動雲端轉錄？") },
-		text = { Text("每次錄音成功儲存後，會自動把整段錄音上傳到你設定的服務轉錄（取消的錄音不會上傳）。可能產生行動數據與 API 費用；失敗只會重試同一個服務，不會改用其他供應商。") },
+		text = { Text("每次錄音成功儲存後，會自動把整段錄音上傳到你設定的服務轉錄（取消的錄音不會上傳）。可能產生行動數據與 API 費用；失敗只會重試同一個服務，不會改用其他供應商。" + "\n\n" + stringResource(R.string.cloud_vocabulary_auto_notice)) },
 		confirmButton = { TextButton({ draft = draft.copy(autoAfterRecording = true); confirmAuto = false }) { Text("我了解，開啟") } },
 		dismissButton = { TextButton({ confirmAuto = false }) { Text("取消") } },
 	)
