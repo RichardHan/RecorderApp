@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -104,7 +105,7 @@ internal fun SavedTranscriptPanel(
 }
 
 @Composable
-private fun TranscriptLines(
+internal fun TranscriptLines(
 	record: TranscriptRecord,
 	trackData: () -> PlayerTrackData,
 	onSeekTo: ((Long) -> Unit)?,
@@ -136,7 +137,7 @@ private fun TranscriptLines(
 	}
 
 	Column(modifier) {
-		OutlinedTextField(query, { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+		OutlinedTextField(query, { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("transcript-search-input"),
 			label = { Text(stringResource(R.string.transcript_search_label)) })
 		if (searching) {
 			Text(if (matches.isEmpty()) stringResource(R.string.transcript_search_empty) else stringResource(R.string.transcript_search_count, matchIndex + 1, matches.size), style = MaterialTheme.typography.labelSmall)
@@ -153,7 +154,7 @@ private fun TranscriptLines(
 			color = MaterialTheme.colorScheme.onSurfaceVariant,
 		)
 		SelectionContainer(Modifier.weight(1f)) {
-			LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+			LazyColumn(state = listState, modifier = Modifier.testTag("transcript-search-lines"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
 				itemsIndexed(lines) { i, line ->
 					val isActive = i == active
 					val highlight = SpanStyle(background = MaterialTheme.colorScheme.tertiaryContainer, color = MaterialTheme.colorScheme.onTertiaryContainer)
@@ -167,7 +168,7 @@ private fun TranscriptLines(
 						},
 						style = MaterialTheme.typography.bodyMedium,
 						color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-						modifier = Modifier
+						modifier = Modifier.testTag("transcript-line-$i")
 							.fillMaxWidth()
 							.then(if (isActive) Modifier.background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small) else Modifier)
 							.then(line.startMs?.let { start -> if (onSeekTo != null) Modifier.clickable { onSeekTo(start) } else null } ?: Modifier)
