@@ -9,6 +9,12 @@ android {
 	buildFeatures {
 		compose = true
 	}
+	packaging {
+		resources {
+			// two google-auth jars (via :data:drive) both ship META-INF/INDEX.LIST and break the androidTest APK merge
+			excludes += "META-INF/INDEX.LIST"
+		}
+	}
 }
 
 
