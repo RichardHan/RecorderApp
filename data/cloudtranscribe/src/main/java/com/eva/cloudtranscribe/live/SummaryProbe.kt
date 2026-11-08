@@ -25,7 +25,7 @@ object SummaryProbe {
 		if (settings.summaryReuseTranscribeKey) transcribeKey else summaryKey
 
 	fun buildPrompt(settings: LiveCloudSettings): String =
-		TranscriptMerge.summaryPrompt(settings.summaryPrompt, "", SAMPLE_TEXT, "")
+		TranscriptMerge.summaryPrompt(settings.summaryPrompt, "", SAMPLE_TEXT, "", meetingNotes = settings.meetingNotes)
 
 	fun run(settings: LiveCloudSettings, summaryKey: String?, transcribeKey: String?, transport: HttpTransport): String {
 		val key = selectKey(settings, summaryKey, transcribeKey)
