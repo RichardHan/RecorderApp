@@ -115,6 +115,7 @@ private fun TranscriptLines(
 	val searching = query.isNotBlank()
 	val matches = remember(lines, query) { TranscriptSearch.matchingLines(lines, query) }
 	var matchIndex by remember(record.id, query, lines) { mutableStateOf(if (matches.isEmpty()) -1 else 0) }
+	var navigationRequest by remember(record.id) { mutableStateOf(0) }
 	val timed = lines.any { it.startMs != null }
 	val listState = rememberLazyListState()
 	val active by remember(lines) {
@@ -130,7 +131,7 @@ private fun TranscriptLines(
 		lastActive = active
 	}
 
-	LaunchedEffect(matches, matchIndex) {
+	LaunchedEffect(record.id, query, matches, matchIndex, navigationRequest) {
 		matches.getOrNull(matchIndex)?.let { listState.animateScrollToItem(it) }
 	}
 
@@ -140,8 +141,8 @@ private fun TranscriptLines(
 		if (searching) {
 			Text(if (matches.isEmpty()) stringResource(R.string.transcript_search_empty) else stringResource(R.string.transcript_search_count, matchIndex + 1, matches.size), style = MaterialTheme.typography.labelSmall)
 			Row {
-				TextButton({ matchIndex = TranscriptSearch.next(matchIndex, matches.size, -1) }, enabled = matches.isNotEmpty()) { Text(stringResource(R.string.transcript_search_previous)) }
-				TextButton({ matchIndex = TranscriptSearch.next(matchIndex, matches.size, 1) }, enabled = matches.isNotEmpty()) { Text(stringResource(R.string.transcript_search_next)) }
+				TextButton({ matchIndex = TranscriptSearch.next(matchIndex, matches.size, -1); navigationRequest++ }, enabled = matches.isNotEmpty()) { Text(stringResource(R.string.transcript_search_previous)) }
+				TextButton({ matchIndex = TranscriptSearch.next(matchIndex, matches.size, 1); navigationRequest++ }, enabled = matches.isNotEmpty()) { Text(stringResource(R.string.transcript_search_next)) }
 				TextButton({ query = "" }) { Text(stringResource(R.string.transcript_search_clear)) }
 			}
 			Text(stringResource(R.string.transcript_search_hint), style = MaterialTheme.typography.labelSmall)
