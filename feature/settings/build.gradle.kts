@@ -29,5 +29,4 @@ dependencies {
 
 	// compose ui test for the advanced cloud settings section
 	androidTestImplementation(libs.androidx.ui.test.junit4)
-	androidTestImplementation(project(":data:cloudtranscribe"))
 }
