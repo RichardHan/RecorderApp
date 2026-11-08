@@ -33,6 +33,8 @@ import com.eva.cloudtranscribe.model.CloudSettings
 import com.eva.cloudtranscribe.model.Provenance
 import com.eva.cloudtranscribe.model.RunStatus
 import com.eva.cloudtranscribe.model.SummaryRecord
+import com.eva.cloudtranscribe.model.SummaryStyle
+import com.eva.cloudtranscribe.model.MeetingNotes
 import com.eva.cloudtranscribe.model.TranscriptRecord
 import com.eva.cloudtranscribe.model.TranscriptSource
 import com.eva.cloudtranscribe.secure.ApiKeyStore
@@ -91,13 +93,17 @@ class CloudJobScheduler @Inject constructor(
 		return Result.success(runId)
 	}
 
-	suspend fun startSummary(recordingId: Long, transcriptId: String): Result<String> {
+	suspend fun startSummary(recordingId: Long, transcriptId: String, style: SummaryStyle = SummaryStyle.BRIEF, expectedSettings: CloudSettings? = null): Result<String> {
+		val transcript = store.transcript(recordingId, transcriptId)
+			?: return Result.failure(IllegalArgumentException("來源逐字稿不存在"))
+		if (if (style == SummaryStyle.MEETING_NOTES) MeetingNotes.sources(transcript).isEmpty() else transcript.text.isBlank()) return Result.failure(IllegalArgumentException("來源逐字稿沒有可用內容"))
 		val s = settings.current()
 		s.validate(keys.hasKey.value)?.let { return Result.failure(IllegalStateException(it)) }
-		val id = "summary-${System.currentTimeMillis()}"
+		if (expectedSettings != null && (s.baseUrl != expectedSettings.baseUrl || s.providerType != expectedSettings.providerType || s.summaryModel != expectedSettings.summaryModel)) return Result.failure(IllegalStateException("摘要服務設定已變更，請重新確認送出"))
+		val id = "summary-${System.currentTimeMillis()}-${UUID.randomUUID().toString().take(6)}"
 		store.saveSummary(SummaryRecord(id, recordingId, transcriptId,
 			Provenance("cloud-summary", s.providerType, Redactor.hostOf(s.baseUrl), s.summaryModel, s.reasoningEffort.wire),
-			System.currentTimeMillis(), RunStatus.QUEUED))
+			System.currentTimeMillis(), RunStatus.QUEUED, style = style, approvedEndpoint = s.baseUrl))
 		val request = OneTimeWorkRequestBuilder<CloudSummaryWorker>()
 			.setInputData(workDataOf(KEY_RECORDING to recordingId, KEY_RUN to id))
 			.setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
@@ -217,14 +223,21 @@ class CloudSummaryWorker @AssistedInject constructor(
 		val apiKey = keys.read() ?: return done(record.copy(status = RunStatus.FAILED, error = "找不到 API Key"))
 		val transcript = store.transcript(recordingId, record.sourceTranscriptId)
 			?: return done(record.copy(status = RunStatus.FAILED, error = "來源逐字稿不存在"))
-		val s = settingsRepo.current().let { it.copy(providerType = record.provenance.providerType ?: it.providerType) }
+		if (if (record.style == SummaryStyle.MEETING_NOTES) MeetingNotes.sources(transcript).isEmpty() else transcript.text.isBlank()) return done(record.copy(status = RunStatus.FAILED, error = "來源逐字稿沒有可用內容"))
+		val prompt = if (record.style == SummaryStyle.MEETING_NOTES) MeetingNotes.prompt(transcript) else Prompts.summary(transcript.text)
+		val s = settingsRepo.current()
+		if ((record.approvedEndpoint != null && s.baseUrl != record.approvedEndpoint) || s.providerType != record.provenance.providerType || Redactor.hostOf(s.baseUrl) != record.provenance.endpointHost) return done(record.copy(status = RunStatus.FAILED, error = "摘要服務已變更，請重新確認送出"))
 		store.saveSummary(record.copy(status = RunStatus.RUNNING))
 		val client = CloudAiClients.create(s, apiKey, UrlConnectionTransport(), record.provenance.model)
 		var last: CallOutcome? = null
 		repeat(CloudSettings.MAX_ATTEMPTS) { attempt ->
-			last = withContext(Dispatchers.IO) { client.complete(Prompts.summary(transcript.text)) }
+			last = withContext(Dispatchers.IO) { client.complete(prompt) }
 			val outcome = last
-			if (outcome is CallOutcome.Text) return done(record.copy(status = RunStatus.SUCCESS, text = outcome.text))
+			if (outcome is CallOutcome.Text) {
+				if (record.style == SummaryStyle.BRIEF) return done(record.copy(status = RunStatus.SUCCESS, text = outcome.text))
+				val rendered = MeetingNotes.render(outcome.text, transcript)
+				return done(record.copy(status = if (rendered.complete) RunStatus.SUCCESS else RunStatus.PARTIAL, text = rendered.text))
+			}
 			if (outcome !is CallOutcome.Failure || !outcome.retryable) return@repeat
 			kotlinx.coroutines.delay(2000L * (attempt + 1))
 		}
@@ -237,7 +250,7 @@ class CloudSummaryWorker @AssistedInject constructor(
 		return done(record.copy(status = RunStatus.FAILED, error = msg))
 	}
 
-	private fun done(r: SummaryRecord): Result { store.saveSummary(r); return if (r.status == RunStatus.SUCCESS) Result.success() else Result.failure() }
+	private fun done(r: SummaryRecord): Result { store.saveSummary(r); return if (r.status == RunStatus.SUCCESS || r.status == RunStatus.PARTIAL) Result.success() else Result.failure() }
 }
 
 internal fun foregroundInfoFor(context: Context, id: Int, text: String) = buildForeground(context, id, text)

@@ -112,6 +112,9 @@ data class TranscriptRecord(
 )
 
 @Serializable
+enum class SummaryStyle { BRIEF, MEETING_NOTES }
+
+@Serializable
 data class SummaryRecord(
 	val id: String,
 	val recordingId: Long,
@@ -121,4 +124,7 @@ data class SummaryRecord(
 	val status: RunStatus,
 	val text: String = "",
 	val error: String? = null,
+	val style: SummaryStyle = SummaryStyle.BRIEF,
+	/** Exact endpoint approved when the request was queued; null for legacy summaries. */
+	val approvedEndpoint: String? = null,
 )

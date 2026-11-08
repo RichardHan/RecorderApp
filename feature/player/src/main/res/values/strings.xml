@@ -1,0 +1,12 @@
+<resources>
+    <string name="summary_choose_format">選擇摘要格式</string>
+    <string name="summary_confirm_title">傳送逐字稿產生摘要？</string>
+    <string name="summary_destination">服務：%1$s
+模型：%2$s</string>
+    <string name="summary_upload_notice">這份逐字稿文字及已有的分句時間會傳送到上述已設定服務，包括離線產生的逐字稿；不會在此步驟上傳錄音。API 可能計費，內容可能敏感。請確認有權分享；取消不會送出。</string>
+    <string name="summary_brief">精簡重點（原格式）</string>
+    <string name="summary_meeting_notes">會議筆記：概述、決議、待辦、待確認</string>
+    <string name="summary_partial_source">來源逐字稿不完整，摘要可能遺漏內容。</string>
+    <string name="summary_confirm_send">確認傳送文字</string>
+    <string name="summary_cancel">取消</string>
+</resources>
