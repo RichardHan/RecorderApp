@@ -118,7 +118,33 @@ private fun TranscriptLines(
 		lastActive = active
 	}
 
+	var query by rememberSaveable(record.id) { mutableStateOf("") }
+	val matches = remember(lines, query) { PlaybackTranscripts.search(lines, query) }
+	var focused by remember(record.id) { mutableStateOf(-1) }
+	LaunchedEffect(focused) { if (focused >= 0) listState.animateScrollToItem(focused) }
+
 	Column(modifier) {
+		// on-device search within this transcript (nothing leaves the phone)
+		Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+			androidx.compose.material3.OutlinedTextField(
+				value = query,
+				onValueChange = { query = it; focused = PlaybackTranscripts.search(lines, it).firstOrNull() ?: -1 },
+				singleLine = true,
+				placeholder = { Text("搜尋逐字稿") },
+				textStyle = MaterialTheme.typography.bodyMedium,
+				modifier = Modifier.weight(1f),
+			)
+			if (query.isNotBlank()) {
+				val pos = matches.indexOf(focused)
+				Text(
+					if (matches.isEmpty()) "0" else "${if (pos >= 0) pos + 1 else 0}/${matches.size}",
+					style = MaterialTheme.typography.labelMedium,
+					modifier = Modifier.padding(horizontal = 4.dp),
+				)
+				androidx.compose.material3.TextButton(onClick = { focused = PlaybackTranscripts.stepMatch(matches, focused, false) }, enabled = matches.isNotEmpty()) { Text("↑") }
+				androidx.compose.material3.TextButton(onClick = { focused = PlaybackTranscripts.stepMatch(matches, focused, true) }, enabled = matches.isNotEmpty()) { Text("↓") }
+			}
+		}
 		if (!timed) Text(
 			"此逐字稿沒有時間戳，顯示全文（不跟隨播放位置）",
 			style = MaterialTheme.typography.labelSmall,
@@ -128,13 +154,20 @@ private fun TranscriptLines(
 			LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(4.dp)) {
 				itemsIndexed(lines) { i, line ->
 					val isActive = i == active
+					val isMatch = query.isNotBlank() && i in matches
+					val isFocused = i == focused && isMatch
 					Text(
 						text = (line.startMs?.let { fmt(it) + "  " } ?: "") + line.text,
 						style = MaterialTheme.typography.bodyMedium,
 						color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
 						modifier = Modifier
 							.fillMaxWidth()
-							.then(if (isActive) Modifier.background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small) else Modifier)
+							.then(when {
+								isActive -> Modifier.background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small)
+								isFocused -> Modifier.background(MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.shapes.small)
+								isMatch -> Modifier.background(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.shapes.small)
+								else -> Modifier
+							})
 							.then(line.startMs?.let { start -> if (onSeekTo != null) Modifier.clickable { onSeekTo(start) } else null } ?: Modifier)
 							.padding(4.dp),
 					)
