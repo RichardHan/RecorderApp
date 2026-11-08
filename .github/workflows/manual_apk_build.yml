@@ -1,0 +1,117 @@
+# Manual-only debug APK build (arm64, compressed native libs), same flags as the local sideload builds.
+# Never runs on push / pull_request. A workflow_dispatch workflow only appears in the Actions tab once this file
+# exists on the repository's DEFAULT branch (main); see docs/ci/manual-apk-build.md.
+name: Manual APK build
+
+on:
+  workflow_dispatch:
+    inputs:
+      allow_ephemeral_signing:
+        description: "No DEBUG_KEYSTORE_B64 secret: build with a throw-away debug key (APK can NOT update the installed app)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manual-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # SHA-256 of the debug certificate already installed on the user's phones (public certificate metadata, not a secret)
+  EXPECTED_CERT_SHA256: 7bfd64eeb026604169a8731421a48d2204db51ab925c6863ebb7e39d02184d36
+  ANDROID_NDK_VERSION: 30.0.16248370
+  ANDROID_PLATFORM: android-37.0
+  ANDROID_BUILD_TOOLS: 37.0.0
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle (wrapper validation + cache, read-only cache outside default branch)
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          validate-wrappers: true
+
+      - name: Install exact Android SDK packages
+        run: |
+          set -euo pipefail
+          SDKM="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" --install "platforms;${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}" "ndk;${ANDROID_NDK_VERSION}" > /dev/null
+
+      - name: Restore stable debug keystore (fail closed)
+        env:
+          DEBUG_KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
+          ALLOW_EPHEMERAL: ${{ inputs.allow_ephemeral_signing }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          if [ -n "${DEBUG_KEYSTORE_B64}" ]; then
+            umask 077
+            printf '%s' "${DEBUG_KEYSTORE_B64}" | base64 -d > "$HOME/.android/debug.keystore"
+            echo "SIGNING_MODE=stable" >> "$GITHUB_ENV"
+            echo "Using DEBUG_KEYSTORE_B64 secret (content not printed)."
+          elif [ "${ALLOW_EPHEMERAL}" = "true" ]; then
+            echo "SIGNING_MODE=ephemeral" >> "$GITHUB_ENV"
+            echo "::warning::No DEBUG_KEYSTORE_B64 secret: APK is signed with a throw-away key and cannot update the installed app."
+          else
+            echo "::error::Secret DEBUG_KEYSTORE_B64 is not set. Refusing to build an APK that cannot update the installed app (re-run with allow_ephemeral_signing=true for a test-only build)."
+            exit 1
+          fi
+
+      - name: Build arm64 debug APK
+        run: ./gradlew --no-daemon :app:assembleDebug -Parm64Only=true -PcompressNative=true
+
+      - name: Verify alignment, signature and certificate
+        run: |
+          set -euo pipefail
+          BT="${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}"
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          "$BT/zipalign" -c -P 16 4 "$APK"
+          "$BT/apksigner" verify "$APK"
+          CERT=$("$BT/apksigner" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
+          echo "Signer certificate SHA-256: $CERT"
+          if [ "${SIGNING_MODE}" = "stable" ] && [ "$CERT" != "${EXPECTED_CERT_SHA256}" ]; then
+            echo "::error::Certificate mismatch: the keystore secret is not the key used on the phones."
+            exit 1
+          fi
+          VERSION=$("$BT/aapt2" dump badging "$APK" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -1)
+          SIZE=$(stat -c %s "$APK")
+          [ "$SIZE" -lt 104857600 ] || { echo "::error::APK is >= 100 MB"; exit 1; }
+          mkdir -p dist
+          OUT="RecorderApp-debug-${VERSION}-arm64-${SIGNING_MODE}-${GITHUB_SHA::7}.apk"
+          cp "$APK" "dist/$OUT"
+          ( cd dist && sha256sum "$OUT" > SHA256SUMS.txt )
+          {
+            echo "### APK"; echo "- file: \`$OUT\`"; echo "- size: $SIZE bytes"
+            echo "- sha256: \`$(cut -d' ' -f1 dist/SHA256SUMS.txt)\`"
+            echo "- signing: ${SIGNING_MODE} (cert $CERT)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove keystore from runner
+        if: always()
+        run: rm -f "$HOME/.android/debug.keystore"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: recorderapp-debug-arm64
+          path: |
+            dist/*.apk
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
