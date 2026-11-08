@@ -8,6 +8,7 @@ import android.os.IBinder
 import app.cash.turbine.test
 import com.eva.recorder.domain.models.RecordedPoint
 import com.eva.recorder.domain.models.RecorderState
+import com.eva.recorder.domain.recorder.LiveTranscriptState
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -71,7 +72,7 @@ class RecorderServiceBinderImplTest {
             val testState = RecorderState.RECORDING
             val testBookmarks = setOf(5.seconds)
             val testAmplitudes = listOf(RecordedPoint(timeInMillis = 100L, rmsValue = 20f))
-            val testTranscript = "Hello World"
+            val testTranscript = LiveTranscriptState(finalized = listOf("Hello World"))
 
             every { mockDataInterface.recorderTime } returns flowOf(testTime)
             every { mockDataInterface.recorderState } returns MutableStateFlow(testState)
@@ -100,7 +101,7 @@ class RecorderServiceBinderImplTest {
         every { mockDataInterface.recorderState } returns stateFlow
         every { mockDataInterface.bookMarks } returns flowOf(emptySet())
         every { mockDataInterface.amplitudes } returns flowOf(emptyList())
-        every { mockDataInterface.transcript } returns flowOf("")
+        every { mockDataInterface.transcript } returns flowOf(LiveTranscriptState())
 
         binderImpl.recorderState.test {
             assertEquals(RecorderState.IDLE, awaitItem())
@@ -146,7 +147,7 @@ class RecorderServiceBinderImplTest {
             every { mockDataInterface.recorderState } returns MutableStateFlow(RecorderState.RECORDING)
             every { mockDataInterface.bookMarks } returns flowOf(emptySet())
             every { mockDataInterface.amplitudes } returns flowOf(emptyList())
-            every { mockDataInterface.transcript } returns flowOf("")
+            every { mockDataInterface.transcript } returns flowOf(LiveTranscriptState())
 
             binderImpl.recorderTimer.test {
                 assertEquals(LocalTime(0, 0), awaitItem())
