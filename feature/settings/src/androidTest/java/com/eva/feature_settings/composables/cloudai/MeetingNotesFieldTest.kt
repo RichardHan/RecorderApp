@@ -13,6 +13,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import com.eva.cloudtranscribe.live.LiveCloudSettings
 import com.eva.feature_settings.R
 import org.junit.Assert.assertEquals
@@ -37,7 +38,8 @@ class MeetingNotesFieldTest {
 		}
 
 		compose.onNodeWithText(clearLabel).assertDoesNotExist()
-		compose.onNode(hasSetTextAction()).performTextInput("x".repeat(LiveCloudSettings.MAX_MEETING_NOTES + 250))
+		// one replacement instead of 2250 IME keystrokes: same onValueChange contract, far cheaper on the emulator
+		compose.onNode(hasSetTextAction()).performTextReplacement("x".repeat(LiveCloudSettings.MAX_MEETING_NOTES + 250))
 		assertEquals(LiveCloudSettings.MAX_MEETING_NOTES, fieldText().length)
 
 		compose.onNodeWithText(clearLabel).assertIsDisplayed().performClick()
