@@ -205,7 +205,7 @@ internal class TranscriptionProviderImpl(
 
 	override suspend fun finishTranscription(): LiveTranscript? {
 		val agg = controller.finishAll() ?: return null
-		val gapNote = if (agg.hadGaps) "\n[即時字幕曾在錄音中關閉，關閉期間未辨識（錄音完整保存，可事後重轉）]" else ""
+		val gapNote = if (agg.hadGaps) "\n[即時字幕未涵蓋全部錄音，部分期間未辨識（錄音完整保存，可事後重轉）]" else ""
 		return LiveTranscript(
 			modelId = agg.modelIds.joinToString(" / "), engine = lastEngine,
 			text = agg.text + gapNote, decodedSegments = agg.decoded, failedSegments = agg.failed,
