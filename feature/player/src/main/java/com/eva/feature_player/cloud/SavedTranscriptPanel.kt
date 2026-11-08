@@ -89,6 +89,7 @@ internal fun SavedTranscriptPanel(
 				else -> {
 					val selected = list.firstOrNull { it.id == selectedId } ?: PlaybackTranscripts.defaultSelection(list) ?: list.first()
 					SourcePicker(list, selected) { selectedId = it }
+					TranscriptExportButton(selected)
 					TranscriptLines(selected, trackData, onSeekTo, Modifier.weight(1f).fillMaxWidth().padding(top = 6.dp))
 				}
 			}

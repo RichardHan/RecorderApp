@@ -12,6 +12,7 @@ android {
 }
 
 dependencies {
+	testImplementation(libs.mockk)
     //navigation
 	implementation(libs.androidx.navigation.compose)
 	implementation(libs.androidx.hilt.navigation.compose)
