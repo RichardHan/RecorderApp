@@ -118,6 +118,29 @@ jobs:
           rm -f "$zip.part"
           echo "::error::Official Gradle distribution unavailable after 6 bounded attempts"; exit 1
 
+      - name: Pre-fetch sherpa-onnx AAR (bounded retry, SHA-256 verified)
+        # settings.gradle.kts downloads this official release asset once with no retry; the same
+        # GitHub release CDN returns transient 504s. Fetch the identical URL with bounded retries,
+        # verify the SHA-256 pinned in settings.gradle.kts, and hand it over via SHERPA_ONNX_AAR
+        # (the documented offline hook). settings.gradle.kts re-verifies the hash.
+        run: |
+          set -euo pipefail
+          url="$(sed -n 's/^[[:space:]]*val url = "\(.*\)"$/\1/p' settings.gradle.kts)"
+          ver="$(sed -n 's/^[[:space:]]*val version = "\(.*\)"$/\1/p' settings.gradle.kts | head -1)"
+          sha="$(sed -n 's/^[[:space:]]*val sha = "\([0-9a-f]\{64\}\)"$/\1/p' settings.gradle.kts | head -1)"
+          url="${url//\$version/$ver}"
+          case "$url" in https://github.com/k2-fsa/sherpa-onnx/releases/download/*) ;; *) echo "::error::Unexpected AAR URL: $url"; exit 1;; esac
+          [ -n "$sha" ] || { echo "::error::Pinned AAR SHA-256 not found in settings.gradle.kts"; exit 1; }
+          out="$RUNNER_TEMP/sherpa-onnx-$ver.aar"
+          for attempt in 1 2 3 4 5 6; do
+            rm -f "$out"
+            if curl -fsSL --connect-timeout 20 --max-time 600 -o "$out" "$url" && echo "$sha  $out" | sha256sum -c -; then
+              echo "SHERPA_ONNX_AAR=$out" >> "$GITHUB_ENV"; echo "AAR verified on attempt $attempt."; exit 0
+            fi
+            [ "$attempt" -lt 6 ] && sleep $((attempt * 30))
+          done
+          echo "::error::Official sherpa-onnx AAR unavailable after 6 bounded attempts"; exit 1
+
       - name: Build arm64 debug APK
         run: ./gradlew --no-daemon :app:assembleDebug -Parm64Only=true -PcompressNative=true
 
