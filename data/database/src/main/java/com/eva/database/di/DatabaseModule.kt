@@ -4,6 +4,7 @@ import android.content.Context
 import com.eva.database.RecorderDataBase
 import com.eva.database.dao.RecordingCategoryDao
 import com.eva.database.dao.RecordingsBookmarkDao
+import com.eva.database.dao.DriveUploadDao
 import com.eva.database.dao.RecordingsMetadataDao
 import com.eva.database.dao.STTModelsDao
 import com.eva.database.dao.TrashFileDao
@@ -47,4 +48,8 @@ object DatabaseModule {
 	@Singleton
 	fun providesSTTModelsDao(database: RecorderDataBase)
 			: STTModelsDao = database.sTTModelDao()
+
+	@Provides
+	@Singleton
+	fun providesDriveUploadDao(database: RecorderDataBase): DriveUploadDao = database.driveUploadDao()
 }

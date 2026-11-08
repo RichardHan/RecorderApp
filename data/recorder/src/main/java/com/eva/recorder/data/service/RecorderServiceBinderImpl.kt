@@ -1,5 +1,6 @@
 package com.eva.recorder.data.service
 
+import com.eva.recorder.domain.recorder.LiveTranscriptState
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -45,7 +46,10 @@ internal class RecorderServiceBinderImpl(private val context: Context) : Recorde
 
     override val amplitudes: Flow<List<RecordedPoint>> = serviceFlow(emptyList()) { it.amplitudes }
 
-    override val transcriptions: Flow<String> = serviceFlow("") { it.transcript }
+    override val transcriptions: Flow<LiveTranscriptState> = serviceFlow(LiveTranscriptState()) { it.transcript }
+
+    override val liveCloud: Flow<com.eva.cloudtranscribe.live.LiveCloudState> =
+        serviceFlow(com.eva.cloudtranscribe.live.LiveCloudState()) { it.liveCloud }
 
     @OptIn(FlowPreview::class)
     override fun recorderWarnings(): Flow<String> {

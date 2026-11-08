@@ -25,6 +25,7 @@ import com.eva.feature_settings.composables.SettingsScreenTopAppbar
 import com.eva.feature_settings.composables.SettingsTabContent
 import com.eva.feature_settings.composables.audio.AudioSettingsTabContent
 import com.eva.feature_settings.composables.files.FileSettingsTabContent
+import com.eva.feature_settings.composables.drive.DriveSettingsContent
 import com.eva.feature_settings.composables.transcribe.TranscribeSettingsTabContent
 import com.eva.feature_settings.utils.AudioSettingsEvent
 import com.eva.feature_settings.utils.FileSettingsChangeEvent
@@ -94,6 +95,8 @@ internal fun AudioSettingsScreen(
                     contentPadding = PaddingValues(dimensionResource(R.dimen.sc_padding)),
                 )
             },
+            cloudSettings = { com.eva.feature_settings.composables.drive.DriveSettingsContent() },
+            aiSettings = { com.eva.feature_settings.composables.cloudai.CloudAiSettingsContent() },
             contentPadding = scPadding,
             modifier = Modifier.fillMaxSize(),
         )

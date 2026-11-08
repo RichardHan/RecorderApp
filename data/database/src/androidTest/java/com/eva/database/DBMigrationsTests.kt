@@ -241,6 +241,23 @@ class DBMigrationsTests {
 	}
 
 	@Test
+	fun migrate_9_to_10_creates_drive_upload_status_table() = runTest {
+		deleteTestDatabase()
+
+		testHelper.createDatabase(9).close()
+		val db = testHelper.runMigrationsAndValidate(10)
+
+		db.execSQL("INSERT INTO google_drive_uploads VALUES (1, 'PENDING', null, null, 1000)")
+		assertThat(db.countOf("google_drive_uploads")).isEqualTo(1L)
+		db.prepare("SELECT STATUS, UPDATED_AT FROM google_drive_uploads").use { statement ->
+			assertThat(statement.step()).isTrue()
+			assertThat(statement.getText(0)).isEqualTo("PENDING")
+			assertThat(statement.getLong(1)).isEqualTo(1000L)
+		}
+		db.close()
+	}
+
+	@Test
 	fun migrate_5_to_6_correcting_timestamp_in_bookmarks_and_category() = runTest {
 		deleteTestDatabase()
 

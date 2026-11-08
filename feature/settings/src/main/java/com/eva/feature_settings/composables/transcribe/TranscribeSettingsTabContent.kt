@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -38,13 +39,24 @@ internal fun TranscribeSettingsTabContent(
     onToggleTranscriptionActive: (Boolean) -> Unit = {},
     onSelectSTTModel: (STTModel) -> Unit = {},
     onUnSelectSTTModel: () -> Unit = {},
-    onDownloadSTTModel: (STTModel) -> Unit = {},
+    onDownloadSTTModel: (STTModel, Boolean) -> Unit = { _, _ -> },
+    onCancelDownload: (kotlin.uuid.Uuid) -> Unit = {},
     onDeleteSTTModel: (STTModel) -> Unit = {},
     onSelectInvalidModel: (STTModel) -> Unit = {},
     contentPadding: PaddingValues = PaddingValues(12.dp),
 ) {
 
+    var resourceRefresh by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val resourceSnapshot = rememberResources(sttModels.map { it.model }, resourceRefresh)
     val isInspectionMode = LocalInspectionMode.current
+    var pendingDownload by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<STTModel?>(null) }
+    pendingDownload?.let { m ->
+        ConfirmModelDownloadDialog(
+            model = m,
+            onDismiss = { pendingDownload = null },
+            onConfirm = { allowMetered -> pendingDownload = null; onDownloadSTTModel(m, allowMetered) },
+        )
+    }
 
     val listKey: ((Int, SpeechToTextUIModel) -> Any)? =
         remember { if (isInspectionMode) null else { _, content -> content.model.modelId } }
@@ -63,6 +75,9 @@ internal fun TranscribeSettingsTabContent(
         contentPadding = contentPadding,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        item(key = "phone-resources") {
+            TranscriptionResourcePanel(resourceSnapshot, onRefresh = { resourceRefresh++ })
+        }
         item {
             SettingsItemTitle(
                 title = stringResource(R.string.recordings_settings_transcriptions_title),
@@ -99,7 +114,10 @@ internal fun TranscribeSettingsTabContent(
             STTModelOptionCard(
                 sttModel = model,
                 isSelected = model.model.modelId == selectedSTTModel?.model?.modelId,
-                onDownload = { onDownloadSTTModel(model.model) },
+                onDownload = { pendingDownload = model.model },
+                downloadAllowed = resourceSnapshot.models[model.model.modelId]?.let { com.eva.transcribe.resources.ResourcePolicy.diskEnough(resourceSnapshot.diskFree, it.diskNeeded) != false } ?: true,
+                resourceText = resourceSnapshot.models[model.model.modelId]?.let { resourceDescription(resourceSnapshot, it) } ?: "資源需求讀取中／未知",
+                onCancelDownload = { model.downloadId?.let(onCancelDownload) },
                 onDelete = { onDeleteSTTModel(model.model) },
                 onSelect = { onSelectSTTModel(model.model) },
                 onUnSelect = onUnSelectSTTModel,
@@ -132,9 +150,10 @@ internal fun TranscribeSettingsTabContent(
         selectedSTTModel = selectedSTTModel,
         onUnSelectSTTModel = { onEvent(TranscriptionSettingsEvents.OnSelectModel()) },
         onToggleTranscriptionActive = { onEvent(TranscriptionSettingsEvents.OnToggleTranscriptions) },
-        onDownloadSTTModel = { model ->
-            onEvent(TranscriptionSettingsEvents.OnStartModelDownload(model))
+        onDownloadSTTModel = { model, allowMetered ->
+            onEvent(TranscriptionSettingsEvents.OnStartModelDownload(model, allowMetered))
         },
+        onCancelDownload = { id -> onEvent(TranscriptionSettingsEvents.OnCancelModelDownload(id)) },
         onDeleteSTTModel = { model ->
             onEvent(TranscriptionSettingsEvents.OnDeleteDownloadedModel(model))
         },

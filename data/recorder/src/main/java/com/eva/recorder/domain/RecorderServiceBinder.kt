@@ -20,7 +20,10 @@ interface RecorderServiceBinder {
 
     val amplitudes: Flow<List<RecordedPoint>>
 
-    val transcriptions: Flow<String>
+    val transcriptions: Flow<com.eva.recorder.domain.recorder.LiveTranscriptState>
+
+    /** Advanced live cloud transcript + key points (inactive state when the mode is off). */
+    val liveCloud: Flow<com.eva.cloudtranscribe.live.LiveCloudState>
 
     fun recorderWarnings(): Flow<String> {
         return emptyFlow()
