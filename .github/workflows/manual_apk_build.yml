@@ -142,7 +142,14 @@ jobs:
           echo "::error::Official sherpa-onnx AAR unavailable after 6 bounded attempts"; exit 1
 
       - name: Build arm64 debug APK
-        run: ./gradlew --no-daemon :app:assembleDebug -Parm64Only=true -PcompressNative=true
+        # Dependency downloads hit the same transient 504s. Gradle's (internal, unsupported) retry
+        # knobs: 6 attempts total with exponential backoff from 5 s (~2.5 min max per artifact).
+        run: >-
+          ./gradlew --no-daemon :app:assembleDebug -Parm64Only=true -PcompressNative=true
+          -Dorg.gradle.internal.repository.max.tentatives=6
+          -Dorg.gradle.internal.repository.initial.backoff=5000
+          -Dorg.gradle.internal.http.connectionTimeout=60000
+          -Dorg.gradle.internal.http.socketTimeout=120000
 
       - name: Verify alignment, signature and certificate
         run: |
