@@ -29,6 +29,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import com.eva.feature_player.R
+import com.eva.cloudtranscribe.model.CloudSettings
+import com.eva.cloudtranscribe.model.SummaryStyle
+import com.eva.cloudtranscribe.api.Redactor
+import com.eva.cloudtranscribe.settings.CloudSettingsRepository
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -68,8 +74,10 @@ data class CloudUiState(
 class CloudTranscriptsViewModel @Inject constructor(
 	private val store: TranscriptStore,
 	private val scheduler: CloudJobScheduler,
+	settings: CloudSettingsRepository,
 	private val offline: com.eva.cloudtranscribe.work.OfflineFileTranscriber,
 ) : ViewModel() {
+	val summarySettings = settings.settings.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), CloudSettings())
 	val offlineModels = offline.availableModels.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
 
 	fun startOffline(model: com.eva.transcribe.domain.models.STTModel) = viewModelScope.launch {
@@ -104,8 +112,8 @@ class CloudTranscriptsViewModel @Inject constructor(
 	}
 
 	fun cancel(id: String) = scheduler.cancel(id)
-	fun summarize(transcriptId: String) = viewModelScope.launch {
-		scheduler.startSummary(recordingId, transcriptId).onFailure { _messages.emit(it.message ?: "無法摘要") }.onSuccess { _messages.emit("已排入摘要") }
+	fun summarize(transcriptId: String, style: SummaryStyle, target: CloudSettings) = viewModelScope.launch {
+		scheduler.startSummary(recordingId, transcriptId, style, target).onFailure { _messages.emit(it.message ?: "無法摘要") }.onSuccess { _messages.emit("已排入摘要") }
 		refresh()
 	}
 	fun deleteTranscript(id: String) = viewModelScope.launch(Dispatchers.IO) { scheduler.cancel(id); store.deleteTranscript(recordingId, id); refresh() }
@@ -130,6 +138,9 @@ fun CloudTranscriptsDialog(
 	LaunchedEffect(recordingId) { viewModel.bind(recordingId) }
 	val state by viewModel.state.collectAsStateWithLifecycle()
 	val offlineModels by viewModel.offlineModels.collectAsStateWithLifecycle()
+	val summarySettings by viewModel.summarySettings.collectAsStateWithLifecycle()
+	var confirmSummary by remember(recordingId) { mutableStateOf<Pair<TranscriptRecord, CloudSettings>?>(null) }
+	var summaryStyle by remember(recordingId) { mutableStateOf(SummaryStyle.BRIEF) }
 	var offlinePick by remember { mutableStateOf<String?>(null) }
 	var confirmUpload by remember { mutableStateOf(false) }
 	var confirmDelete by remember { mutableStateOf<String?>(null) }
@@ -195,7 +206,7 @@ fun CloudTranscriptsDialog(
 								if (t.source == TranscriptSource.CLOUD && t.status in setOf(RunStatus.PARTIAL, RunStatus.FAILED, RunStatus.CANCELLED)) OutlinedButton({ viewModel.start(t.id) }) { Text("重試未完成段") }
 							}
 							Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-								if (t.text.isNotBlank() && t.status != RunStatus.RUNNING) OutlinedButton({ viewModel.summarize(t.id) }) { Text("用此稿摘要") }
+								if (t.text.isNotBlank() && t.status != RunStatus.RUNNING) OutlinedButton({ summaryStyle = SummaryStyle.BRIEF; confirmSummary = t to summarySettings }) { Text(stringResource(R.string.summary_choose_format)) }
 								TextButton({ confirmDelete = "t:" + t.id }) { Text("刪除") }
 							}
 						}
@@ -207,6 +218,7 @@ fun CloudTranscriptsDialog(
 						Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
 							val src = state.transcripts.firstOrNull { it.id == s.sourceTranscriptId }
 							Text("${s.provenance.model}・${s.status.zh()}・來源：${src?.label() ?: s.sourceTranscriptId}", style = MaterialTheme.typography.labelMedium)
+							if (s.style == SummaryStyle.MEETING_NOTES) Text(stringResource(R.string.summary_meeting_notes), style = MaterialTheme.typography.labelMedium)
 							s.error?.let { Text("錯誤：$it", color = MaterialTheme.colorScheme.error) }
 							if (s.text.isNotBlank()) SelectionContainer { Text(s.text, style = MaterialTheme.typography.bodySmall) }
 							TextButton({ confirmDelete = "s:" + s.id }) { Text("刪除摘要") }
@@ -215,6 +227,27 @@ fun CloudTranscriptsDialog(
 				}
 			}
 		}
+	}
+
+	confirmSummary?.let { (transcript, target) ->
+		AlertDialog(
+			onDismissRequest = { confirmSummary = null },
+			title = { Text(stringResource(R.string.summary_confirm_title)) },
+			text = {
+				Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+					Text(stringResource(R.string.summary_destination, Redactor.hostOf(target.baseUrl) ?: "未設定", target.summaryModel))
+					Text(stringResource(R.string.summary_upload_notice))
+					Text(transcript.label(), style = MaterialTheme.typography.bodySmall)
+					FilterChip(summaryStyle == SummaryStyle.BRIEF, { summaryStyle = SummaryStyle.BRIEF }, { Text(stringResource(R.string.summary_brief)) })
+					FilterChip(summaryStyle == SummaryStyle.MEETING_NOTES, { summaryStyle = SummaryStyle.MEETING_NOTES }, { Text(stringResource(R.string.summary_meeting_notes)) })
+					if (transcript.status != RunStatus.SUCCESS) Text(stringResource(R.string.summary_partial_source), color = MaterialTheme.colorScheme.error)
+				}
+			},
+			confirmButton = { TextButton(enabled = target.baseUrl.isNotBlank() && target.summaryModel.isNotBlank(), onClick = {
+				viewModel.summarize(transcript.id, summaryStyle, target); confirmSummary = null
+			}) { Text(stringResource(R.string.summary_confirm_send)) } },
+			dismissButton = { TextButton({ confirmSummary = null }) { Text(stringResource(R.string.summary_cancel)) } },
+		)
 	}
 
 	if (confirmUpload) AlertDialog(
