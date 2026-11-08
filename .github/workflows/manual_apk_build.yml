@@ -63,6 +63,17 @@ jobs:
           if [ -n "${DEBUG_KEYSTORE_B64}" ]; then
             umask 077
             printf '%s' "${DEBUG_KEYSTORE_B64}" | base64 -d > "$HOME/.android/debug.keystore"
+            # AGP resolves the debug keystore from ANDROID_USER_HOME first; pin it so the
+            # restored key is the one used (the runner image may point elsewhere).
+            echo "ANDROID_USER_HOME=$HOME/.android" >> "$GITHUB_ENV"
+            # Fail closed before building if the restored key is not the expected certificate.
+            # Only the public certificate fingerprint is printed (standard AGP debug passwords).
+            got="$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey 2>/dev/null | sed -n 's/^[[:space:]]*SHA256: //p' | tr -d ':' | tr 'A-F' 'a-f')"
+            echo "Restored keystore certificate SHA-256: ${got:-<unreadable>}"
+            if [ "$got" != "$EXPECTED_CERT_SHA256" ]; then
+              echo "::error::Restored debug keystore certificate does not match EXPECTED_CERT_SHA256."
+              exit 1
+            fi
             echo "SIGNING_MODE=stable" >> "$GITHUB_ENV"
             echo "Using DEBUG_KEYSTORE_B64 secret (content not printed)."
           elif [ "${ALLOW_EPHEMERAL}" = "true" ]; then
