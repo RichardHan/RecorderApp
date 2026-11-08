@@ -41,10 +41,22 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Gradle (wrapper validation + cache, read-only cache outside default branch)
+      - name: Set up Gradle (wrapper validation + cache; writable only for trusted manual runs)
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           validate-wrappers: true
+          # Default is read-only off the default branch, so every successful download on
+          # feature/drive-auto-upload was thrown away. Allow writes only for workflow_dispatch in this
+          # repository (dispatch needs write access; no fork/PR triggers exist) on main or the feature
+          # branch. The entry is saved at job end even when the build fails (cleanup is on-success only),
+          # so partial downloads carry over to the next run. The keystore lives in ~/.android, outside
+          # Gradle User Home, and is never cached.
+          cache-read-only: ${{ !(github.event_name == 'workflow_dispatch' && github.repository == 'RichardHan/RecorderApp' && (github.ref == 'refs/heads/feature/drive-auto-upload' || github.ref == 'refs/heads/main')) }}
+          # Default dirs plus the SHA-verified official sherpa-onnx AAR (non-secret).
+          gradle-home-cache-includes: |
+            caches
+            notifications
+            sherpa-onnx-aar
 
       - name: Install exact Android SDK packages
         run: |
@@ -131,7 +143,11 @@ jobs:
           url="${url//\$version/$ver}"
           case "$url" in https://github.com/k2-fsa/sherpa-onnx/releases/download/*) ;; *) echo "::error::Unexpected AAR URL: $url"; exit 1;; esac
           [ -n "$sha" ] || { echo "::error::Pinned AAR SHA-256 not found in settings.gradle.kts"; exit 1; }
-          out="$RUNNER_TEMP/sherpa-onnx-$ver.aar"
+          mkdir -p "$GRADLE_USER_HOME/sherpa-onnx-aar"
+          out="$GRADLE_USER_HOME/sherpa-onnx-aar/sherpa-onnx-$ver.aar"
+          if [ -f "$out" ] && echo "$sha  $out" | sha256sum -c -; then
+            echo "SHERPA_ONNX_AAR=$out" >> "$GITHUB_ENV"; echo "AAR restored from cache and verified."; exit 0
+          fi
           for attempt in 1 2 3 4 5 6; do
             rm -f "$out"
             if curl -fsSL --connect-timeout 20 --max-time 600 -o "$out" "$url" && echo "$sha  $out" | sha256sum -c -; then

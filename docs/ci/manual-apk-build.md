@@ -56,3 +56,9 @@ AGP 會優先從 `ANDROID_USER_HOME` 找 debug keystore。restore 步驟會把 `
 ## Gradle 依賴下載重試
 
 build 指令帶 `org.gradle.internal.repository.max.tentatives=6`、`initial.backoff=5000`，以及 HTTP 連線/讀取逾時（60s/120s）。這些是 Gradle 的內部屬性（可用但官方不保證支援），只在 CI 指令列設定，不影響本機 build。
+
+## Gradle 快取（feature 分支可寫入）
+
+setup-gradle 預設只在預設分支（main）寫快取，所以 `feature/drive-auto-upload` 上每次成功下載的依賴都會被丟掉，下次 run 又要重下載。現在只有「本 repo 的 workflow_dispatch、分支是 main 或 feature/drive-auto-upload」時才允許寫入（`cache-read-only` 條件式；觸發 dispatch 需要 repo 寫入權限，這個 workflow 也沒有 fork／PR 觸發）。
+依 setup-gradle 文件，快取在 job 結束時儲存，build 失敗時也會存（cache cleanup 預設只在成功時執行），所以已下載的部分會留給下一次 run。
+另外把通過 SHA-256 驗證的官方 sherpa-onnx AAR 放在 `$GRADLE_USER_HOME/sherpa-onnx-aar` 一起快取。keystore 放在 `~/.android`，不在 Gradle User Home 裡，不會進快取或 artifact。
