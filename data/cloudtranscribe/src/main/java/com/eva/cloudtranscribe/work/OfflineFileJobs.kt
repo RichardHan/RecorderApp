@@ -22,6 +22,8 @@ import com.eva.transcribe.domain.models.STTModel
 import com.eva.transcribe.domain.models.STTModelState
 import com.eva.transcribe.domain.repository.STTModelsRepository
 import com.eva.transcribe.offline.OfflineEngines
+import com.eva.cloudtranscribe.model.OfflineTranscriptSegments
+import com.eva.cloudtranscribe.model.SegmentResult
 import com.eva.transcribe.offline.OfflineSpeechEngine
 import com.eva.transcribe.offline.UtteranceSegmenter
 import com.eva.utils.Resource
@@ -92,17 +94,20 @@ class OfflineFileTranscribeWorker @AssistedInject constructor(
 			val source = PcmFileSource(pcm)
 			val segmenter = UtteranceSegmenter()
 			val texts = ArrayList<String>()
+			val segments = ArrayList<SegmentResult>()
 			var decoded = 0; var failed = 0
 			val totalMs = source.durationMs
 			val blockMs = 1000L
 			var pos = 0L
 			suspend fun handle(u: UtteranceSegmenter.Utterance) {
+				var error: String? = null
 				val text = try { engine.decode(u.samples) } catch (e: CancellationException) { throw e } catch (e: Exception) {
-					failed++; "[⚠ ${fmt(u.startSample * 1000 / TARGET_RATE)} 此段辨識失敗：${e.message}]"
+					failed++; error = e.message ?: e.javaClass.simpleName; "[⚠ ${fmt(u.startSample * 1000 / TARGET_RATE)} 此段辨識失敗：${e.message}]"
 				}
 				if (text.isNotBlank()) texts += text
+				segments += OfflineTranscriptSegments.fromSamples(decoded, u.startSample, u.samples.size, text, error)
 				decoded++
-				record = record.copy(text = texts.joinToString("\n"), completedSegments = decoded, updatedAtMillis = System.currentTimeMillis())
+				record = record.copy(text = texts.joinToString("\n"), completedSegments = decoded - failed, segments = segments.toList(), updatedAtMillis = System.currentTimeMillis())
 				store.saveTranscript(record)
 				setProgress(workDataOf(CloudJobScheduler.PROGRESS_DONE to (pos / 1000).toInt(), CloudJobScheduler.PROGRESS_TOTAL to (totalMs / 1000).toInt()))
 			}
