@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="transcript_search_placeholder">Transkript durchsuchen</string>
+  <string name="transcript_search_previous">Vorheriger Treffer</string>
+  <string name="transcript_search_next">Nächster Treffer</string>
+</resources>
