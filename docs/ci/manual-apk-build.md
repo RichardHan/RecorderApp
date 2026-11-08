@@ -1,0 +1,34 @@
+# 手動建置 APK（GitHub Actions）
+
+工作流程檔：`.github/workflows/manual_apk_build.yml`。只能手動觸發（`workflow_dispatch`），push 或 PR 都不會自動建置，所以不會自動消耗 Actions 分鐘數。
+
+## 產出
+- arm64、native 函式庫壓縮的 debug APK，指令跟本機打包一樣：`./gradlew :app:assembleDebug -Parm64Only=true -PcompressNative=true`。
+- 會檢查 zipalign（`-P 16 4`）、apksigner、APK 是否小於 100 MB。
+- 上傳的 artifact 包含 APK 和 `SHA256SUMS.txt`，保留 14 天；Run 摘要頁會列出檔名、大小、sha256 和簽章憑證。
+- 環境：JDK 17（temurin）、platform `android-37.0`、build-tools `37.0.0`、NDK `30.0.16248370`。版本跟 `gradle/libs.versions.toml` 及本機建置一致。
+- 所有 action 都固定在 commit SHA；`permissions: contents: read`；checkout 不保留 GitHub 憑證；會驗證 Gradle wrapper。
+
+## 讓手機能直接更新安裝（需要使用者決定一次）
+目前手機上的 App 是用本機的 debug keystore 簽章的，憑證 SHA-256 為 `7bfd64ee…4d36`。
+GitHub runner 上每次都會產生一把新的 debug key，用它簽出來的 APK **沒辦法覆蓋安裝，必須先解除安裝（App 資料會一起被刪除）**。
+
+如果要讓 CI 產出的 APK 能直接更新，需要使用者**明確同意**把這把 debug keystore 放進 repo 的 Actions secret：
+- Secret 名稱：`DEBUG_KEYSTORE_B64`，內容是 `debug.keystore` 檔案的 base64 編碼。
+- 設定方式：GitHub repo → Settings → Secrets and variables → Actions → New repository secret。
+- 安全性：
+  - 工作流程只會把這個 secret 寫到 runner 上的 `~/.android/debug.keystore`，結束後就刪除，不會印出內容。
+  - 建置完成後會比對 APK 的憑證；跟 `7bfd64ee…4d36` 不一致就讓建置失敗。
+  - Secret 不會進入快取或 artifact。
+
+如果沒有設定這個 secret，建置預設會**直接失敗**，不會產出無法更新的 APK。
+如果只是想測試 CI 能不能跑，可以在觸發時勾選 `allow_ephemeral_signing`。這時檔名會標示 `ephemeral`，這個 APK 不能覆蓋安裝現有的 App。
+
+## 啟用方式（重要）
+GitHub 只會在 Actions 頁面顯示**預設分支（目前是 `main`）上存在的** `workflow_dispatch` 工作流程。
+- 這個 PR 的目標分支是 `feature/drive-auto-upload`。合併進去之後，還要讓這個檔案出現在 `main` 上，例如把 feature 分支合併到 `main`，或只把這個工作流程檔另外合併到 `main`。之後才能在 Actions → Manual APK build → Run workflow 選分支（例如 `feature/drive-auto-upload`）來建置。
+- 或者也可以在 repo 設定裡，把預設分支改成 `feature/drive-auto-upload`。這會影響 clone 和 PR 的預設分支，請自行決定。
+- 啟用後，可以用 `gh workflow run "Manual APK build" --ref feature/drive-auto-upload` 觸發，再用 `gh run download` 下載 APK。
+
+## 跟既有 CI 的關係
+既有的 `android_build_ci.yaml` 會在 `main` 的 push 和 PR 時自動建置一般的 debug APK，這次沒有修改。新的工作流程用途不同：只能手動觸發、只建 arm64、會檢查簽章憑證是否一致，並上傳 APK。
