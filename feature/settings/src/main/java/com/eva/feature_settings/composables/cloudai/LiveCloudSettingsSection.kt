@@ -187,8 +187,11 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 	)
 }
 
+/** Same cap the prompt builder enforces; kept here so the field and its UI test share one value. */
+internal const val MEETING_NOTES_MAX = LiveCloudSettings.MAX_MEETING_NOTES
+
 /**
- * Optional pre-meeting notes / agenda. The field caps itself at [LiveCloudSettings.MAX_MEETING_NOTES] and clears
+ * Optional pre-meeting notes / agenda. The field caps itself at [MEETING_NOTES_MAX] and clears
  * through its own button so the caller only has to keep the string; the player-facing prompt is built elsewhere and
  * only reads the saved value.
  */
@@ -197,7 +200,7 @@ internal fun MeetingNotesField(notes: String, onNotesChange: (String) -> Unit) {
 	Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
 		OutlinedTextField(
 			value = notes,
-			onValueChange = { onNotesChange(it.take(LiveCloudSettings.MAX_MEETING_NOTES)) },
+			onValueChange = { onNotesChange(it.take(MEETING_NOTES_MAX)) },
 			modifier = Modifier.fillMaxWidth(),
 			label = { Text(stringResource(R.string.live_cloud_meeting_notes_label)) },
 			minLines = 2,
