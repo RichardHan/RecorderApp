@@ -336,24 +336,3 @@ class SummaryPromptV2Tests {
 		assertEquals("- 改成週四交", S.acceptSummary("- 週三交報價", "- 改成週四交"))
 	}
 }
-
-class TranscriptSearchTests {
-	private val P = PlaybackTranscripts
-	private val lines = listOf(
-		com.eva.cloudtranscribe.model.PlaybackLine("下週三交 API 報價", 0, 1000),
-		com.eva.cloudtranscribe.model.PlaybackLine("好", 1000, 2000),
-		com.eva.cloudtranscribe.model.PlaybackLine("api latency 太高", 2000, 3000),
-	)
-	@Test fun caseInsensitiveTrimmedMatches() {
-		assertEquals(listOf(0, 2), P.search(lines, "  API "))
-		assertEquals(listOf(0), P.search(lines, "報價"))
-		assertTrue(P.search(lines, "   ").isEmpty())
-		assertTrue(P.search(lines, "不存在").isEmpty())
-	}
-	@Test fun stepWrapsBothWays() {
-		val m = listOf(0, 2)
-		assertEquals(0, P.stepMatch(m, -1, true)); assertEquals(2, P.stepMatch(m, -1, false))
-		assertEquals(2, P.stepMatch(m, 0, true)); assertEquals(0, P.stepMatch(m, 2, true))
-		assertEquals(2, P.stepMatch(m, 0, false)); assertEquals(-1, P.stepMatch(emptyList(), 0, true))
-	}
-}

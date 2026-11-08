@@ -37,8 +37,10 @@ object PlaybackTranscripts {
 		timedLines(record) ?: record.text.lines().filter { it.isNotBlank() }.map { PlaybackLine(it.trim()) }
 
 	/**
-	 * On-device search inside one transcript: indices of lines containing [query] (case-insensitive, whitespace-trimmed).
-	 * Blank query → no matches. Pure and local; never sends anything anywhere.
+	 * On-device search inside one transcript: indices of lines containing [query], in list order.
+	 * Case-insensitive substring match; the query is trimmed, and a blank query has no matches.
+	 * A line counts once no matter how often it contains the query, and a phrase split across two
+	 * lines never matches. Pure and local; never sends anything anywhere.
 	 */
 	fun search(lines: List<PlaybackLine>, query: String): List<Int> {
 		val q = query.trim()
@@ -57,6 +59,9 @@ object PlaybackTranscripts {
 			else -> matches[(pos - 1 + n) % n]
 		}
 	}
+
+	/** 1-based position of [current] inside [matches] for the "n/total" counter; 0 when it is not a hit. */
+	fun matchPosition(matches: List<Int>, current: Int): Int = matches.indexOf(current) + 1
 
 	/** Index of the timed line covering [positionMs]; -1 when none or when lines are untimed. */
 	fun activeIndex(lines: List<PlaybackLine>, positionMs: Long): Int =
