@@ -1,0 +1,208 @@
+# Manual-only debug APK build (arm64, compressed native libs), same flags as the local sideload builds.
+# Never runs on push / pull_request. A workflow_dispatch workflow only appears in the Actions tab once this file
+# exists on the repository's DEFAULT branch (main); see docs/ci/manual-apk-build.md.
+name: Manual APK build
+
+on:
+  workflow_dispatch:
+    inputs:
+      allow_ephemeral_signing:
+        description: "No DEBUG_KEYSTORE_B64 secret: build with a throw-away debug key (APK can NOT update the installed app)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manual-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # SHA-256 of the debug certificate already installed on the user's phones (public certificate metadata, not a secret)
+  EXPECTED_CERT_SHA256: 7bfd64eeb026604169a8731421a48d2204db51ab925c6863ebb7e39d02184d36
+  ANDROID_NDK_VERSION: 30.0.16248370
+  ANDROID_PLATFORM: android-37.0
+  ANDROID_BUILD_TOOLS: 37.0.0
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle (wrapper validation + cache; writable only for trusted manual runs)
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          validate-wrappers: true
+          # Default is read-only off the default branch, so every successful download on
+          # feature/drive-auto-upload was thrown away. Allow writes only for workflow_dispatch in this
+          # repository (dispatch needs write access; no fork/PR triggers exist) on main or the feature
+          # branch. The entry is saved at job end even when the build fails (cleanup is on-success only),
+          # so partial downloads carry over to the next run. The keystore lives in ~/.android, outside
+          # Gradle User Home, and is never cached.
+          cache-read-only: ${{ !(github.event_name == 'workflow_dispatch' && github.repository == 'RichardHan/RecorderApp' && (github.ref == 'refs/heads/feature/drive-auto-upload' || github.ref == 'refs/heads/main')) }}
+          # Default dirs plus the SHA-verified official sherpa-onnx AAR (non-secret).
+          gradle-home-cache-includes: |
+            caches
+            notifications
+            sherpa-onnx-aar
+
+      - name: Install exact Android SDK packages
+        run: |
+          set -euo pipefail
+          SDKM="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" --install "platforms;${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}" "ndk;${ANDROID_NDK_VERSION}" > /dev/null
+
+      - name: Restore stable debug keystore (fail closed)
+        env:
+          DEBUG_KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
+          ALLOW_EPHEMERAL: ${{ inputs.allow_ephemeral_signing }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          if [ -n "${DEBUG_KEYSTORE_B64}" ]; then
+            umask 077
+            printf '%s' "${DEBUG_KEYSTORE_B64}" | base64 -d > "$HOME/.android/debug.keystore"
+            # AGP resolves the debug keystore from ANDROID_USER_HOME first; pin it so the
+            # restored key is the one used (the runner image may point elsewhere).
+            echo "ANDROID_USER_HOME=$HOME/.android" >> "$GITHUB_ENV"
+            # Fail closed before building if the restored key is not the expected certificate.
+            # Only the public certificate fingerprint is printed (standard AGP debug passwords).
+            got="$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey 2>/dev/null | sed -n 's/^[[:space:]]*SHA256: //p' | tr -d ':' | tr 'A-F' 'a-f')"
+            echo "Restored keystore certificate SHA-256: ${got:-<unreadable>}"
+            if [ "$got" != "$EXPECTED_CERT_SHA256" ]; then
+              echo "::error::Restored debug keystore certificate does not match EXPECTED_CERT_SHA256."
+              exit 1
+            fi
+            echo "SIGNING_MODE=stable" >> "$GITHUB_ENV"
+            echo "Using DEBUG_KEYSTORE_B64 secret (content not printed)."
+          elif [ "${ALLOW_EPHEMERAL}" = "true" ]; then
+            echo "SIGNING_MODE=ephemeral" >> "$GITHUB_ENV"
+            echo "::warning::No DEBUG_KEYSTORE_B64 secret: APK is signed with a throw-away key and cannot update the installed app."
+          else
+            echo "::error::Secret DEBUG_KEYSTORE_B64 is not set. Refusing to build an APK that cannot update the installed app (re-run with allow_ephemeral_signing=true for a test-only build)."
+            exit 1
+          fi
+
+      - name: Pre-fetch Gradle wrapper distribution (bounded retry, SHA-256 verified)
+        # Official Gradle distribution (services.gradle.org -> GitHub release asset) can return
+        # transient HTTP 504s. Fetch the exact wrapper URL with bounded retries, verify it against
+        # the official published SHA-256, and place it where the wrapper looks, so ./gradlew does
+        # not need to download it again. No mirrors, no version change.
+        env:
+          GRADLE_DIST_URL: https://services.gradle.org/distributions/gradle-9.8.0-bin.zip
+          GRADLE_DIST_SHA256: bafd5ce9cfaea0fbccfdc8439a1ac42fbd4cd9c89dc9a988228d8a2639a58e6c
+        run: |
+          set -euo pipefail
+          props_url="$(sed -n 's/^distributionUrl=//p' gradle/wrapper/gradle-wrapper.properties | sed 's#\\:#:#g')"
+          if [ "$props_url" != "$GRADLE_DIST_URL" ]; then
+            echo "::error::gradle-wrapper.properties URL ($props_url) differs from pinned $GRADLE_DIST_URL"; exit 1
+          fi
+          hash="$(python3 -c 'import hashlib,os,string;h=int(hashlib.md5(os.environ["GRADLE_DIST_URL"].encode()).hexdigest(),16);d=string.digits+string.ascii_lowercase;s=""
+          while h: s=d[h%36]+s; h//=36
+          print(s)')"
+          dir="$HOME/.gradle/wrapper/dists/gradle-9.8.0-bin/$hash"
+          zip="$dir/gradle-9.8.0-bin.zip"
+          if [ -f "$dir/gradle-9.8.0-bin.zip.ok" ]; then echo "Wrapper distribution already installed (cache)."; exit 0; fi
+          mkdir -p "$dir"
+          for attempt in 1 2 3 4 5 6; do
+            rm -f "$zip.part"
+            if curl -fsSL --connect-timeout 20 --max-time 600 -o "$zip.part" "$GRADLE_DIST_URL"; then
+              if echo "$GRADLE_DIST_SHA256  $zip.part" | sha256sum -c -; then
+                mv "$zip.part" "$zip"; echo "Downloaded and verified on attempt $attempt."; exit 0
+              fi
+              echo "::warning::SHA-256 mismatch on attempt $attempt"
+            fi
+            [ "$attempt" -lt 6 ] && sleep $((attempt * 30))
+          done
+          rm -f "$zip.part"
+          echo "::error::Official Gradle distribution unavailable after 6 bounded attempts"; exit 1
+
+      - name: Pre-fetch sherpa-onnx AAR (bounded retry, SHA-256 verified)
+        # settings.gradle.kts downloads this official release asset once with no retry; the same
+        # GitHub release CDN returns transient 504s. Fetch the identical URL with bounded retries,
+        # verify the SHA-256 pinned in settings.gradle.kts, and hand it over via SHERPA_ONNX_AAR
+        # (the documented offline hook). settings.gradle.kts re-verifies the hash.
+        run: |
+          set -euo pipefail
+          url="$(sed -n 's/^[[:space:]]*val url = "\(.*\)"$/\1/p' settings.gradle.kts)"
+          ver="$(sed -n 's/^[[:space:]]*val version = "\(.*\)"$/\1/p' settings.gradle.kts | head -1)"
+          sha="$(sed -n 's/^[[:space:]]*val sha = "\([0-9a-f]\{64\}\)"$/\1/p' settings.gradle.kts | head -1)"
+          url="${url//\$version/$ver}"
+          case "$url" in https://github.com/k2-fsa/sherpa-onnx/releases/download/*) ;; *) echo "::error::Unexpected AAR URL: $url"; exit 1;; esac
+          [ -n "$sha" ] || { echo "::error::Pinned AAR SHA-256 not found in settings.gradle.kts"; exit 1; }
+          mkdir -p "$GRADLE_USER_HOME/sherpa-onnx-aar"
+          out="$GRADLE_USER_HOME/sherpa-onnx-aar/sherpa-onnx-$ver.aar"
+          if [ -f "$out" ] && echo "$sha  $out" | sha256sum -c -; then
+            echo "SHERPA_ONNX_AAR=$out" >> "$GITHUB_ENV"; echo "AAR restored from cache and verified."; exit 0
+          fi
+          for attempt in 1 2 3 4 5 6; do
+            rm -f "$out"
+            if curl -fsSL --connect-timeout 20 --max-time 600 -o "$out" "$url" && echo "$sha  $out" | sha256sum -c -; then
+              echo "SHERPA_ONNX_AAR=$out" >> "$GITHUB_ENV"; echo "AAR verified on attempt $attempt."; exit 0
+            fi
+            [ "$attempt" -lt 6 ] && sleep $((attempt * 30))
+          done
+          echo "::error::Official sherpa-onnx AAR unavailable after 6 bounded attempts"; exit 1
+
+      - name: Build arm64 debug APK
+        # Dependency downloads hit the same transient 504s. Gradle's (internal, unsupported) retry
+        # knobs: 6 attempts total with exponential backoff from 5 s (~2.5 min max per artifact).
+        run: >-
+          ./gradlew --no-daemon :app:assembleDebug -Parm64Only=true -PcompressNative=true
+          -Dorg.gradle.internal.repository.max.tentatives=6
+          -Dorg.gradle.internal.repository.initial.backoff=5000
+          -Dorg.gradle.internal.http.connectionTimeout=60000
+          -Dorg.gradle.internal.http.socketTimeout=120000
+
+      - name: Verify alignment, signature and certificate
+        run: |
+          set -euo pipefail
+          BT="${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}"
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          "$BT/zipalign" -c -P 16 4 "$APK"
+          "$BT/apksigner" verify "$APK"
+          CERT=$("$BT/apksigner" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
+          echo "Signer certificate SHA-256: $CERT"
+          if [ "${SIGNING_MODE}" = "stable" ] && [ "$CERT" != "${EXPECTED_CERT_SHA256}" ]; then
+            echo "::error::Certificate mismatch: the keystore secret is not the key used on the phones."
+            exit 1
+          fi
+          VERSION=$("$BT/aapt2" dump badging "$APK" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -1)
+          SIZE=$(stat -c %s "$APK")
+          [ "$SIZE" -lt 104857600 ] || { echo "::error::APK is >= 100 MB"; exit 1; }
+          mkdir -p dist
+          OUT="RecorderApp-debug-${VERSION}-arm64-${SIGNING_MODE}-${GITHUB_SHA::7}.apk"
+          cp "$APK" "dist/$OUT"
+          ( cd dist && sha256sum "$OUT" > SHA256SUMS.txt )
+          {
+            echo "### APK"; echo "- file: \`$OUT\`"; echo "- size: $SIZE bytes"
+            echo "- sha256: \`$(cut -d' ' -f1 dist/SHA256SUMS.txt)\`"
+            echo "- signing: ${SIGNING_MODE} (cert $CERT)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove keystore from runner
+        if: always()
+        run: rm -f "$HOME/.android/debug.keystore"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: recorderapp-debug-arm64
+          path: |
+            dist/*.apk
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14

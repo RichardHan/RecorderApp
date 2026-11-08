@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<resources>
+  <string name="transcript_search_placeholder">Search transcript</string>
+  <string name="transcript_search_previous">Previous match</string>
+  <string name="transcript_search_next">Next match</string>
+  <string name="transcript_search_position" translatable="false">%1$d/%2$d</string>
+  <string name="transcript_search_previous_arrow" translatable="false">↑</string>
+  <string name="transcript_search_next_arrow" translatable="false">↓</string>
+</resources>
