@@ -336,3 +336,25 @@ class SummaryPromptV2Tests {
 		assertEquals("- 改成週四交", S.acceptSummary("- 週三交報價", "- 改成週四交"))
 	}
 }
+
+class MeetingNotesContextTests {
+	@Test fun emptyNotesLeavePromptUnchanged() {
+		assertEquals(TranscriptMerge.summaryPrompt("P", "", "t", ""), TranscriptMerge.summaryPrompt("P", "", "t", "", meetingNotes = "  "))
+		assertFalse(TranscriptMerge.summaryPrompt("P", "", "t", "").contains("會前備註"))
+	}
+	@Test fun notesAddedAsReferenceAfterUserPromptAndBounded() {
+		val p = TranscriptMerge.summaryPrompt("自訂", "", "新雲端", "", meetingNotes = "議題：Q3 報價；人名：Amy")
+		assertTrue(p.startsWith("自訂"))
+		assertTrue(p.contains("議題：Q3 報價"))
+		assertTrue(p.contains("不代表會中說過"))
+		assertTrue(p.indexOf("會前備註") < p.indexOf("【新增逐字稿"))
+		val long = TranscriptMerge.summaryPrompt("P", "", "t", "", meetingNotes = "x".repeat(10_000))
+		assertTrue(long.length < 2_000 + 500)
+	}
+	@Test fun settingsNormalizeAndProbeUseSameNotes() {
+		val s = LiveCloudSettings(meetingNotes = "  議程A  ").normalized()
+		assertEquals("議程A", s.meetingNotes)
+		assertTrue(com.eva.cloudtranscribe.live.SummaryProbe.buildPrompt(s).contains("議程A"))
+		assertEquals("", LiveCloudSettings().meetingNotes)
+	}
+}

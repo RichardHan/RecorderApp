@@ -125,6 +125,10 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 		OutlinedTextField(draft.summaryPrompt, { draft = draft.copy(summaryPrompt = it) }, Modifier.fillMaxWidth(),
 			label = { Text("重點整理 Prompt（可自行修改）") }, minLines = 4, maxLines = 10)
 		TextButton(onClick = { draft = draft.copy(summaryPrompt = LiveCloudSettings.DEFAULT_SUMMARY_PROMPT) }) { Text("還原預設 Prompt") }
+		OutlinedTextField(draft.meetingNotes, { draft = draft.copy(meetingNotes = it.take(LiveCloudSettings.MAX_MEETING_NOTES)) }, Modifier.fillMaxWidth(),
+			label = { Text("會前備註／議程（選填，下次錄音起用來聚焦重點）") }, minLines = 2, maxLines = 6,
+			supportingText = { Text("例如議題、人名、專有名詞；只當參考，不會被當成會中內容。會隨重點整理一起傳給摘要服務。") })
+		if (draft.meetingNotes.isNotBlank()) TextButton(onClick = { draft = draft.copy(meetingNotes = "") }) { Text("清除備註") }
 
 		Row2("摘要沿用轉錄 API Key（需明確選擇）", draft.summaryReuseTranscribeKey) { on ->
 			if (on) confirmReuse = true else draft = draft.copy(summaryReuseTranscribeKey = false)

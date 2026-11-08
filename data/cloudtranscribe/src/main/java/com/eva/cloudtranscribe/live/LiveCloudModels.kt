@@ -23,6 +23,11 @@ data class LiveCloudSettings(
 	val summaryPrompt: String = DEFAULT_SUMMARY_PROMPT,
 	/** Explicit choice to use the cloud-transcription API key for summary too (never implicit). */
 	val summaryReuseTranscribeKey: Boolean = false,
+	/**
+	 * Optional agenda / context typed by the user before a meeting (topics, names, terms). Used only to focus the live
+	 * key points; never treated as something that was said. Empty (default) = prompt unchanged.
+	 */
+	val meetingNotes: String = "",
 ) {
 	val transcribeIntervalMs: Long get() = transcribeIntervalSec.coerceIn(MIN_TRANSCRIBE_INTERVAL, MAX_TRANSCRIBE_INTERVAL) * 1000L
 	val summaryIntervalMs: Long get() = summaryIntervalSec.coerceIn(MIN_SUMMARY_INTERVAL, MAX_SUMMARY_INTERVAL) * 1000L
@@ -36,6 +41,7 @@ data class LiveCloudSettings(
 		summaryPrompt = migrateSummaryPrompt(summaryPrompt),
 		summaryModel = summaryModel.trim(),
 		summaryBaseUrl = summaryBaseUrl.trim(),
+		meetingNotes = meetingNotes.trim().take(MAX_MEETING_NOTES),
 	)
 
 	fun validateSummary(hasSummaryKey: Boolean, hasTranscribeKey: Boolean): String? = when {
@@ -56,6 +62,7 @@ data class LiveCloudSettings(
 		const val MIN_SUMMARY_INTERVAL = 15
 		const val MAX_SUMMARY_INTERVAL = 600
 		const val MAX_FIRST_DELAY = 1800
+		const val MAX_MEETING_NOTES = 2000
 		const val DEFAULT_SUMMARY_MODEL = "deepseek-v4.1-flash"
 		/** Exact pre-1.7.11 default; a saved prompt equal to this (trimmed) is migrated to [DEFAULT_SUMMARY_PROMPT]. */
 		const val LEGACY_SUMMARY_PROMPT_V1 =
