@@ -32,3 +32,15 @@ GitHub 只會在 Actions 頁面顯示**預設分支（目前是 `main`）上存�
 
 ## 跟既有 CI 的關係
 既有的 `android_build_ci.yaml` 會在 `main` 的 push 和 PR 時自動建置一般的 debug APK，這次沒有修改。新的工作流程用途不同：只能手動觸發、只建 arm64、會檢查簽章憑證是否一致，並上傳 APK。
+
+## Gradle 發行版下載（暫時性 504 處理）
+
+官方 wrapper 網址 `https://services.gradle.org/distributions/gradle-9.8.0-bin.zip` 會轉址到 GitHub release asset，偶爾回 HTTP 504 或逾時。
+workflow 在 build 前先執行「Pre-fetch Gradle wrapper distribution」步驟：
+
+- 只使用 `gradle-wrapper.properties` 裡的官方網址（不同即失敗），不使用鏡像，也不更換版本。
+- 最多下載 6 次（間隔 30/60/90/120/150 秒，每次上限 600 秒），整步約 15–25 分鐘後仍失敗就 fail closed。
+- 下載後以官方公布的 SHA-256（`bafd5ce9…58e6c`，來源 `gradle-9.8.0-bin.zip.sha256`）驗證，再放到 wrapper 的 dists 目錄，`./gradlew` 不會再下載一次。
+- 若 setup-gradle 快取已有安裝好的發行版（`.ok` 標記存在）就直接略過。
+
+這只降低暫時性網路錯誤的影響；官方來源長時間無法連線時，build 仍會失敗。
