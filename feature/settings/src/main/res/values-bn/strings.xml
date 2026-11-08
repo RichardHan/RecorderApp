@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<resources>
+  <string name="live_cloud_meeting_notes_label">মিটিংয়ের আগের নোট / এজেন্ডা (ঐচ্ছিক, লাইভ মূল পয়েন্টে ফোকাস করে)</string>
+  <string name="live_cloud_meeting_notes_hint">এজেন্ডা, নাম, প্রযুক্তিগত শব্দ। শুধু রেফারেন্স — যা বলা হয়েছে তা হিসেবে ধরা হয় না। লাইভ মূল-পয়েন্ট প্রম্পটের সাথে পাঠানো হয়; রেকর্ডিং-পরবর্তী সারাংশে এখনও ব্যবহৃত হয় না।</string>
+  <string name="live_cloud_meeting_notes_clear">নোট মুছুন</string>
+</resources>

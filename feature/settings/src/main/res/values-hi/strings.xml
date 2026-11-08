@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<resources>
+  <string name="live_cloud_meeting_notes_label">बैठक से पहले के नोट्स / एजेंडा (वैकल्पिक, लाइव मुख्य बिंदुओं को केंद्रित करता है)</string>
+  <string name="live_cloud_meeting_notes_hint">एजेंडा, नाम, तकनीकी शब्द। केवल संदर्भ — इन्हें कही गई बात नहीं माना जाता। लाइव मुख्य-बिंदु प्रॉम्प्ट के साथ भेजा जाता है; रिकॉर्डिंग के बाद के सारांश में अभी उपयोग नहीं होता।</string>
+  <string name="live_cloud_meeting_notes_clear">नोट्स हटाएँ</string>
+</resources>
