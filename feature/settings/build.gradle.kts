@@ -26,4 +26,8 @@ dependencies {
 	implementation(project(":data:datastore"))
 	implementation(project(":data:transcribe"))
 	implementation(project(":data:worker"))
+
+	// compose ui test for the advanced cloud settings section
+	androidTestImplementation(libs.androidx.ui.test.junit4)
+	androidTestImplementation(project(":data:cloudtranscribe"))
 }
