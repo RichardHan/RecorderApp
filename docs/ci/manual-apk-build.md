@@ -48,3 +48,7 @@ workflow 在 build 前先執行「Pre-fetch Gradle wrapper distribution」步驟
 ## Debug keystore 路徑
 
 AGP 會優先從 `ANDROID_USER_HOME` 找 debug keystore。restore 步驟會把 `ANDROID_USER_HOME` 設成 `$HOME/.android`，並在 build 前用 keytool 比對憑證 SHA-256（只印公開指紋）；不符就直接失敗，不會產出用別把 key 簽的 APK。
+
+## sherpa-onnx AAR 下載
+
+`settings.gradle.kts` 會從官方 GitHub release 下載 sherpa-onnx AAR，只試一次。workflow 會先用同一個網址做相同的有限次重試（6 次），以 `settings.gradle.kts` 裡固定的 SHA-256 驗證，再透過文件化的 `SHERPA_ONNX_AAR` 環境變數交給 Gradle（Gradle 會再驗一次 hash）。
