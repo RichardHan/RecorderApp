@@ -60,10 +60,21 @@ internal class STTModelsManagerViewModel @Inject constructor(
         field = MutableSharedFlow<UIEvents>()
 
 
+    init {
+        // Retire the old selection without deleting any user files or changing recording settings.
+        settingsRepo.settingsFlow.onEach { settings ->
+            if (settings.modelId == "vosk-en-in-small") {
+                settingsRepo.onUpdateModelId(null)
+                uiEvent.emit(UIEvents.ShowSnackBar("English (India) 已移除；舊檔案保留，請重新選擇逐字稿模型"))
+            }
+        }.launchIn(viewModelScope)
+    }
+
     fun onEvent(event: TranscriptionSettingsEvents) {
         when (event) {
             is TranscriptionSettingsEvents.OnDeleteDownloadedModel -> onDeleteModel(event.model.modelId)
-            is TranscriptionSettingsEvents.OnStartModelDownload -> onStartDownload(event.model.modelId)
+            is TranscriptionSettingsEvents.OnStartModelDownload -> onStartDownload(event.model.modelId, event.allowMetered)
+            is TranscriptionSettingsEvents.OnCancelModelDownload -> sttModelDownloader.cancelWorkAsync(event.downloadId)
             is TranscriptionSettingsEvents.OnSelectModel -> onSelectModel(event.model)
             TranscriptionSettingsEvents.OnToggleTranscriptions -> toggleEnable()
             is TranscriptionSettingsEvents.OnSelectInvalidModel -> onSelectInvalidModel(event.model)
@@ -82,11 +93,7 @@ internal class STTModelsManagerViewModel @Inject constructor(
 
     private fun onSelectInvalidModel(model: STTModel) = viewModelScope.launch {
         val event = when (model.state) {
-            STTModelState.UN_AVAILABLE -> UIEvents.ShowSnackBarWithActions(
-                message = "Download required",
-                action = { onStartDownload(model.modelId) },
-                actionText = "Download",
-            )
+            STTModelState.UN_AVAILABLE -> UIEvents.ShowSnackBar("請先按模型右側的下載鍵（會先顯示大小與網路選項）")
 
             STTModelState.DOWNLOADING -> UIEvents.ShowToast("Downloading model")
             else -> return@launch
@@ -114,8 +121,8 @@ internal class STTModelsManagerViewModel @Inject constructor(
             .launchIn(this)
     }
 
-    private fun onStartDownload(modelId: String) = viewModelScope.launch {
-        val workerId = sttModelDownloader.startWorker(modelId)
+    private fun onStartDownload(modelId: String, allowMetered: Boolean) = viewModelScope.launch {
+        val workerId = sttModelDownloader.startWorker(modelId, allowMetered)
         sttModelDownloader.observeWorker(workerId)
             .onEach { res ->
                 val event = when (res) {
@@ -165,6 +172,7 @@ internal class STTModelsManagerViewModel @Inject constructor(
                                 progress = { progress ?: 0f },
                                 isRunning = isRunning,
                                 downloadId = workId,
+                                statusText = (workerResource as? WorkResource.Running)?.message.orEmpty(),
                             )
                         }
                     }

@@ -23,6 +23,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,6 +38,8 @@ internal fun SettingsTabContent(
     filesSettings: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     transcriptionSettings: @Composable () -> Unit = {},
+	cloudSettings: @Composable () -> Unit = {},
+	aiSettings: @Composable () -> Unit = {},
     initialTab: SettingsTabs = SettingsTabs.AUDIO_SETTINGS,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
@@ -54,10 +58,10 @@ internal fun SettingsTabContent(
         modifier = modifier.padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        PrimaryTabRow(
-            selectedTabIndex = selectedTabIndex,
-        ) {
+        // 5 fixed equal-width tabs, all visible at once (short single-line labels; full name for accessibility)
+        PrimaryTabRow(selectedTabIndex = selectedTabIndex) {
             SettingsTabs.entries.forEach { tab ->
+                val fullName = tab.textRes
                 Tab(
                     selected = tab.tabIndex == selectedTabIndex,
                     onClick = {
@@ -65,31 +69,15 @@ internal fun SettingsTabContent(
                         if (index != selectedTabIndex)
                             scope.launch { pagerState.animateScrollToPage(index) }
                     },
+                    modifier = Modifier.semantics { contentDescription = fullName },
                     text = {
-                        Column(
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Text(
-                                text = tab.textRes,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            if (tab == SettingsTabs.TRANSCRIPTIONS_SETTINGS) {
-                                Surface(
-                                    color = MaterialTheme.colorScheme.tertiaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                                    shape = RoundedCornerShape(12.dp),
-                                ) {
-                                    Text(
-                                        text = "Alpha",
-                                        maxLines = 1,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    )
-                                }
-                            }
-                        }
+                        Text(
+                            text = tab.shortLabel,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
                     },
                 )
             }
@@ -112,6 +100,8 @@ internal fun SettingsTabContent(
                 SettingsTabs.AUDIO_SETTINGS.tabIndex -> audioSettings()
                 SettingsTabs.FILES_SETTINGS.tabIndex -> filesSettings()
                 SettingsTabs.TRANSCRIPTIONS_SETTINGS.tabIndex -> transcriptionSettings()
+				SettingsTabs.CLOUD_SETTINGS.tabIndex -> cloudSettings()
+				SettingsTabs.AI_SETTINGS.tabIndex -> aiSettings()
                 else -> {}
             }
         }

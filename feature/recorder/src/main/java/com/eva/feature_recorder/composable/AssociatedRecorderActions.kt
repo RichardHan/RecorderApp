@@ -10,7 +10,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,6 +44,7 @@ internal fun AssociatedRecorderActions(
 	modifier: Modifier = Modifier,
 	recorderState: RecorderState = RecorderState.RECORDING,
 	transcriptionSettings: TranscriptionSettings = TranscriptionSettings(),
+	onToggleLiveTranscription: (Boolean) -> Unit = {},
 ) {
 
 	var showDialog by rememberSaveable { mutableStateOf(false) }
@@ -59,26 +62,27 @@ internal fun AssociatedRecorderActions(
 
 	Row(
 		modifier = modifier,
-		horizontalArrangement = Arrangement.spacedBy(12.dp),
+		horizontalArrangement = Arrangement.spacedBy(6.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
-		SuggestionChip(
-			onClick = { showDialog = true },
-			icon = {
+		// real on/off switch for live on-device captions (persists the preference; service follows it live)
+		val hasModel = transcriptionSettings.modelId != null
+		val isOn = transcriptionSettings.isEnabled && hasModel
+		FilterChip(
+			selected = isOn,
+			onClick = {
+				if (!hasModel) showDialog = true // no model: explain + open settings, never auto-download
+				else onToggleLiveTranscription(!transcriptionSettings.isEnabled)
+			},
+			leadingIcon = {
 				Icon(
-					painter = painterResource(R.drawable.ic_info),
+					painter = painterResource(R.drawable.ic_stt),
 					contentDescription = null,
-					modifier = Modifier.size(20.dp),
+					modifier = Modifier.size(18.dp),
 				)
 			},
-			border = null,
-			label = { Text(text = stringResource(R.string.app_settings_transcriptions)) },
+			label = { Text(liveToggleLabel(transcriptionSettings)) },
 			shape = MaterialTheme.shapes.extraLarge,
-			colors = SuggestionChipDefaults.suggestionChipColors(
-				containerColor = MaterialTheme.colorScheme.tertiary,
-				labelColor = MaterialTheme.colorScheme.onTertiary,
-				iconContentColor = MaterialTheme.colorScheme.onTertiary
-			)
 		)
 		SuggestionChip(
 			onClick = onAddBookMark,
@@ -164,4 +168,11 @@ private fun TranscriptionsDialog(
 		iconContentColor = iconContentColor,
 		properties = properties
 	)
+}
+
+/** Chip label; pure for tests. */
+internal fun liveToggleLabel(s: TranscriptionSettings): String = when {
+	s.modelId == null -> "即時字幕：未選模型"
+	s.isEnabled -> "即時字幕：開"
+	else -> "即時字幕：關"
 }

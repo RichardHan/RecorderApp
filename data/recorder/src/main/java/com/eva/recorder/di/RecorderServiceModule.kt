@@ -65,11 +65,15 @@ internal object RecorderServiceModule {
 	fun transcriptorProvider(
 		source: AudioByteDataProvider,
 		transcriptor: AudioTranscriptor,
-		settingsRepo: TranscriptionSettingsRepo
+		settingsRepo: TranscriptionSettingsRepo,
+		repository: com.eva.transcribe.domain.repository.STTModelsRepository,
+		offlineEngine: com.eva.transcribe.offline.OfflineSpeechEngine,
 	): TranscriptionProvider = TranscriptionProviderImpl(
 		source = source,
 		transcriptor = transcriptor,
-		settingsRepo = settingsRepo
+		settingsRepo = settingsRepo,
+		repository = repository,
+		offlineEngine = offlineEngine,
 	)
 
 	@Provides
@@ -79,6 +83,19 @@ internal object RecorderServiceModule {
 		visualizer: AudioVisualDataProvider,
 		transcriber: TranscriptionProvider
 	): VoiceRecorderManager = VoiceRecorderManager(recorder, visualizer, transcriber)
+
+	@Provides
+	@ServiceScoped
+	fun providesLiveCloud(
+		source: AudioByteDataProvider,
+		transcriber: TranscriptionProvider,
+		liveRepo: com.eva.cloudtranscribe.live.LiveCloudSettingsRepository,
+		cloudRepo: com.eva.cloudtranscribe.settings.CloudSettingsRepository,
+		asrKeys: com.eva.cloudtranscribe.secure.ApiKeyStore,
+		summaryKeys: com.eva.cloudtranscribe.secure.SummaryApiKeyStore,
+		store: com.eva.cloudtranscribe.store.TranscriptStore,
+	): com.eva.recorder.data.recorder.LiveCloudCoordinator =
+		com.eva.recorder.data.recorder.LiveCloudCoordinator(source, transcriber, liveRepo, cloudRepo, asrKeys, summaryKeys, store)
 
 	@Provides
 	@ServiceScoped

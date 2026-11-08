@@ -46,6 +46,8 @@ internal fun RecorderAmplitudeGraph(
 	timelineTextColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 	containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
 	shape: Shape = MaterialTheme.shapes.small,
+	aspectRatio: Float = 1.6f,
+	minGraphHeight: androidx.compose.ui.unit.Dp = dimensionResource(id = R.dimen.line_graph_min_height),
 	contentPadding: PaddingValues = PaddingValues(
 		horizontal = dimensionResource(id = R.dimen.graph_card_padding),
 		vertical = dimensionResource(R.dimen.graph_card_padding_other)
@@ -57,12 +59,12 @@ internal fun RecorderAmplitudeGraph(
 	Surface(
 		shape = shape,
 		color = containerColor,
-		modifier = modifier.aspectRatio(1.6f),
+		modifier = modifier.aspectRatio(aspectRatio),
 	) {
 		Spacer(
 			modifier = Modifier
 				.padding(paddingValues = contentPadding)
-				.defaultMinSize(minHeight = dimensionResource(id = R.dimen.line_graph_min_height))
+				.defaultMinSize(minHeight = minGraphHeight)
 				.drawWithCache {
 					val blockSize = RecorderConstants.RECORDER_AMPLITUDES_BUFFER_SIZE
 					val centerYAxis = size.height / 2

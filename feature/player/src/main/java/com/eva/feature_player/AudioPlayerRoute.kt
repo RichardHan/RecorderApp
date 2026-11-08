@@ -8,6 +8,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -108,6 +109,10 @@ fun NavGraphBuilder.audioPlayerRoute(controller: NavHostController) =
             onNavigateBack = controller::popBackStack,
         )
 
+        var showCloud by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+        var transcriptRefresh by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
+        if (showCloud) com.eva.feature_player.cloud.CloudTranscriptsDialog(recordingId = route.audioId, onDismiss = { showCloud = false; transcriptRefresh++ })
+
         val lifeCycleState by backStackEntry.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
 
         CompositionLocalProvider(LocalSharedTransitionVisibilityScopeProvider provides this) {
@@ -132,6 +137,19 @@ fun NavGraphBuilder.audioPlayerRoute(controller: NavHostController) =
                         val dialog = NavDialogs.RenameRecordingDialog(audioId)
                         controller.navigate(dialog)
                     }
+                },
+                onCloudTranscripts = { showCloud = true },
+                transcriptPanel = { panelModifier ->
+                    com.eva.feature_player.cloud.SavedTranscriptPanel(
+                        recordingId = route.audioId,
+                        trackData = { trackData },
+                        refreshKey = transcriptRefresh,
+                        onSeekTo = { ms ->
+                            playerViewModel.onPlayerEvents(com.eva.feature_player.state.PlayerEvents.OnSeekingPlayer(with(kotlin.time.Duration) { ms.milliseconds }))
+                            playerViewModel.onPlayerEvents(com.eva.feature_player.state.PlayerEvents.OnSeekEndPlayer)
+                        },
+                        modifier = panelModifier,
+                    )
                 },
                 onNavigateToRecordings = {
                     controller.navigate(NavRoutes.VoiceRecordings) {

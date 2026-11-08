@@ -71,6 +71,8 @@ internal fun AudioPlayerScreen(
     onNavigateToEdit: () -> Unit = {},
     onRenameItem: (Long) -> Unit = {},
     onNavigateToRecordings: () -> Unit = {},
+    onCloudTranscripts: () -> Unit = {},
+    transcriptPanel: (@Composable (Modifier) -> Unit)? = null,
 ) {
 
     val snackBarProvider = LocalSnackBarProvider.current
@@ -98,6 +100,7 @@ internal fun AudioPlayerScreen(
                         .invokeOnCompletion { showBottomSheet = true }
                 },
                 onShareOption = { onFileEvent(UserAudioAction.ShareCurrentAudioFile) },
+                onCloudTranscripts = onCloudTranscripts,
                 onRenameOption = { model -> onRenameItem(model.id) },
                 onToggleFavourite = { model ->
                     onFileEvent(UserAudioAction.ToggleIsFavourite(model))
@@ -125,6 +128,7 @@ internal fun AudioPlayerScreen(
                     bookMarkState = bookMarkState,
                     onPlayerEvents = onPlayerEvents,
                     onBookmarkEvent = onBookmarkEvent,
+                    transcriptPanel = transcriptPanel,
                 )
             },
             onFailed = {

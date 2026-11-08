@@ -36,6 +36,7 @@ fun NavGraphBuilder.recorderRoute(navController: NavHostController) =
 		val recordingPoints by viewModel.recordingPoints.collectAsStateWithLifecycle()
 		val transcriptionsResult by viewModel.transcriptionsResult.collectAsStateWithLifecycle()
 		val transcriptionSettings by viewModel.transcribeSettings.collectAsStateWithLifecycle()
+		val liveCloud by viewModel.liveCloud.collectAsStateWithLifecycle()
 
 		UiEventsHandler(eventsFlow = viewModel::uiEvent)
 
@@ -46,12 +47,14 @@ fun NavGraphBuilder.recorderRoute(navController: NavHostController) =
 				isRecorderReady = isRecorderReady,
 				recorderState = recorderState,
 				transcriptions = transcriptionsResult,
+				liveCloud = liveCloud,
 				transcriptionSettings = transcriptionSettings,
 				recorderTimer = { recorderTimer },
 				bookMarksSetDeferred = { bookMarksSet },
 				deferredRecordingPoints = { recordingPoints },
 				onRecorderAction = viewModel::onAction,
 				onScreenEvent = viewModel::onEvent,
+				onToggleLiveTranscription = viewModel::setLiveTranscription,
 				onShowRecordings = dropUnlessResumed { navController.navigate(NavRoutes.VoiceRecordings) },
 				onNavigateToBin = dropUnlessResumed { navController.navigate(NavRoutes.TrashRecordings) },
 				onNavigateToSettings = dropUnlessResumed { navController.navigate(NavRoutes.AudioSettings) },

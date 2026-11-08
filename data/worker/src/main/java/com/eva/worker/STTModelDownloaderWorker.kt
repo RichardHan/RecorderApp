@@ -38,12 +38,17 @@ internal class STTModelDownloaderWorker @AssistedInject constructor(
             modelId = modelId,
             onDownloadState = { state ->
                 val message = state.toProgressMessage()
-                if (state is ModelDownloadState.DownloadProgress) {
+                val percent = when (state) {
+                    is ModelDownloadState.DownloadProgress -> state.progress
+                    is ModelDownloadState.Processing -> state.progress
+                    else -> null
+                }
+                if (percent != null) {
                     setProgress(
                         workDataOf(
                             WorkerParams.WORK_DATA_STT_MODEL_ID to modelId,
                             WorkerParams.WORK_DATA_WORK_PROGRESS_MESSAGE to message,
-                            WorkerParams.WORK_DATA_WORK_PROGRESS_PERCENTAGE to state.progress,
+                            WorkerParams.WORK_DATA_WORK_PROGRESS_PERCENTAGE to percent,
                         ),
                     )
                 } else {
@@ -109,6 +114,7 @@ internal class STTModelDownloaderWorker @AssistedInject constructor(
                 notification.setProgress(100, progress, false)
             }
 
+            is ModelDownloadState.Processing -> notification.setProgress(100, state.progress.coerceIn(0, 100), false)
             ModelDownloadState.ModelUnzipping -> notification.setProgress(100, 0, true)
             else -> notification.setProgress(0, 0, false)
         }
@@ -121,9 +127,13 @@ internal class STTModelDownloaderWorker @AssistedInject constructor(
     }
 
     private fun ModelDownloadState.toProgressMessage(): String = when (this) {
-        is ModelDownloadState.DownloadProgress -> applicationContext.getString(R.string.stt_model_downloading_text)
-        ModelDownloadState.DownloadInitiated -> applicationContext.getString(R.string.stt_model_download_requested_text)
+        is ModelDownloadState.DownloadProgress -> "下載中"
+        ModelDownloadState.DownloadInitiated -> "準備下載"
         ModelDownloadState.ModelUnzipping -> applicationContext.getString(R.string.stt_model_unzip_text)
+        is ModelDownloadState.Processing -> when (stage) {
+            ModelDownloadState.Stage.VERIFYING -> "驗證檔案"
+            ModelDownloadState.Stage.EXTRACTING -> "解壓安裝（大模型需數分鐘）"
+        }
         ModelDownloadState.ModelReadyToSave -> applicationContext.getString(R.string.stt_model_ready_text)
         ModelDownloadState.ModelSaved -> applicationContext.getString(R.string.stt_model_saved_text)
         ModelDownloadState.DownloadCleanUpDone -> applicationContext.getString(R.string.stt_model_cleanup_text)

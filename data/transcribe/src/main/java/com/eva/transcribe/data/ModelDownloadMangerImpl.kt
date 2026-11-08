@@ -26,6 +26,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okio.Buffer
 import okio.FileSystem
@@ -41,6 +42,7 @@ internal class ModelDownloadMangerImpl(
     private val context: Context,
     private val httpClient: HttpClient,
     private val repository: STTModelsRepository,
+    private val metadataReader: com.eva.transcribe.data.repository.STTModelMetadataReader,
 ) : ModelDownloadManager {
 
     private val fs = FileSystem.SYSTEM
@@ -84,6 +86,9 @@ internal class ModelDownloadMangerImpl(
         if (modelResult.name.isBlank() && modelResult.downloadedVersion.isBlank())
             throw IllegalStateException("Invalid model metadata")
 
+        // per-file models (e.g. Qwen3-ASR 1.7B, ~2.4 GB): no archive, every file pinned + SHA-256 verified
+        if (modelResult.archiveFormat == FILES_FORMAT) return downloadPerFileModel(modelResult, previousInstallation, onDownloadState)
+
         // checksum pattern check
         val expectedChecksum = modelResult.checksum
             ?.trim()
@@ -94,7 +99,11 @@ internal class ModelDownloadMangerImpl(
         // install path
         val installationDirectory = modelFolder.resolve("${modelResult.modelId}_${UUID.randomUUID()}")
         val extractionDirectory = modelFolder.resolve("${installationDirectory.name}.tmp")
-        val zipCacheFile = cachePath.resolve("model_${modelResult.modelId}_${UUID.randomUUID()}.zip")
+        val isTarBz2 = modelResult.archiveFormat == "tar.bz2"
+        // tar.bz2 (hundreds of MB): stable partial file in filesDir so a cancel / network drop resumes via HTTP Range
+        val zipCacheFile = if (isTarBz2) modelFolder.resolve("${modelResult.modelId}.archive.part")
+            else cachePath.resolve("model_${modelResult.modelId}_${UUID.randomUUID()}.zip")
+        var keepPartial = isTarBz2
 
         var installationStarted = false
         var markedDownloading = false
@@ -109,22 +118,60 @@ internal class ModelDownloadMangerImpl(
 
             fs.createDirectories(modelFolder)
 
-            downloadModelZipFile(modelResult.downloadURI, zipCacheFile) { progress ->
+            // tar.bz2 models carry a per-file manifest (paths, sizes, SHA-256) in the bundled catalogue
+            val manifest = if (modelResult.archiveFormat == "tar.bz2") {
+                metadataReader.readMetaData().getOrThrow().models
+                    .firstOrNull { it.modelId == modelResult.modelId }?.files
+                    ?.takeIf { it.isNotEmpty() }
+                    ?: throw IllegalStateException("Missing file manifest for ${modelResult.modelId}")
+            } else null
+
+            // disk check: archive (cache) + extracted files (+ old install kept until commit) + margin
+            val needed = com.eva.transcribe.resources.ResourcePolicy.archiveBytes(modelResult.archiveSize, manifest?.sumOf { it.sizeBytes })
+            val existingPartial = if (isTarBz2) (fs.metadataOrNull(zipCacheFile)?.size ?: 0L) else 0L
+            val free = (if (isTarBz2) context.filesDir.usableSpace else minOf(context.filesDir.usableSpace, context.cacheDir.usableSpace)) + existingPartial
+            if (free < needed) throw IOException("儲存空間不足：需要約 ${needed / 1_048_576} MB，可用 ${free / 1_048_576} MB")
+
+            if (isTarBz2) downloadArchiveResumable(modelResult.downloadURI, zipCacheFile, modelResult.archiveSize) { progress ->
+                onDownloadState(ModelDownloadState.DownloadProgress(progress))
+            } else downloadModelZipFile(modelResult.downloadURI, zipCacheFile) { progress ->
                 onDownloadState(ModelDownloadState.DownloadProgress(progress))
             }
 
             Log.d(TAG, "VERIFYING MODEL CHECKSUM")
-            val actualChecksum = calculateSha256Hash(zipCacheFile)
-            if (!actualChecksum.equals(expectedChecksum, ignoreCase = true))
-                throw IllegalStateException("Model checksum verification failed")
+            val actualChecksum = calculateSha256Hash(zipCacheFile) { p -> onDownloadState(ModelDownloadState.Processing(ModelDownloadState.Stage.VERIFYING, p)) }
+            if (!actualChecksum.equals(expectedChecksum, ignoreCase = true)) {
+                keepPartial = false // corrupt: never resume from it
+                throw IllegalStateException("模型檔 SHA-256 驗證失敗（已刪除下載檔，請重試）")
+            }
 
 
             Log.d(TAG, "MODEL CHECKSUM VERIFIED")
             onDownloadState(ModelDownloadState.ModelUnzipping)
 
-            extractModelArchive(zipCacheFile, extractionDirectory)
+            if (manifest != null) withContext(Dispatchers.IO) {
+                val job = currentCoroutineContext()
+                var last = -1
+                val pending = java.util.concurrent.atomic.AtomicInteger(-1)
+                val reporter = launch {
+                    while (isActive) {
+                        val p = pending.get()
+                        if (p >= 0 && p != last) { last = p; onDownloadState(ModelDownloadState.Processing(ModelDownloadState.Stage.EXTRACTING, p)) }
+                        kotlinx.coroutines.delay(1_000)
+                    }
+                }
+                try {
+                    fs.source(zipCacheFile).buffer().inputStream().use { input ->
+                        com.eva.transcribe.archive.SafeTarBz2Extractor.extract(
+                            input, extractionDirectory.toFile(), manifest, isCancelled = { !job.isActive },
+                            onBytes = { done, total -> pending.set(ModelDownloadProgress.percent(done, total)) },
+                        )
+                    }
+                } finally { reporter.cancel() }
+            } else extractModelArchive(zipCacheFile, extractionDirectory)
 
-            // zip file is moved to extraction dir
+            // archive no longer needed once extracted and verified
+            keepPartial = false
             withContext(NonCancellable) { deleteFileSafely(zipCacheFile) }
 
             currentCoroutineContext().ensureActive()
@@ -174,7 +221,132 @@ internal class ModelDownloadMangerImpl(
             }
             throw e
         } finally {
-            withContext(NonCancellable) { deleteFileSafely(zipCacheFile) }
+            // a resumable tar.bz2 partial survives cancel / network errors; everything else is cleaned up
+            withContext(NonCancellable) { if (!keepPartial) deleteFileSafely(zipCacheFile) }
+        }
+    }
+
+    /**
+     * Per-file install: each manifest file is streamed into `<id>.partial/<path>.part` with HTTP Range resume,
+     * hashed in streaming fashion (never loaded into memory, Long offsets — the decoder is > 2 GiB),
+     * then renamed. Cancellation keeps the partial directory so the next tap resumes; only after every file
+     * is verified is the directory atomically moved into place and the DB entry committed.
+     */
+    private suspend fun downloadPerFileModel(
+        model: com.eva.transcribe.domain.models.STTModel,
+        previousInstallation: Path?,
+        onDownloadState: suspend (ModelDownloadState) -> Unit,
+    ): Boolean {
+        val manifest = metadataReader.readMetaData().getOrThrow().models
+            .firstOrNull { it.modelId == model.modelId }?.files
+            ?.takeIf { it.isNotEmpty() }
+            ?: throw IllegalStateException("Missing file manifest for ${model.modelId}")
+        manifest.forEach { e ->
+            require(SHA256_REGEX.matches(e.sha256)) { "Invalid checksum for ${e.path}" }
+            require(PerFileModelPaths.isSafe(e.path)) { "Unsafe manifest path ${e.path}" }
+        }
+        val baseUrl = model.downloadURI.trimEnd('/')
+        require(baseUrl.startsWith("https://")) { "Model base URL must be https" }
+
+        val partialDir = modelFolder.resolve("${model.modelId}.partial")
+        val installationDirectory = modelFolder.resolve("${model.modelId}_${UUID.randomUUID()}")
+        val total = manifest.sumOf { it.sizeBytes }
+        var committed = false
+
+        onDownloadState(ModelDownloadState.DownloadInitiated)
+        repository.updateSTTModel(model.copy(state = STTModelState.DOWNLOADING)).getOrThrow()
+        try {
+            withContext(Dispatchers.IO) {
+                fs.createDirectories(partialDir)
+                fun have(e: com.eva.transcribe.data.models.ModelFileEntry): Long {
+                    val done = partialDir.resolve(e.path)
+                    return com.eva.transcribe.resources.ResourcePolicy.partialBytes(e.sizeBytes,
+                        fs.metadataOrNull(done)?.size, fs.metadataOrNull(partialDir.resolve(e.path + ".part"))?.size)
+                }
+                val already = manifest.sumOf { have(it) }
+                val remaining = total - already
+                val free = context.filesDir.usableSpace
+                // keep >= MIN_FREE_AFTER_DOWNLOAD left so the phone (and recordings) are not starved
+                if (free < com.eva.transcribe.resources.ResourcePolicy.downloadBytes(true, total, total, already, false))
+                    throw IOException("儲存空間不足：還需下載 ${remaining / 1_048_576} MB，並保留 ${MIN_FREE_AFTER_DOWNLOAD / 1_048_576} MB；可用 ${free / 1_048_576} MB")
+
+                var finishedBytes = manifest.filter { fs.metadataOrNull(partialDir.resolve(it.path))?.size == it.sizeBytes }.sumOf { it.sizeBytes }
+                var lastProgress = -1
+                for (entry in manifest) {
+                    currentCoroutineContext().ensureActive()
+                    val target = partialDir.resolve(entry.path)
+                    if (fs.metadataOrNull(target)?.size == entry.sizeBytes) continue
+                    if (fs.exists(target)) fs.delete(target)
+                    target.parent?.let(fs::createDirectories)
+                    val part = partialDir.resolve(entry.path + ".part")
+                    var offset = fs.metadataOrNull(part)?.size ?: 0L
+                    if (offset > entry.sizeBytes) { fs.delete(part); offset = 0L }
+                    if (offset < entry.sizeBytes) {
+                        httpClient.prepareGet("$baseUrl/${entry.path}") {
+                            header(HttpHeaders.CacheControl, "no-cache, no-store")
+                            if (offset > 0) header(HttpHeaders.Range, "bytes=$offset-")
+                        }.execute { response ->
+                            val code = response.status.value
+                            if (!response.status.isSuccess()) throw ModelDownloadFailedException()
+                            // server ignored Range: restart this file from zero
+                            val append = offset > 0 && code == 206
+                            if (!append) offset = 0L
+                            val channel = response.bodyAsChannel()
+                            val sink = if (append) fs.appendingSink(part) else fs.sink(part)
+                            sink.buffer().use { out ->
+                                val buffer = ByteArray(DOWNLOAD_BUFFER_SIZE)
+                                while (!channel.isClosedForRead) {
+                                    currentCoroutineContext().ensureActive()
+                                    val read = channel.readAvailable(buffer, 0, buffer.size)
+                                    if (read < 0) break
+                                    if (read == 0) continue
+                                    offset += read
+                                    if (offset > entry.sizeBytes) throw IOException("${entry.path} larger than manifest")
+                                    out.write(buffer, 0, read)
+                                    val progress = (((finishedBytes + offset).coerceAtMost(total)).toDouble() / total * 100).toInt()
+                                    if (progress != lastProgress) { lastProgress = progress; onDownloadState(ModelDownloadState.DownloadProgress(progress)) }
+                                }
+                            }
+                        }
+                    }
+                    val size = fs.metadata(part).size ?: -1L
+                    if (size != entry.sizeBytes) throw IOException("${entry.path}: size $size != ${entry.sizeBytes} (will resume)")
+                    val hash = fs.source(part).use { src -> HashingSource.sha256(src).use { h -> h.buffer().use { it.readAll(blackholeSink()) }; h.hash.hex() } }
+                    if (!hash.equals(entry.sha256, ignoreCase = true)) {
+                        fs.delete(part)
+                        throw IllegalStateException("${entry.path} SHA-256 mismatch; partial file removed")
+                    }
+                    fs.atomicMove(part, target)
+                    finishedBytes += entry.sizeBytes
+                }
+                onDownloadState(ModelDownloadState.ModelUnzipping)
+                // nothing outside the manifest may end up in the install dir
+                fs.listRecursively(partialDir).toList().filter { fs.metadata(it).isRegularFile }.forEach { f ->
+                    val rel = f.relativeTo(partialDir).toString().replace('\\', '/')
+                    if (manifest.none { it.path == rel }) fs.delete(f)
+                }
+                fs.atomicMove(partialDir, installationDirectory)
+            }
+            onDownloadState(ModelDownloadState.ModelReadyToSave)
+            repository.updateSTTModel(
+                model.copy(
+                    state = STTModelState.DOWNLOADED,
+                    localModelURI = Uri.Builder().scheme("file").path(installationDirectory.toString()).build().toString(),
+                ),
+            ).getOrThrow()
+            committed = true
+            withContext(NonCancellable) { previousInstallation?.takeIf { it != installationDirectory }?.let { deleteFileSafely(it) } }
+            onDownloadState(ModelDownloadState.ModelSaved)
+            return true
+        } catch (e: Throwable) {
+            withContext(NonCancellable) {
+                if (!committed) {
+                    if (fs.exists(installationDirectory)) deleteFileSafely(installationDirectory)
+                    // partialDir intentionally kept for resume; restore the previous DB state
+                    runCatching { repository.updateSTTModel(model) }
+                }
+            }
+            throw e
         }
     }
 
@@ -224,16 +396,68 @@ internal class ModelDownloadMangerImpl(
         }
     }
 
-    private suspend fun calculateSha256Hash(filePath: Path): String = withContext(Dispatchers.IO) {
+    private suspend fun calculateSha256Hash(filePath: Path, onProgress: suspend (Int) -> Unit = {}): String = withContext(Dispatchers.IO) {
+        val size = fs.metadataOrNull(filePath)?.size ?: 0L
         fs.source(filePath).use { source ->
             HashingSource.sha256(source).use { hashingSource ->
                 hashingSource.buffer().use { bufferedSource ->
-                    bufferedSource.readAll(blackholeSink())
+                    val sink = Buffer(); var read = 0L; var last = -1
+                    while (true) {
+                        currentCoroutineContext().ensureActive()
+                        val n = bufferedSource.read(sink, DOWNLOAD_BUFFER_SIZE.toLong())
+                        if (n < 0) break
+                        sink.clear(); read += n
+                        val p = ModelDownloadProgress.percent(read, size)
+                        if (p != last) { last = p; onProgress(p) }
+                    }
                 }
                 hashingSource.hash.hex()
             }
         }
     }
+
+    /**
+     * Streams [url] into [part] with HTTP Range resume (GitHub release assets answer 206). A server that ignores
+     * Range restarts from zero. Progress is computed from bytes written vs. the catalogue size, so it never depends
+     * on the server sending Content-Length.
+     */
+    private suspend fun downloadArchiveResumable(url: String, part: Path, expectedSize: Long, onProgress: suspend (Int) -> Unit) =
+        withContext(Dispatchers.IO) {
+            var offset = fs.metadataOrNull(part)?.size ?: 0L
+            if (expectedSize > 0 && offset > expectedSize) { fs.delete(part); offset = 0L }
+            if (expectedSize > 0 && offset == expectedSize) { onProgress(100); return@withContext }
+            httpClient.prepareGet(url) {
+                header(HttpHeaders.CacheControl, "no-cache, no-store")
+                header(HttpHeaders.Pragma, "no-cache")
+                if (offset > 0) header(HttpHeaders.Range, "bytes=$offset-")
+            }.execute { response ->
+                val code = response.status.value
+                if (code == 416 && expectedSize > 0 && offset == expectedSize) return@execute
+                if (!response.status.isSuccess()) throw IOException("模型下載失敗：HTTP $code")
+                val append = ModelDownloadProgress.resumeAppends(offset, code)
+                if (!append) offset = 0L
+                val channel = response.bodyAsChannel()
+                val total = if (expectedSize > 0) expectedSize else (response.contentLength()?.plus(offset) ?: -1L)
+                var last = -1
+                (if (append) fs.appendingSink(part) else fs.sink(part)).buffer().use { out ->
+                    val buffer = ByteArray(DOWNLOAD_BUFFER_SIZE)
+                    while (!channel.isClosedForRead) {
+                        currentCoroutineContext().ensureActive()
+                        val read = channel.readAvailable(buffer, 0, buffer.size)
+                        if (read < 0) break
+                        if (read == 0) continue
+                        offset += read
+                        if (total > 0 && offset > total) throw IOException("下載檔比預期大，已中止")
+                        out.write(buffer, 0, read)
+                        val p = ModelDownloadProgress.percent(offset, total)
+                        if (p != last) { last = p; onProgress(p) }
+                    }
+                }
+            }
+            val size = fs.metadataOrNull(part)?.size ?: 0L
+            if (expectedSize > 0 && size != expectedSize)
+                throw IOException("下載中斷：已下載 ${size / 1_048_576} / ${expectedSize / 1_048_576} MB，重試會從中斷處續傳")
+        }
 
     private suspend fun extractModelArchive(zipFile: Path, destination: Path) = withContext(Dispatchers.IO) {
 
@@ -333,6 +557,8 @@ internal class ModelDownloadMangerImpl(
         // models should be smaller than 1 GB once extracted
         private const val MAX_UNCOMPRESSED_SIZE = 1024L * 1024L * 1024L
 
+        const val FILES_FORMAT = "files"
+        private const val MIN_FREE_AFTER_DOWNLOAD = com.eva.transcribe.resources.ResourcePolicy.FILE_BUFFER
         private val SHA256_REGEX = Regex("^[a-f0-9]{64}$")
     }
 }

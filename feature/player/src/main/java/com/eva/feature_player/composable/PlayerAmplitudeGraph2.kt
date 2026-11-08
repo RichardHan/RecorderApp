@@ -2,6 +2,7 @@ package com.eva.feature_player.composable
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -55,6 +56,7 @@ fun PlayerAmplitudeGraph2(
 	timelineTextColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 	containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
 	contentPadding: PaddingValues = PaddingValues(20.dp),
+	minGraphHeight: androidx.compose.ui.unit.Dp = dimensionResource(id = R.dimen.line_graph_min_height),
 ) {
 	val resolver = LocalFontFamilyResolver.current
 	val density = LocalDensity.current
@@ -102,7 +104,7 @@ fun PlayerAmplitudeGraph2(
             view.onUpdateGraphData { graphData() }
         },
         onRelease = { view -> view.cleanUp() },
-        modifier = modifier.defaultMinSize(minHeight = dimensionResource(id = R.dimen.line_graph_min_height)),
+        modifier = modifier.defaultMinSize(minHeight = minGraphHeight),
     )
 }
 
@@ -129,13 +131,15 @@ internal fun PlayerAmplitudeGraph2(
 		horizontal = dimensionResource(id = R.dimen.graph_card_padding),
 		vertical = dimensionResource(id = R.dimen.graph_card_padding_other)
 	),
+	/** null = size purely from [modifier] (compact layouts); the graph then fills the card instead of overflowing it. */
+	aspectRatio: Float? = 1.6f,
 ) {
     val totalDuration by remember(trackData) { derivedStateOf { trackData().total } }
 
 	Surface(
 		shape = shape,
 		color = containerColor,
-		modifier = modifier.aspectRatio(1.6f)
+		modifier = if (aspectRatio != null) modifier.aspectRatio(aspectRatio) else modifier
 	) {
 		PlayerAmplitudeGraph2(
 			trackPlayRatio = { trackData().playRatio },
@@ -157,6 +161,8 @@ internal fun PlayerAmplitudeGraph2(
 			timelineTextStyle = timelineTextStyle.copy(fontFamily = timelineFontFamily),
 			contentPadding = contentPadding,
 			containerColor = containerColor,
+			minGraphHeight = if (aspectRatio == null) 0.dp else dimensionResource(id = R.dimen.line_graph_min_height),
+			modifier = if (aspectRatio == null) Modifier.fillMaxSize() else Modifier,
 		)
 	}
 }
