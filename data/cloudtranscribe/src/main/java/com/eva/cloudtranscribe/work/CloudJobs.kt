@@ -222,6 +222,7 @@ class CloudSummaryWorker @AssistedInject constructor(
 		val s = settingsRepo.current().let { it.copy(providerType = record.provenance.providerType ?: it.providerType) }
 		store.saveSummary(record.copy(status = RunStatus.RUNNING))
 		val client = CloudAiClients.create(s, apiKey, UrlConnectionTransport(), record.provenance.model)
+		val prompt = Prompts.summary(transcript.text)
 		val last = boundedRetry(
 			attempts = CloudSettings.MAX_ATTEMPTS,
 			request = { withContext(Dispatchers.IO) { client.complete(prompt) } },
