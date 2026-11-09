@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -32,6 +33,7 @@ import com.eva.cloudtranscribe.live.LiveCloudSettings
 import com.eva.cloudtranscribe.live.LiveCloudSettingsRepository
 import com.eva.cloudtranscribe.secure.ApiKeyStore
 import com.eva.cloudtranscribe.secure.SummaryApiKeyStore
+import com.eva.feature_settings.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -125,6 +127,7 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 		OutlinedTextField(draft.summaryPrompt, { draft = draft.copy(summaryPrompt = it) }, Modifier.fillMaxWidth(),
 			label = { Text("重點整理 Prompt（可自行修改）") }, minLines = 4, maxLines = 10)
 		TextButton(onClick = { draft = draft.copy(summaryPrompt = LiveCloudSettings.DEFAULT_SUMMARY_PROMPT) }) { Text("還原預設 Prompt") }
+		MeetingNotesField(draft.meetingNotes) { draft = draft.copy(meetingNotes = it) }
 
 		Row2("摘要沿用轉錄 API Key（需明確選擇）", draft.summaryReuseTranscribeKey) { on ->
 			if (on) confirmReuse = true else draft = draft.copy(summaryReuseTranscribeKey = false)
@@ -171,7 +174,7 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 	if (confirmTest) AlertDialog(
 		onDismissRequest = { confirmTest = false },
 		title = { Text("測試已儲存的摘要設定？") },
-		text = { Text("會用已儲存的摘要 Endpoint、模型（${current.summaryModel}）、Prompt 與${if (current.summaryReuseTranscribeKey) "沿用的轉錄 Key" else "摘要 Key"}，送出一次短範例文字的摘要請求（上限約 ${SummaryProbe.TOKEN_LIMIT} tokens）。可能產生少量費用；不上傳錄音，不自動重試。") },
+		text = { Text("會用已儲存的摘要 Endpoint、模型（${current.summaryModel}）、Prompt（含會前備註，若有）與${if (current.summaryReuseTranscribeKey) "沿用的轉錄 Key" else "摘要 Key"}，送出一次短範例文字的摘要請求（上限約 ${SummaryProbe.TOKEN_LIMIT} tokens）。可能產生少量費用；不上傳錄音，不自動重試。") },
 		confirmButton = { TextButton(onClick = { confirmTest = false; viewModel.testSaved() }) { Text("同意費用，測試一次") } },
 		dismissButton = { TextButton(onClick = { confirmTest = false }) { Text("取消") } },
 	)
@@ -182,6 +185,32 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 		confirmButton = { TextButton(onClick = { draft = draft.copy(summaryReuseTranscribeKey = true); confirmReuse = false }) { Text("確定沿用") } },
 		dismissButton = { TextButton(onClick = { confirmReuse = false }) { Text("取消") } },
 	)
+}
+
+/** Same cap the prompt builder enforces; kept here so the field and its UI test share one value. */
+internal const val MEETING_NOTES_MAX = LiveCloudSettings.MAX_MEETING_NOTES
+
+/**
+ * Optional pre-meeting notes / agenda. The field caps itself at [MEETING_NOTES_MAX] and clears
+ * through its own button so the caller only has to keep the string; the player-facing prompt is built elsewhere and
+ * only reads the saved value.
+ */
+@Composable
+internal fun MeetingNotesField(notes: String, onNotesChange: (String) -> Unit) {
+	Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+		OutlinedTextField(
+			value = notes,
+			onValueChange = { onNotesChange(it.take(MEETING_NOTES_MAX)) },
+			modifier = Modifier.fillMaxWidth(),
+			label = { Text(stringResource(R.string.live_cloud_meeting_notes_label)) },
+			minLines = 2,
+			maxLines = 6,
+			supportingText = { Text(stringResource(R.string.live_cloud_meeting_notes_hint)) },
+		)
+		if (notes.isNotBlank()) TextButton(onClick = { onNotesChange("") }) {
+			Text(stringResource(R.string.live_cloud_meeting_notes_clear))
+		}
+	}
 }
 
 @Composable
