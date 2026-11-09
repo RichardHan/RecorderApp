@@ -202,6 +202,14 @@ fun CloudTranscriptsDialog(
 					}
 				}
 				if (state.summaries.isNotEmpty()) item { Text("摘要", style = MaterialTheme.typography.titleMedium) }
+				item {
+					val newestSummary = state.summaries.firstOrNull { it.status == RunStatus.SUCCESS && it.text.isNotBlank() }
+					ActionItemsCard(
+						recordingId = recordingId,
+						latestSummaryText = newestSummary?.text,
+						latestSummaryAtMillis = newestSummary?.createdAtMillis,
+					)
+				}
 				items(state.summaries, key = { it.id }) { s ->
 					Card {
 						Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
