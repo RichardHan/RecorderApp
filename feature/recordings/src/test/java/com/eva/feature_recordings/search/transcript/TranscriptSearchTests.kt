@@ -4,13 +4,10 @@ import com.eva.cloudtranscribe.model.PlaybackLine
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceTimeBy
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -120,92 +117,74 @@ class TranscriptSearchFlowTests {
 	@Test
 	fun debouncesKeystrokesAndOnlySearchesTheNewestQuery() = runTest {
 		val dispatcher = StandardTestDispatcher(testScheduler)
-		val queries = MutableStateFlow("")
 		var loads = 0
-		val results = mutableListOf<TranscriptSearchResult>()
-
-		val job = backgroundScope.launch {
-			queries.transcriptSearch(
-				searcher = TranscriptSearcher(),
-				recordings = { recordings },
-				lines = { loads++; listOf(line("alpha")) },
-				dispatcher = dispatcher,
-			).collect { results += it }
+		val queries = flow {
+			emit("a")
+			delay(100)
+			emit("al")
+			delay(100)
+			emit("alp")
 		}
-
-		queries.value = "a"
-		advanceTimeBy(100)
-		queries.value = "al"
-		advanceTimeBy(100)
-		queries.value = "alp"
-		advanceUntilIdle()
+		val results = queries.transcriptSearch(
+			searcher = TranscriptSearcher(),
+			recordings = { recordings },
+			lines = { loads++; listOf(line("alpha")) },
+			dispatcher = dispatcher,
+		).toList()
 
 		assertEquals("only the last keystroke may run a search", 1, loads)
-		assertEquals(1, results.last().hits.size)
-		job.cancel()
+		assertEquals(1, results.size)
+		assertEquals(1, results.single().hits.size)
 	}
 
 	@Test
 	fun newerQueryCancelsTheSearchThatIsStillRunning() = runTest {
 		val dispatcher = StandardTestDispatcher(testScheduler)
-		val queries = MutableStateFlow("")
 		var cancelled = false
 		var loads = 0
-		val results = mutableListOf<TranscriptSearchResult>()
-
-		val job = backgroundScope.launch {
-			queries.transcriptSearch(
-				searcher = TranscriptSearcher(),
-				recordings = { recordings },
-				lines = { _ ->
-					loads++
-					if (loads == 1) {
-						try {
-							delay(10_000)
-							listOf(line("slow"))
-						} catch (e: CancellationException) {
-							cancelled = true
-							throw e
-						}
-					} else listOf(line("fast"))
-				},
-				dispatcher = dispatcher,
-			).collect { results += it }
+		val queries = flow {
+			emit("slow")
+			delay(400)
+			emit("fast")
 		}
-
-		queries.value = "slow"
-		advanceTimeBy(400)
-		runCurrent()
-		queries.value = "fast"
-		advanceUntilIdle()
+		val results = queries.transcriptSearch(
+			searcher = TranscriptSearcher(),
+			recordings = { recordings },
+			lines = { _ ->
+				loads++
+				if (loads == 1) {
+					try {
+						delay(10_000)
+						listOf(line("slow"))
+					} catch (e: CancellationException) {
+						cancelled = true
+						throw e
+					}
+				} else listOf(line("fast"))
+			},
+			dispatcher = dispatcher,
+		).toList()
 
 		assertTrue("the running search must be cancelled", cancelled)
-		assertEquals("fast", results.last().hits.single().text)
-		job.cancel()
+		assertEquals("fast", results.single().hits.single().text)
 	}
 
 	@Test
 	fun clearingTheQueryClearsTheResults() = runTest {
 		val dispatcher = StandardTestDispatcher(testScheduler)
-		val queries = MutableStateFlow("")
-		val results = mutableListOf<TranscriptSearchResult>()
-
-		val job = backgroundScope.launch {
-			queries.transcriptSearch(
-				searcher = TranscriptSearcher(),
-				recordings = { recordings },
-				lines = { listOf(line("alpha")) },
-				dispatcher = dispatcher,
-			).collect { results += it }
+		val queries = flow {
+			emit("alp")
+			delay(400)
+			emit("")
 		}
+		val results = queries.transcriptSearch(
+			searcher = TranscriptSearcher(),
+			recordings = { recordings },
+			lines = { listOf(line("alpha")) },
+			dispatcher = dispatcher,
+		).toList()
 
-		queries.value = "alp"
-		advanceUntilIdle()
-		assertEquals(1, results.last().hits.size)
-
-		queries.value = ""
-		advanceUntilIdle()
+		assertEquals(1, results.first().hits.size)
 		assertTrue(results.last().hits.isEmpty())
-		job.cancel()
 	}
 }
