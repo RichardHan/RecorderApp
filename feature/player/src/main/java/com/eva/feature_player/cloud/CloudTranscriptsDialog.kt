@@ -223,7 +223,9 @@ fun CloudTranscriptsDialog(
 					Card {
 						Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
 							val src = state.transcripts.firstOrNull { it.id == s.sourceTranscriptId }
-							Text("${s.provenance.model}・${s.status.zh()}・${s.provenance.summaryFormat?.let { "${it.zh()}・" } ?: ""}來源：${src?.label() ?: s.sourceTranscriptId}", style = MaterialTheme.typography.labelMedium)
+							val storedFormat = s.provenance.summaryFormat
+								?.let { name -> SummaryFormat.entries.firstOrNull { it.name == name } }
+							Text("${s.provenance.model}・${s.status.zh()}・${storedFormat?.let { "${it.zh()}・" } ?: ""}來源：${src?.label() ?: s.sourceTranscriptId}", style = MaterialTheme.typography.labelMedium)
 							s.error?.let { Text("錯誤：$it", color = MaterialTheme.colorScheme.error) }
 							if (s.text.isNotBlank()) SelectionContainer { Text(s.text, style = MaterialTheme.typography.bodySmall) }
 							Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
