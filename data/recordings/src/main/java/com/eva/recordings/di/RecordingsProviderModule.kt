@@ -3,6 +3,7 @@ package com.eva.recordings.di
 import android.content.Context
 import android.os.Build
 import com.eva.database.dao.RecordingActionItemsDao
+import com.eva.database.dao.RecordingChaptersDao
 import com.eva.database.dao.RecordingsMetadataDao
 import com.eva.database.dao.TrashFileDao
 import com.eva.datastore.domain.repository.RecorderFileSettingsRepo
@@ -13,6 +14,7 @@ import com.eva.recordings.data.provider.AudioTagWriterImpl
 import com.eva.recordings.data.provider.PlayerFileProviderImpl
 import com.eva.recordings.data.provider.RecorderFileProviderImpl
 import com.eva.recordings.data.provider.RecordingActionItemsProviderImpl
+import com.eva.recordings.data.provider.RecordingChaptersProviderImpl
 import com.eva.recordings.data.provider.RecordingSecondaryDataProviderImpl
 import com.eva.recordings.data.provider.StorageInfoProviderImpl
 import com.eva.recordings.data.provider.TrashRecordingsProviderApi29Impl
@@ -22,6 +24,7 @@ import com.eva.recordings.domain.provider.AudioInfoExtractor
 import com.eva.recordings.domain.provider.AudioTagWriter
 import com.eva.recordings.domain.provider.PlayerFileProvider
 import com.eva.recordings.domain.provider.RecordingActionItemsProvider
+import com.eva.recordings.domain.provider.RecordingChaptersProvider
 import com.eva.recordings.domain.provider.RecorderFileProvider
 import com.eva.recordings.domain.provider.RecordingsSecondaryDataProvider
 import com.eva.recordings.domain.provider.StorageInfoProvider
@@ -110,4 +113,9 @@ object RecordingsProviderModule {
 	@Singleton
 	fun providesActionItemsProvider(dao: RecordingActionItemsDao): RecordingActionItemsProvider =
 		RecordingActionItemsProviderImpl(dao)
+
+	@Provides
+	@Singleton
+	fun providesChaptersProvider(dao: RecordingChaptersDao): RecordingChaptersProvider =
+		RecordingChaptersProviderImpl(dao)
 }
