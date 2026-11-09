@@ -60,8 +60,10 @@ class TranscriptStoreSearchIndexTests {
 
 	@Test
 	fun unparsableTranscriptFileDoesNotHideItsRecording() {
-		val store = storeWith(1)
-		val dir = File(store.checkpointDir(1, "x").parentFile, "transcripts")
+		val root = root()
+		val store = TranscriptStore(root).also { it.saveTranscript(record(1)) }
+		// same layout TranscriptStore documents: <root>/v1/<recordingId>/transcripts/*.json
+		val dir = File(root, "v1/1/transcripts")
 		File(dir, "broken.json").writeText("{ not json")
 		assertTrue(store.recordingIds().contains(1))
 		assertTrue(store.transcriptsSignature(1) > 0L)
