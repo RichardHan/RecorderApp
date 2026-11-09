@@ -271,8 +271,11 @@ class DBMigrationsTests {
 			assertThat(statement.getText(2)).isEqualTo("summary")
 		}
 
-		// deleting the recording cascades to its action items
+		// deleting the recording cascades to its action items. The migration helper opens a plain SQLite connection, so
+		// the pragma Room normally sets has to be enabled here before the foreign key can act.
+		db.execSQL("PRAGMA foreign_keys=ON")
 		db.execSQL("DELETE FROM recording_meta_data WHERE RECORDING_ID = 7")
+		assertThat(db.countOf("recording_meta_data")).isEqualTo(0L)
 		assertThat(db.countOf("recording_action_items")).isEqualTo(0L)
 		db.close()
 	}
