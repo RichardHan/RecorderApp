@@ -42,7 +42,9 @@ jobs:
           name: chapters-reports
           path: |
             data/database/build/reports/androidTests/
+            data/database/build/outputs/androidTest-results/
             feature/player/build/reports/androidTests/
+            feature/player/build/outputs/androidTest-results/
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: always()
