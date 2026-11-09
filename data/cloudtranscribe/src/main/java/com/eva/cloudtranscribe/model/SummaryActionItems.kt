@@ -1,6 +1,6 @@
 package com.eva.cloudtranscribe.model
 
-import com.eva.cloudtranscribe.engine.Prompts
+import com.eva.cloudtranscribe.live.LiveCloudSettings
 
 /**
  * Turns an existing summary into candidate to-do items. Pure, on-device and never calls a model: it only picks the
@@ -14,7 +14,7 @@ object SummaryActionItems {
 
 	/** Markers that are not real to-dos. */
 	private val NOT_ITEMS = setOf(
-		Prompts.NO_KEY_POINTS,
+		LiveCloudSettings.NO_KEY_POINTS,
 		"（尚無）",
 		"目前無重點。",
 	)
