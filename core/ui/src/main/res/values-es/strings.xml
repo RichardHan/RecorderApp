@@ -200,7 +200,10 @@
     <string name="search_filter_date_created_title">Fecha de creación</string>
     <string name="search_filter_title">Filtros</string>
     <string name="menu_option_search">Buscar</string>
-    <string name="no_search_results">No hay resultados de búsqueda</string>
+    <string name="search_transcript_section">Coincidencias en la transcripción</string>
+  <string name="search_recordings_section">Grabaciones</string>
+  <string name="search_transcript_too_many">Demasiadas coincidencias: reduce la búsqueda</string>
+  <string name="no_search_results">No hay resultados de búsqueda</string>
     <string name="media_editor_title">Editar</string>
     <string name="action_save">Guardar</string>
     <string name="action_export">Exportar</string>
