@@ -32,6 +32,10 @@ inline void translateCurrentException(JNIEnv* env) noexcept {
     } catch (const std::logic_error& error) {
         LOG_DEBUG("native failure: logic_error: %s", error.what());
         throwJavaException(env, "java/lang/IllegalStateException", error.what());
+    } catch (const std::runtime_error& error) {
+        // Match the Kotlin API's check() failures for invalid frames or decoded sizes.
+        LOG_DEBUG("native failure: runtime_error: %s", error.what());
+        throwJavaException(env, "java/lang/IllegalStateException", error.what());
     } catch (const std::exception& error) {
         LOG_DEBUG("native failure: exception: %s", error.what());
         throwJavaException(env, "java/lang/RuntimeException", error.what());
