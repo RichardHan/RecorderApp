@@ -6,6 +6,11 @@ import com.eva.categories.domain.provider.RecordingCategoryProvider
 import com.eva.feature_recordings.search.state.SearchFilterTimeOption
 import com.eva.feature_recordings.search.state.SearchRecordingScreenEvent
 import com.eva.feature_recordings.search.state.SearchRecordingScreenState
+import com.eva.feature_recordings.search.transcript.TranscriptSearchRecording
+import com.eva.feature_recordings.search.transcript.TranscriptSearchRepository
+import com.eva.feature_recordings.search.transcript.TranscriptSearchResult
+import com.eva.feature_recordings.search.transcript.TranscriptSearcher
+import com.eva.feature_recordings.search.transcript.transcriptSearch
 import com.eva.recordings.domain.models.RecordedVoiceModel
 import com.eva.ui.viewmodel.AppViewModel
 import com.eva.ui.viewmodel.UIEvents
@@ -14,6 +19,7 @@ import com.eva.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -46,6 +52,7 @@ import kotlin.time.ExperimentalTime
 internal class SearchRecordingsViewmodel @Inject constructor(
 	private val categoriesProvider: RecordingCategoryProvider,
 	private val recordingsUseCase: RecordingsFromCategoriesUseCase,
+	private val transcriptSearch: TranscriptSearchRepository,
 ) : AppViewModel() {
 
 	private val _categories = MutableStateFlow(emptyList<RecordingCategoryModel>())
@@ -54,6 +61,11 @@ internal class SearchRecordingsViewmodel @Inject constructor(
 	private val _categoryFilter = MutableStateFlow<RecordingCategoryModel?>(null)
 	private val _timeFilter = MutableStateFlow<SearchFilterTimeOption?>(null)
 	private val _searchQuery = MutableStateFlow("")
+
+	private val searcher = TranscriptSearcher()
+
+	/** Every recording (name for display, id for the store); filled once, unaffected by the category/time filters. */
+	private val _transcriptSearchScope = MutableStateFlow(emptyList<TranscriptSearchRecording>())
 
 	@OptIn(FlowPreview::class)
 	private val query: Flow<String>
@@ -76,6 +88,22 @@ internal class SearchRecordingsViewmodel @Inject constructor(
 			initialValue = persistentListOf()
 		)
 
+	/**
+	 * On-device search over each recording's default transcript. Debounced, latest-wins, and the store walk happens on
+	 * [Dispatchers.IO]; nothing here calls a network service.
+	 */
+	@OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
+	val transcriptResults: Flow<TranscriptSearchResult> = _searchQuery.transcriptSearch(
+		searcher = searcher,
+		recordings = { _transcriptSearchScope.value },
+		lines = { recordingId -> transcriptSearch.lines(recordingId) },
+		dispatcher = Dispatchers.IO,
+	).stateIn(
+		scope = viewModelScope,
+		started = SharingStarted.WhileSubscribed(5_000),
+		initialValue = TranscriptSearchResult(),
+	)
+
 	val categories = _categories
 		.map { categories -> categories.toImmutableList() }
 		.onStart { populateRecordingCategories() }
@@ -84,6 +112,10 @@ internal class SearchRecordingsViewmodel @Inject constructor(
 			started = SharingStarted.WhileSubscribed(5000),
 			initialValue = persistentListOf()
 		)
+
+	init {
+		populateTranscriptSearchScope()
+	}
 
 	private val _uiEvents = MutableSharedFlow<UIEvents>()
 
@@ -111,6 +143,15 @@ internal class SearchRecordingsViewmodel @Inject constructor(
 		}
 	}
 
+
+	private fun populateTranscriptSearchScope() {
+		recordingsUseCase(RecordingCategoryModel.ALL_CATEGORY)
+			.onEach { resource ->
+				if (resource is Resource.Success) {
+					_transcriptSearchScope.update { resource.data.map { TranscriptSearchRecording(it.id, it.displayName) } }
+				}
+			}.launchIn(viewModelScope)
+	}
 
 	private fun populateRecordingCategories() {
 		categoriesProvider.recordingCategoryAsResourceFlow.onEach { res ->

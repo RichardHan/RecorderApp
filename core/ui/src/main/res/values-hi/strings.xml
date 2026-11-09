@@ -201,6 +201,9 @@
   <string name="search_filter_date_created_title">बनाने की तिथि</string>
   <string name="search_filter_title">फ़िल्टर</string>
   <string name="menu_option_search">खोज</string>
+  <string name="search_transcript_section">ट्रांसक्रिप्ट मेल</string>
+  <string name="search_recordings_section">रिकॉर्डिंग</string>
+  <string name="search_transcript_too_many">बहुत अधिक मेल — खोज सीमित करें</string>
   <string name="no_search_results">कोई खोज परिणाम नहीं</string>
   <string name="media_editor_title">संपादित करें</string>
   <string name="action_save">सहेजें</string>

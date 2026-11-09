@@ -63,5 +63,13 @@ class TranscriptStore(root: File) {
 		Unit
 	}
 
+	/** Recording ids that currently hold transcript data (read-only; newest folder first). */
+	fun recordingIds(): List<Long> = base.listFiles { f -> f.isDirectory && f.name.toLongOrNull() != null }
+		.orEmpty().sortedByDescending { it.lastModified() }.mapNotNull { it.name.toLongOrNull() }
+
+	/** Newest mtime among this recording's transcript files; 0 when it has none (cheap cache-invalidation key). */
+	fun transcriptsSignature(recordingId: Long): Long =
+		transcriptsDir(recordingId).listFiles { f -> f.extension == "json" }?.maxOfOrNull { it.lastModified() } ?: 0L
+
 	private fun safe(id: String) = id.replace(Regex("[^A-Za-z0-9_.-]"), "_")
 }

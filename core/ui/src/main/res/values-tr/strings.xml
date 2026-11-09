@@ -198,6 +198,9 @@
   <string name="search_filter_date_created_title">Oluşturulma Tarihi</string>
   <string name="search_filter_title">Filtreler</string>
   <string name="menu_option_search">Ara</string>
+  <string name="search_transcript_section">Transkript eşleşmeleri</string>
+  <string name="search_recordings_section">Kayıtlar</string>
+  <string name="search_transcript_too_many">Çok fazla eşleşme — aramayı daraltın</string>
   <string name="no_search_results">Arama sonucu bulunamadı</string>
   <string name="media_editor_title">Düzenle</string>
   <string name="action_save">Kaydet</string>

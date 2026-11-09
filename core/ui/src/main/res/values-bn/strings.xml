@@ -201,6 +201,9 @@
   <string name="search_filter_date_created_title">তারিখ তৈরি</string>
   <string name="search_filter_title">ফিল্টার</string>
   <string name="menu_option_search">অনুসন্ধান</string>
+  <string name="search_transcript_section">ট্রান্সক্রিপ্ট মিল</string>
+  <string name="search_recordings_section">রেকর্ডিং</string>
+  <string name="search_transcript_too_many">অনেক বেশি মিল — কীওয়ার্ড ছোট করুন</string>
   <string name="no_search_results">কোন অনুসন্ধান ফলাফল</string>
   <string name="media_editor_title">সম্পাদনা</string>
   <string name="action_save">সংরক্ষণ</string>
