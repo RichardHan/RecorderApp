@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -93,7 +94,7 @@ internal class SearchRecordingsViewmodel @Inject constructor(
 	 * [Dispatchers.IO]; nothing here calls a network service.
 	 */
 	@OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
-	val transcriptResults: Flow<TranscriptSearchResult> = _searchQuery.transcriptSearch(
+	val transcriptResults: StateFlow<TranscriptSearchResult> = _searchQuery.transcriptSearch(
 		searcher = searcher,
 		recordings = { _transcriptSearchScope.value },
 		lines = { recordingId -> transcriptSearch.lines(recordingId) },
