@@ -223,7 +223,50 @@ object Prompts {
 		return t == NO_SPEECH || t == "NO SPEECH" || t == "[NO_SPEECH]"
 	}
 
-	fun summary(transcript: String) = "請用繁體中文精簡整理以下會議逐字稿的重點。只寫明確說出的重要事實、決議與待辦；" +
-		"沒有的類別就省略，不必湊數。每點一句、以「- 」開頭，技術名詞與英文原樣保留。不要開場白、結語或客套話。" +
-		"不要推測或捏造內容、負責人或期限；重複字、語助詞與雜訊不是重點。完全沒有重點時只輸出：目前無重點\n\n逐字稿：\n$transcript"
+	/** Exact concise instructions (pre-format default). Kept byte-identical so existing behaviour cannot drift. */
+	const val SUMMARY_CONCISE =
+		"請用繁體中文精簡整理以下會議逐字稿的重點。只寫明確說出的重要事實、決議與待辦；" +
+			"沒有的類別就省略，不必湊數。每點一句、以「- 」開頭，技術名詞與英文原樣保留。不要開場白、結語或客套話。" +
+			"不要推測或捏造內容、負責人或期限；重複字、語助詞與雜訊不是重點。完全沒有重點時只輸出：目前無重點"
+
+	/** Decisions + action items; still one bullet per line and still omits anything that was not said. */
+	const val SUMMARY_DECISIONS =
+		"請用繁體中文整理以下會議逐字稿，分成「決議」與「待辦」兩類重點。只寫明確說出的決議與真正的待辦；" +
+			"沒有的類別就省略，不必湊數。每點一句、以「- 」開頭；只保留原文明確提到的負責人或期限，不要推測。" +
+			"技術名詞與英文原樣保留。不要開場白、結語或客套話，不要推測或捏造內容；" +
+			"重複字、語助詞與雜訊不是重點。完全沒有重點時只輸出：目前無重點"
+
+	/** Bullets + open questions that the meeting left unanswered. */
+	const val SUMMARY_QUESTIONS =
+		"請用繁體中文整理以下會議逐字稿的重點，並列出會中明確懸而未決的問題。只寫明確說出的內容與真正未解答的問題；" +
+			"沒有的類別就省略，不必湊數。每點一句、以「- 」開頭，技術名詞與英文原樣保留。不要開場白、結語或客套話，" +
+			"不要把猜測寫成問題，不要推測或捏造內容、負責人或期限；重複字、語助詞與雜訊不是重點。" +
+			"完全沒有重點時只輸出：目前無重點"
+
+	/** Rules that apply to every format, including a user-written one. */
+	const val SUMMARY_SHARED_RULES =
+		"只寫明確說出的內容，沒有的就省略，不必湊數；每點一句、以「- 」開頭；技術名詞與英文原樣保留；" +
+			"不要開場白、結語或客套話；不要推測或捏造內容、負責人或期限；完全沒有重點時只輸出：目前無重點"
+
+	/**
+	 * Summary request. [SummaryFormat.CONCISE] (the default) is byte-identical to the pre-format prompt; the other
+	 * formats only swap the instructions and keep the shared rules, and a blank custom text falls back to concise.
+	 */
+	fun summary(
+		transcript: String,
+		format: com.eva.cloudtranscribe.model.SummaryFormat = com.eva.cloudtranscribe.model.SummaryFormat.CONCISE,
+		customInstructions: String = "",
+	): String {
+		val instructions = when (format) {
+			com.eva.cloudtranscribe.model.SummaryFormat.CONCISE -> SUMMARY_CONCISE
+			com.eva.cloudtranscribe.model.SummaryFormat.DECISIONS_AND_ACTIONS -> SUMMARY_DECISIONS
+			com.eva.cloudtranscribe.model.SummaryFormat.BULLETS_AND_OPEN_QUESTIONS -> SUMMARY_QUESTIONS
+			com.eva.cloudtranscribe.model.SummaryFormat.CUSTOM -> {
+				val custom = customInstructions.trim().take(com.eva.cloudtranscribe.model.CloudSettings.MAX_SUMMARY_INSTRUCTIONS)
+				if (custom.isEmpty()) return summary(transcript)
+				"請用繁體中文整理以下會議逐字稿的重點。使用者指定的格式（只影響排版與取捨）：\n$custom\n$SUMMARY_SHARED_RULES"
+			}
+		}
+		return "$instructions\n\n逐字稿：\n$transcript"
+	}
 }
