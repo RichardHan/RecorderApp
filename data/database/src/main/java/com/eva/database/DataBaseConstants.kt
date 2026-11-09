@@ -11,4 +11,5 @@ object DataBaseConstants {
 	const val RECORDING_BOOKMARK_TABLE = "recording_bookmark_table"
 	const val STT_MODELS_TABLE = "stt_models_table"
 	const val DRIVE_UPLOAD_TABLE = "google_drive_uploads"
+	const val RECORDING_ACTION_ITEMS_TABLE = "recording_action_items"
 }
