@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="live_cloud_meeting_notes_label">Pre-meeting notes / agenda (optional, focuses live key points)</string>
+  <string name="live_cloud_meeting_notes_hint">Agenda items, names, technical terms. Reference only — never treated as something said. Sent with the live key-point prompt; the post-recording summary does not use it yet.</string>
+  <string name="live_cloud_meeting_notes_clear">Clear notes</string>
+</resources>

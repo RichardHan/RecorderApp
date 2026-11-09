@@ -179,7 +179,7 @@ class LiveCloudSession(
 		val okSpans = snapshot.cloudSpans.filter { it.covers }
 		val newCloud = TranscriptMerge.cloudText(okSpans.drop(summarizedSpanCount))
 		val provisionalText = snapshot.provisional.filterNot { com.eva.cloudtranscribe.engine.RepetitionGuard.isPathological(it.text) }.joinToString("\n") { it.text }
-		val prompt = TranscriptMerge.summaryPrompt(settings.summaryPrompt, snapshot.keyPoints, newCloud, provisionalText)
+		val prompt = TranscriptMerge.summaryPrompt(settings.summaryPrompt, snapshot.keyPoints, newCloud, provisionalText, meetingNotes = settings.meetingNotes)
 		val job = scope.launch {
 			_state.update { it.copy(phase = LiveCloudPhase.SUMMARIZING) }
 			val outcome = summarize(prompt)
