@@ -15,6 +15,13 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import com.eva.feature_player.R
+import com.eva.cloudtranscribe.model.TranscriptSearch
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -97,13 +105,18 @@ internal fun SavedTranscriptPanel(
 }
 
 @Composable
-private fun TranscriptLines(
+internal fun TranscriptLines(
 	record: TranscriptRecord,
 	trackData: () -> PlayerTrackData,
 	onSeekTo: ((Long) -> Unit)?,
 	modifier: Modifier,
 ) {
 	val lines = remember(record.id, record.updatedAtMillis) { PlaybackTranscripts.lines(record) }
+	var query by rememberSaveable(record.id) { mutableStateOf("") }
+	val searching = query.isNotBlank()
+	val matches = remember(lines, query) { TranscriptSearch.matchingLines(lines, query) }
+	var matchIndex by remember(record.id, query, lines) { mutableStateOf(if (matches.isEmpty()) -1 else 0) }
+	var navigationRequest by remember(record.id) { mutableStateOf(0) }
 	val timed = lines.any { it.startMs != null }
 	val listState = rememberLazyListState()
 	val active by remember(lines) {
@@ -111,28 +124,51 @@ private fun TranscriptLines(
 	}
 	// follow playback only while the previous highlighted line is on screen (manual reading is not yanked back)
 	var lastActive by remember(lines) { mutableStateOf(-1) }
-	LaunchedEffect(active) {
+	LaunchedEffect(active, searching) {
+		if (searching) { lastActive = -1; return@LaunchedEffect }
 		if (active < 0) return@LaunchedEffect
 		val visible = listState.layoutInfo.visibleItemsInfo.map { it.index }
 		if (lastActive < 0 || lastActive in visible) listState.animateScrollToItem(active)
 		lastActive = active
 	}
 
+	LaunchedEffect(record.id, query, matches, matchIndex, navigationRequest) {
+		matches.getOrNull(matchIndex)?.let { listState.animateScrollToItem(it) }
+	}
+
 	Column(modifier) {
+		OutlinedTextField(query, { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("transcript-search-input"),
+			label = { Text(stringResource(R.string.transcript_search_label)) })
+		if (searching) {
+			Text(if (matches.isEmpty()) stringResource(R.string.transcript_search_empty) else stringResource(R.string.transcript_search_count, matchIndex + 1, matches.size), style = MaterialTheme.typography.labelSmall)
+			Row {
+				TextButton({ matchIndex = TranscriptSearch.next(matchIndex, matches.size, -1); navigationRequest++ }, enabled = matches.isNotEmpty()) { Text(stringResource(R.string.transcript_search_previous)) }
+				TextButton({ matchIndex = TranscriptSearch.next(matchIndex, matches.size, 1); navigationRequest++ }, enabled = matches.isNotEmpty()) { Text(stringResource(R.string.transcript_search_next)) }
+				TextButton({ query = "" }) { Text(stringResource(R.string.transcript_search_clear)) }
+			}
+			Text(stringResource(R.string.transcript_search_hint), style = MaterialTheme.typography.labelSmall)
+		}
 		if (!timed) Text(
 			"此逐字稿沒有時間戳，顯示全文（不跟隨播放位置）",
 			style = MaterialTheme.typography.labelSmall,
 			color = MaterialTheme.colorScheme.onSurfaceVariant,
 		)
 		SelectionContainer(Modifier.weight(1f)) {
-			LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+			LazyColumn(state = listState, modifier = Modifier.testTag("transcript-search-lines"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
 				itemsIndexed(lines) { i, line ->
 					val isActive = i == active
+					val highlight = SpanStyle(background = MaterialTheme.colorScheme.tertiaryContainer, color = MaterialTheme.colorScheme.onTertiaryContainer)
 					Text(
-						text = (line.startMs?.let { fmt(it) + "  " } ?: "") + line.text,
+						text = buildAnnotatedString {
+							val prefix = line.startMs?.let { fmt(it) + "  " } ?: ""
+							append(prefix); append(line.text)
+							TranscriptSearch.ranges(line.text, query).forEach { range ->
+								addStyle(highlight, prefix.length + range.first, prefix.length + range.last + 1)
+							}
+						},
 						style = MaterialTheme.typography.bodyMedium,
 						color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-						modifier = Modifier
+						modifier = Modifier.testTag("transcript-line-$i")
 							.fillMaxWidth()
 							.then(if (isActive) Modifier.background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small) else Modifier)
 							.then(line.startMs?.let { start -> if (onSeekTo != null) Modifier.clickable { onSeekTo(start) } else null } ?: Modifier)
