@@ -58,4 +58,8 @@ object DatabaseModule {
 	@Provides
 	@Singleton
 	fun providesActionItemsDao(database: RecorderDataBase): RecordingActionItemsDao = database.recordingActionItemsDao()
+
+	@Provides
+	@Singleton
+	fun providesChaptersDao(database: RecorderDataBase): RecordingChaptersDao = database.recordingChaptersDao()
 }
