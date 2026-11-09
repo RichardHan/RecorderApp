@@ -87,7 +87,7 @@ jobs:
                     disable-animations: false
                     script: echo "Generated AVD snapshot for caching."
 
-            -   name: Run instrumented tests
+            -   name: Run debug instrumented tests
                 uses: reactivecircus/android-emulator-runner@v2
                 with:
                     api-level: ${{ matrix.api-level }}
@@ -98,7 +98,9 @@ jobs:
                     disable-animations: true
                     script: |
                         adb devices
-                        ./gradlew connectedAndroidTest --continue --stacktrace
+                        # Keep every module's debug tests, without benchmark/profile release builds.
+                        # Serialize projects sharing one emulator and bound concurrent dex workers.
+                        ./gradlew connectedDebugAndroidTest -PincludeEmulatorAbis=true --no-parallel --max-workers=2 --continue --stacktrace
 
             -   name: Module-wise test summary
                 if: always()
