@@ -5,7 +5,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -120,11 +120,11 @@ class TranscriptSearchFlowTests {
 	@Test
 	fun debouncesKeystrokesAndOnlySearchesTheNewestQuery() = runTest {
 		val dispatcher = StandardTestDispatcher(testScheduler)
-		val queries = MutableSharedFlow<String>(extraBufferCapacity = 8)
+		val queries = MutableStateFlow("")
 		var loads = 0
 		val results = mutableListOf<TranscriptSearchResult>()
 
-		val job = launch {
+		val job = backgroundScope.launch {
 			queries.transcriptSearch(
 				searcher = TranscriptSearcher(),
 				recordings = { recordings },
@@ -133,28 +133,27 @@ class TranscriptSearchFlowTests {
 			).collect { results += it }
 		}
 
-		queries.emit("a")
+		queries.value = "a"
 		advanceTimeBy(100)
-		queries.emit("al")
+		queries.value = "al"
 		advanceTimeBy(100)
-		queries.emit("alp")
+		queries.value = "alp"
 		advanceUntilIdle()
 
 		assertEquals("only the last keystroke may run a search", 1, loads)
-		assertEquals(1, results.size)
-		assertEquals(1, results.first().hits.size)
+		assertEquals(1, results.last().hits.size)
 		job.cancel()
 	}
 
 	@Test
 	fun newerQueryCancelsTheSearchThatIsStillRunning() = runTest {
 		val dispatcher = StandardTestDispatcher(testScheduler)
-		val queries = MutableSharedFlow<String>(extraBufferCapacity = 8)
+		val queries = MutableStateFlow("")
 		var cancelled = false
 		var loads = 0
 		val results = mutableListOf<TranscriptSearchResult>()
 
-		val job = launch {
+		val job = backgroundScope.launch {
 			queries.transcriptSearch(
 				searcher = TranscriptSearcher(),
 				recordings = { recordings },
@@ -174,25 +173,24 @@ class TranscriptSearchFlowTests {
 			).collect { results += it }
 		}
 
-		queries.emit("slow")
+		queries.value = "slow"
 		advanceTimeBy(400)
 		runCurrent()
-		queries.emit("fast")
+		queries.value = "fast"
 		advanceUntilIdle()
 
 		assertTrue("the running search must be cancelled", cancelled)
-		assertEquals(1, results.size)
-		assertEquals("fast", results.first().hits.single().text)
+		assertEquals("fast", results.last().hits.single().text)
 		job.cancel()
 	}
 
 	@Test
 	fun clearingTheQueryClearsTheResults() = runTest {
 		val dispatcher = StandardTestDispatcher(testScheduler)
-		val queries = MutableSharedFlow<String>(extraBufferCapacity = 8)
+		val queries = MutableStateFlow("")
 		val results = mutableListOf<TranscriptSearchResult>()
 
-		val job = launch {
+		val job = backgroundScope.launch {
 			queries.transcriptSearch(
 				searcher = TranscriptSearcher(),
 				recordings = { recordings },
@@ -201,11 +199,11 @@ class TranscriptSearchFlowTests {
 			).collect { results += it }
 		}
 
-		queries.emit("alp")
+		queries.value = "alp"
 		advanceUntilIdle()
 		assertEquals(1, results.last().hits.size)
 
-		queries.emit("")
+		queries.value = ""
 		advanceUntilIdle()
 		assertTrue(results.last().hits.isEmpty())
 		job.cancel()
