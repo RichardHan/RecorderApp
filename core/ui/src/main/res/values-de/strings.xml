@@ -200,7 +200,7 @@
     <string name="search_filter_date_created_title">Erstellungsdatum</string>
     <string name="search_filter_title">Filter</string>
     <string name="menu_option_search">Suchen</string>
-    <string name="search_transcript_section">Transkript-Treffer</string>
+  <string name="search_transcript_section">Transkript-Treffer</string>
   <string name="search_recordings_section">Aufnahmen</string>
   <string name="search_transcript_too_many">Zu viele Treffer – Suche eingrenzen</string>
   <string name="no_search_results">Keine Suchergebnisse</string>
