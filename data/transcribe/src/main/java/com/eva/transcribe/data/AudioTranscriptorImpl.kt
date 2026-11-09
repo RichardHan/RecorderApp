@@ -82,6 +82,11 @@ internal class AudioTranscriptorImpl(
         }
     }
 
+    override suspend fun finishAudio(): TranscriptionResult? = withContext(ioDispatcher) {
+        val recognizer = _recognizer ?: error("Recognizer is not initialized")
+        json.decodeFromString<TranscriptionResult>(recognizer.finalResult)
+    }
+
     override fun cleanUp() {
         // close the recognizer
         _recognizer?.close()

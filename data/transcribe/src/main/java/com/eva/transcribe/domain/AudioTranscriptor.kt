@@ -8,6 +8,9 @@ interface AudioTranscriptor {
 
 	suspend fun recognizeAudio(buffer: ShortArray, length: Int): TranscriptionResult?
 
+	/** Flush the final utterance after all audio has been submitted, before cleanup. */
+	suspend fun finishAudio(): TranscriptionResult?
+
 	fun cleanUp()
 
 	companion object {
