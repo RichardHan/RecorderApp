@@ -78,6 +78,10 @@ internal class VoiceRecorderService : LifecycleService() {
     @Inject
     lateinit var cloudJobScheduler: com.eva.cloudtranscribe.work.CloudJobScheduler
 
+    /** Per-recording notes draft (#5): bound on save, dropped on cancel. */
+    @Inject
+    lateinit var notesDraft: com.eva.cloudtranscribe.notes.RecordingNotesDraft
+
     private val binder = LocalBinder()
     private val _bookMarks = MutableStateFlow(emptySet<LocalTime>())
     private val _warnings = Channel<String>(Channel.BUFFERED)
@@ -266,6 +270,8 @@ internal class VoiceRecorderService : LifecycleService() {
         lifecycleScope.launch {
             sessionCoordinator.cancelRecording(
                 onCancelled = {
+                    // a cancelled recording's notes never carry over to the next one
+                    runCatching { notesDraft.discard() }
                     // clear bookmarks
                     clearBookMarks()
                     // update widget
@@ -289,6 +295,8 @@ internal class VoiceRecorderService : LifecycleService() {
                 onRecordingSaved = { recordingId, timeBeforeSave ->
                     clearAndSaveBookMarks(recordingId, timeBeforeSave)
                     recordingAutoUploader.enqueue(recordingId)
+                    // bind notes first so an (opt-in) automatic summary already sees them
+                    runCatching { notesDraft.bindTo(recordingId) }
                     // opt-in only (default off); never reached for cancelled recordings
                     cloudJobScheduler.onRecordingFinalized(recordingId)
                     // again show the notification

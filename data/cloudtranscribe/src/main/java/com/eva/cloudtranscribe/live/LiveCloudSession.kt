@@ -29,6 +29,8 @@ class LiveCloudSession(
 	private val sampleRate: Int = 16_000,
 	queueCapacity: Int = 3,
 	transcribeModel: String? = null,
+	/** Notes used for live key points; read on every summary so in-meeting edits apply (default: global notes). */
+	private val meetingNotes: () -> String = { settings.meetingNotes },
 ) {
 	data class Chunk(val startMs: Long, val endMs: Long, val samples: ShortArray)
 
@@ -179,7 +181,7 @@ class LiveCloudSession(
 		val okSpans = snapshot.cloudSpans.filter { it.covers }
 		val newCloud = TranscriptMerge.cloudText(okSpans.drop(summarizedSpanCount))
 		val provisionalText = snapshot.provisional.filterNot { com.eva.cloudtranscribe.engine.RepetitionGuard.isPathological(it.text) }.joinToString("\n") { it.text }
-		val prompt = TranscriptMerge.summaryPrompt(settings.summaryPrompt, snapshot.keyPoints, newCloud, provisionalText, meetingNotes = settings.meetingNotes)
+		val prompt = TranscriptMerge.summaryPrompt(settings.summaryPrompt, snapshot.keyPoints, newCloud, provisionalText, meetingNotes = runCatching { meetingNotes() }.getOrDefault(settings.meetingNotes))
 		val job = scope.launch {
 			_state.update { it.copy(phase = LiveCloudPhase.SUMMARIZING) }
 			val outcome = summarize(prompt)

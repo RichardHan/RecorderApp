@@ -49,6 +49,8 @@ internal fun RecorderContent(
 	transcriptionSettings: TranscriptionSettings = TranscriptionSettings(),
 	onNavigateToSettings: () -> Unit = {},
 	onToggleLiveTranscription: (Boolean) -> Unit = {},
+	/** Off in previews/tests (needs Hilt). */
+	showNotes: Boolean = false,
 ) {
 	Box(modifier = modifier) {
 		// compact header (timer + waveform) so the multi-line live transcript gets most of the screen
@@ -78,6 +80,7 @@ internal fun RecorderContent(
 					onOpenSettings = onNavigateToSettings,
 					onToggleLiveTranscription = onToggleLiveTranscription,
 				)
+				if (showNotes) RecordingNotesChip()
 			}
 			RecorderAmplitudeGraph(
 				recoderPointsCallback = recordingPointsCallback,

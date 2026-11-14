@@ -227,6 +227,7 @@ fun CloudTranscriptsDialog(
 						latestSummaryAtMillis = newestSummary?.createdAtMillis,
 					)
 				}
+				item { RecordingNotesCard(recordingId = recordingId) }
 				items(state.summaries, key = { it.id }) { s ->
 					Card {
 						Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

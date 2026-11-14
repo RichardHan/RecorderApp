@@ -103,6 +103,22 @@ class MeetingNotesTests {
 	}
 
 	@Test
+	fun perRecordingNotesReplaceTheGlobalNotesInTheLiveRequest() = runTest {
+		val prompts = mutableListOf<String>()
+		val s = LiveCloudSession(backgroundScope, LiveCloudSettings(enabled = true, consentAcceptedAtMillis = 1L, meetingNotes = notes), "per-rec",
+			transcribe = { _, _, _ -> CallOutcome.Text("雲端稿") },
+			summarize = { p -> prompts += p; CallOutcome.Text("- 重點") },
+			sampleRate = 100,
+			meetingNotes = { com.eva.cloudtranscribe.notes.RecordingNotes.effective("本場：預算", notes) })
+		repeat(90) { s.onAudio(pcm(1), 100) }
+		advanceUntilIdle(); runCurrent()
+		assertEquals(1, prompts.size)
+		assertTrue(prompts[0].contains("本場：預算"))
+		assertFalse(prompts[0].contains(notes))
+		s.cancel()
+	}
+
+	@Test
 	fun storedJsonFromAnOlderBuildStillLoadsWithoutNotes() {
 		val legacy = """{"enabled":true,"consentAcceptedAtMillis":1,"summaryModel":"m","summaryPrompt":"p"}"""
 		val s = json.decodeFromString(LiveCloudSettings.serializer(), legacy)
