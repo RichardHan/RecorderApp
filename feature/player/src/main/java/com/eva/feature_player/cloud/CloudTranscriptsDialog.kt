@@ -256,7 +256,7 @@ fun CloudTranscriptsDialog(
 			title = { Text("用其他格式重新整理？") },
 			text = {
 				Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-					Text("會再呼叫一次摘要服務（模型 ${stored?.provenance?.model ?: "已設定模型"}，主機 ${stored?.provenance?.endpointHost ?: "已設定服務"}），逐字稿會再次上傳；可能產生費用。原本的摘要不會被覆蓋，結果會另存一份新摘要。")
+					Text("會用目前儲存的雲端設定（摘要模型與主機）再呼叫一次摘要服務，逐字稿會再次上傳；可能產生費用。選「自訂」但自訂說明是空白時會改用精簡格式。原本的摘要不會被覆蓋，結果會另存一份新摘要。")
 					Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
 						SummaryFormat.entries.forEach { f ->
 							FilterChip(picked == f, { picked = f }, { Text(f.zh()) })
