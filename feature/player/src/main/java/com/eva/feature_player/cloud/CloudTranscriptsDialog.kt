@@ -142,6 +142,8 @@ fun CloudTranscriptsDialog(
 	recordingId: Long,
 	onDismiss: () -> Unit,
 	viewModel: CloudTranscriptsViewModel = hiltViewModel(),
+	/** Seeks playback to a reported segment start; no-op by default. */
+	onSeekTo: (Long) -> Unit = {},
 ) {
 	LaunchedEffect(recordingId) { viewModel.bind(recordingId) }
 	val state by viewModel.state.collectAsStateWithLifecycle()
@@ -227,6 +229,7 @@ fun CloudTranscriptsDialog(
 						latestSummaryAtMillis = newestSummary?.createdAtMillis,
 					)
 				}
+				item { SpeechPaceCard(state.transcripts, onSeekTo = { ms -> onSeekTo(ms); onDismiss() }) }
 				items(state.summaries, key = { it.id }) { s ->
 					Card {
 						Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
