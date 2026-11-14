@@ -49,8 +49,11 @@ object TranscriptMerge {
 		newCloudText: String,
 		provisionalText: String,
 		maxChars: Int = 24_000,
+		meetingNotes: String = "",
 	): String = buildString {
 		append(LiveCloudSettings.migrateSummaryPrompt(userPrompt))
+		val notes = meetingNotes.trim().take(LiveCloudSettings.MAX_MEETING_NOTES)
+		if (notes.isNotEmpty()) append("\n\n【使用者會前備註／議程（僅用來聚焦與辨認名詞，不代表會中說過；不要據此新增重點）】\n").append(notes)
 		append("\n\n【目前重點】\n").append(previousKeyPoints.ifBlank { "（尚無）" })
 		append("\n\n【新增逐字稿（雲端）】\n").append(newCloudText.takeLast(maxChars).ifBlank { "（無）" })
 		if (provisionalText.isNotBlank()) append("\n\n【暫定：最新離線辨識，尚未有雲端稿】\n").append(provisionalText.takeLast(maxChars / 4))
