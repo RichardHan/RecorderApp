@@ -16,12 +16,15 @@ import com.eva.transcribe.offline.LiveAsrStatus
 import com.eva.transcribe.offline.LiveUtterancePipeline
 import com.eva.transcribe.offline.OfflineEngines
 import com.eva.transcribe.offline.OfflineSpeechEngine
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,9 +51,9 @@ internal class TranscriptionProviderImpl(
 	private val settingsRepo: TranscriptionSettingsRepo,
 	private val repository: STTModelsRepository,
 	private val offlineEngine: OfflineSpeechEngine,
+	private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : TranscriptionProvider {
 
-	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 	private val _display = MutableStateFlow(LiveTranscriptState())
 	override val transcription: Flow<LiveTranscriptState> = _display.asStateFlow()
 
@@ -58,18 +61,18 @@ internal class TranscriptionProviderImpl(
 	override val offlineTimedLines: Flow<List<Pair<Long, String>>> = _timed.asStateFlow()
 	@Volatile private var samplesSeen = 0L
 	private var started = false
-	private var usedSherpa = false
+	private val ownsSherpa = AtomicBoolean(false)
 	private var lastEngine: String = ""
 
 	@Volatile private var lastDesired: Pair<Boolean, String?>? = null
 
-	private val controller = LiveAsrController(scope, startRun = ::startRun, releaseModel = ::releaseModel)
+	private val controller = LiveAsrController(scope, startRun = ::startRun, releaseModel = ::releaseModel, capturedSamples = { samplesSeen })
 
 	override suspend fun initTranscriptions() {
 		if (started) return
 		started = true
 		// counts captured samples from recording start so offline line times share the recorded-audio timeline
-		scope.launch { source.stream.collect { (_, size) -> if (size > 0) samplesSeen += size } }
+		scope.launch(start = CoroutineStart.UNDISPATCHED) { source.stream.collect { (_, size) -> if (size > 0) samplesSeen += size } }
 		scope.launch {
 			controller.state.collect { s ->
 				_display.value = LiveTranscriptState(
@@ -109,7 +112,7 @@ internal class TranscriptionProviderImpl(
 		lastEngine = model.engine
 		return if (OfflineEngines.isSherpa(model.engine)) {
 			offlineEngine.load(modelId).getOrElse { return Result.failure(it) }
-			usedSherpa = true
+			ownsSherpa.set(true)
 			val offsetMs = samplesSeen * 1000 / 16_000
 			Result.success(SherpaRun(offsetMs))
 		} else {
@@ -119,15 +122,15 @@ internal class TranscriptionProviderImpl(
 	}
 
 	private suspend fun releaseModel() {
-		if (usedSherpa) offlineEngine.release()
+		if (ownsSherpa.compareAndSet(true, false)) offlineEngine.release()
 		transcriptor.cleanUp()
 	}
 
 	private inner class SherpaRun(offsetMs: Long) : LiveAsrRun {
-		private val runScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+		private val runScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
 		private val p = LiveUtterancePipeline(runScope) { samples -> offlineEngine.decode(samples) }
 		private val _timedRun = MutableStateFlow<List<Pair<Long, String>>>(emptyList())
-		private val feeder: Job = runScope.launch { source.stream.collect { (buffer, size) -> if (size > 0) p.accept(buffer, size) } }
+		private val feeder: Job = runScope.launch(start = CoroutineStart.UNDISPATCHED) { source.stream.collect { (buffer, size) -> if (size > 0) p.accept(buffer, size) } }
 		init { runScope.launch { p.timedLines.collect { l -> _timedRun.value = l.map { (ms, t) -> (ms + offsetMs) to t } } } }
 		override val lines: StateFlow<List<String>> get() = p.lines
 		override val timedLines: StateFlow<List<Pair<Long, String>>> get() = _timedRun
@@ -143,15 +146,16 @@ internal class TranscriptionProviderImpl(
 	}
 
 	private inner class VoskRun : LiveAsrRun {
-		private val runScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+		private val runScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
 		private val finals = MutableStateFlow<List<String>>(emptyList())
 		private val _partial = MutableStateFlow("")
 		private val _warning = MutableStateFlow<String?>(null)
 		private val _decoding = MutableStateFlow(false)
 		private val empty = MutableStateFlow<List<Pair<Long, String>>>(emptyList())
 		private var dropped = 0L
+		private var failed = 0
 		private val queue = Channel<ShortArray>(capacity = 64)
-		private val feeder: Job = runScope.launch {
+		private val feeder: Job = runScope.launch(start = CoroutineStart.UNDISPATCHED) {
 			source.stream.collect { (buffer, size) ->
 				if (size <= 0) return@collect
 				if (queue.trySend(buffer.copyOf(size)).isFailure) { dropped += size; _warning.value = "辨識跟不上，部分音訊未辨識（錄音完整保存）" }
@@ -163,7 +167,7 @@ internal class TranscriptionProviderImpl(
 					val r = transcriptor.recognizeAudio(chunk, chunk.size) ?: continue
 					if (r.fullResult.isNotBlank()) { finals.value = finals.value + r.fullResult; _partial.value = "" } else _partial.value = r.partial
 				} catch (e: CancellationException) { throw e } catch (e: Exception) {
-					Log.e(TAG, "VOSK ERROR", e); _warning.value = "辨識錯誤：${e.message}"
+					failed++; Log.e(TAG, "VOSK ERROR", e); _warning.value = "辨識錯誤：${e.message}"
 				}
 			}
 		}
@@ -173,10 +177,19 @@ internal class TranscriptionProviderImpl(
 		override val warning: StateFlow<String?> get() = _warning
 		override val partial: StateFlow<String> get() = _partial
 		override suspend fun finish(): LiveAsrRunResult {
-			feeder.cancel(); queue.close()
+			feeder.cancelAndJoin(); queue.close()
 			val ok = withTimeoutOrNull(30_000) { worker.join() } != null
+			if (ok) {
+				try {
+					val tail = transcriptor.finishAudio()?.fullResult.orEmpty()
+					if (tail.isNotBlank()) finals.value = finals.value + tail
+					_partial.value = ""
+				} catch (e: CancellationException) { throw e } catch (e: Exception) {
+					failed++; _warning.value = "最後一段辨識失敗：${e.message}"
+				}
+			}
 			runScope.cancel()
-			return LiveAsrRunResult(finals.value.size, 0, dropped, ok)
+			return LiveAsrRunResult(finals.value.size, failed, dropped, ok && failed == 0)
 		}
 		override fun cancel() { queue.close(); runScope.cancel() }
 	}
@@ -193,7 +206,7 @@ internal class TranscriptionProviderImpl(
 
 	override suspend fun finishTranscription(): LiveTranscript? {
 		val agg = controller.finishAll() ?: return null
-		val gapNote = if (agg.hadGaps) "\n[即時字幕曾在錄音中關閉，關閉期間未辨識（錄音完整保存，可事後重轉）]" else ""
+		val gapNote = if (agg.hadGaps) "\n[即時字幕未涵蓋全部錄音，部分期間未辨識（錄音完整保存，可事後重轉）]" else ""
 		return LiveTranscript(
 			modelId = agg.modelIds.joinToString(" / "), engine = lastEngine,
 			text = agg.text + gapNote, decodedSegments = agg.decoded, failedSegments = agg.failed,
@@ -206,6 +219,9 @@ internal class TranscriptionProviderImpl(
 		scope.cancel()
 		transcriptor.cleanUp()
 		// free the large native model once any in-flight decode has returned
-		if (usedSherpa) CoroutineScope(Dispatchers.IO).launch { offlineEngine.release() }
+		if (ownsSherpa.compareAndSet(true, false)) {
+			// Keep cleanup independent of the cancelled provider job. Engine.release selects its IO dispatcher.
+			CoroutineScope(scope.coroutineContext.minusKey(Job)).launch { offlineEngine.release() }
+		}
 	}
 }

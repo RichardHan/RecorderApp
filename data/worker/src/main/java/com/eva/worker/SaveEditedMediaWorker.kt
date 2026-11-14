@@ -23,9 +23,12 @@ import com.eva.ui.R
 import com.eva.utils.NotificationConstants
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
 
 
 @HiltWorker
@@ -79,7 +82,7 @@ class SaveEditedMediaWorker @AssistedInject constructor(
 					onProgress = {
 						val progress = (it * 100).toInt()
 						setProgress(workDataOf(PROGRESS to progress))
-						setForeground(getForegroundInfo(progress))
+						setForeground(createForegroundInfo(progress))
 					},
 				)
 			}
@@ -101,6 +104,8 @@ class SaveEditedMediaWorker @AssistedInject constructor(
 					)
 				},
 			)
+		} catch (e: CancellationException) {
+			throw e
 		} catch (e: Exception) {
 			val message = e.message ?: "Unknown"
 			Result.failure(
@@ -109,7 +114,9 @@ class SaveEditedMediaWorker @AssistedInject constructor(
 		}
 	}
 
-	private fun getForegroundInfo(progress: Int): ForegroundInfo {
+	override suspend fun getForegroundInfo(): ForegroundInfo = createForegroundInfo(0)
+
+	private fun createForegroundInfo(progress: Int): ForegroundInfo {
 		val title = applicationContext.getString(R.string.save_edit_item_work_title)
 		val text = applicationContext.getString(R.string.save_edit_item_work_text)
 
@@ -135,21 +142,20 @@ class SaveEditedMediaWorker @AssistedInject constructor(
 		bufferSize: Int = 2048,
 		onProgress: suspend (Float) -> Unit = {}
 	) = withContext(Dispatchers.IO) {
-		context.contentResolver.openOutputStream(outputUri, "w")?.use { outputStream ->
+		val outputStream = context.contentResolver.openOutputStream(outputUri, "w")
+			?: throw java.io.IOException("Cannot open output stream for $outputUri")
+		outputStream.use { outStream ->
 			inputFile.inputStream().use { inputStream ->
-				val totalBytes = inputFile.length()
-				var bytesCopied = 0L
-				val buffer = ByteArray(bufferSize)
-				var bytesRead: Int
-				do {
-					bytesRead = inputStream.read(buffer)
-					outputStream.write(buffer)
-					bytesCopied += bytesRead
-					onProgress(bytesCopied.toFloat() / totalBytes)
-				} while (bytesRead >= 0)
+				copyStreamsWithProgress(
+					inputStream = inputStream,
+					outputStream = outStream,
+					totalBytes = inputFile.length(),
+					bufferSize = bufferSize,
+					onProgress = onProgress,
+				)
 				Log.d(TAG, "CONTENT COPIED")
 			}
-		} ?: Unit
+		}
 	}
 
 	suspend fun removeTransformsFile(file: File): Boolean {
@@ -171,6 +177,31 @@ class SaveEditedMediaWorker @AssistedInject constructor(
 
 		private const val PROGRESS = "PROGRESS"
 		private const val TAG = "SAVE_EDIT_ITEM_WORKER"
+
+		internal suspend fun copyStreamsWithProgress(
+			inputStream: InputStream,
+			outputStream: OutputStream,
+			totalBytes: Long,
+			bufferSize: Int = 2048,
+			onProgress: suspend (Float) -> Unit = {},
+		) {
+			var bytesCopied = 0L
+			val buffer = ByteArray(bufferSize)
+			while (true) {
+				val bytesRead = inputStream.read(buffer)
+				if (bytesRead < 0) break
+				if (bytesRead == 0) continue
+				outputStream.write(buffer, 0, bytesRead)
+				bytesCopied += bytesRead
+				if (totalBytes > 0L) {
+					onProgress((bytesCopied.toFloat() / totalBytes).coerceIn(0f, 1f))
+				}
+			}
+			outputStream.flush()
+			if (totalBytes <= 0L) {
+				onProgress(1f)
+			}
+		}
 
 		fun startWorkerAndObserve(
 			context: Context,

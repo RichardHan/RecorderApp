@@ -257,9 +257,8 @@ internal class RecordingsViewmodel @Inject constructor(
 	private fun handleSecurityExceptionToTrash(
 		error: SecurityException,
 		recordingsToTrash: Collection<RecordedVoiceModel>,
-		isEnabled: Boolean = false,
 	) {
-		if (recordingsToTrash.isEmpty() || !isEnabled) return
+		if (recordingsToTrash.isEmpty()) return
 		if (error !is RecoverableSecurityException) return
 
 		viewModelScope.launch {

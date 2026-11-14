@@ -5,6 +5,10 @@ plugins {
 
 android {
 	namespace = "com.eva.worker"
+
+	testOptions {
+		unitTests.isReturnDefaultValues = true
+	}
 }
 
 dependencies {
@@ -16,4 +20,7 @@ dependencies {
 	implementation(project(":core:ui"))
 	implementation(project(":data:recordings"))
 	implementation(project(":data:transcribe"))
+
+	testImplementation(libs.mockk)
+	testImplementation(libs.work.runtime.testing)
 }
