@@ -98,7 +98,16 @@ internal fun SavedTranscriptPanel(
 					val selected = list.firstOrNull { it.id == selectedId } ?: PlaybackTranscripts.defaultSelection(list) ?: list.first()
 					SourcePicker(list, selected) { selectedId = it }
 					TranscriptExportButton(selected)
-					TranscriptLines(selected, trackData, onSeekTo, Modifier.weight(1f).fillMaxWidth().padding(top = 6.dp))
+					val translationVm: TranslationViewModel = hiltViewModel(key = "translations-$recordingId")
+					var lang by rememberSaveable(selected.id) { mutableStateOf<String?>(null) }
+					var view by rememberSaveable(selected.id) { mutableStateOf(com.eva.cloudtranscribe.translate.TranslationView.ORIGINAL) }
+					TranslationBar(selected, translationVm, lang, { lang = it }, view, { view = it })
+					val translation = TranslationRules.forRecord(translationVm.translations, selected, lang)
+					TranscriptLines(
+						selected, trackData, onSeekTo, Modifier.weight(1f).fillMaxWidth().padding(top = 6.dp),
+						translation = translation,
+						view = if (translation == null) com.eva.cloudtranscribe.translate.TranslationView.ORIGINAL else view,
+					)
 				}
 			}
 		}
@@ -111,8 +120,11 @@ internal fun TranscriptLines(
 	trackData: () -> PlayerTrackData,
 	onSeekTo: ((Long) -> Unit)?,
 	modifier: Modifier,
+	translation: com.eva.cloudtranscribe.translate.SavedTranslation? = null,
+	view: com.eva.cloudtranscribe.translate.TranslationView = com.eva.cloudtranscribe.translate.TranslationView.ORIGINAL,
 ) {
 	val lines = remember(record.id, record.updatedAtMillis) { PlaybackTranscripts.lines(record) }
+	val translated = remember(lines, translation) { com.eva.cloudtranscribe.translate.TranscriptTranslation.aligned(lines.size, translation) }
 	var query by rememberSaveable(record.id) { mutableStateOf("") }
 	val searching = query.isNotBlank()
 	val matches = remember(lines, query) { TranscriptSearch.matchingLines(lines, query) }
@@ -159,12 +171,20 @@ internal fun TranscriptLines(
 				itemsIndexed(lines) { i, line ->
 					val isActive = i == active
 					val highlight = SpanStyle(background = MaterialTheme.colorScheme.tertiaryContainer, color = MaterialTheme.colorScheme.onTertiaryContainer)
+					val (shown, secondary) = com.eva.cloudtranscribe.translate.TranscriptTranslation.display(line.text, translated?.getOrNull(i), view)
 					Text(
 						text = buildAnnotatedString {
 							val prefix = line.startMs?.let { fmt(it) + "  " } ?: ""
-							append(prefix); append(line.text)
-							TranscriptSearch.ranges(line.text, query).forEach { range ->
+							append(prefix); append(shown)
+							// search always matches the original text, so highlight only when the original is shown
+							if (shown == line.text) TranscriptSearch.ranges(line.text, query).forEach { range ->
 								addStyle(highlight, prefix.length + range.first, prefix.length + range.last + 1)
+							}
+							if (secondary != null) {
+								append("\n")
+								val start = length
+								append(secondary)
+								addStyle(SpanStyle(color = MaterialTheme.colorScheme.secondary), start, length)
 							}
 						},
 						style = MaterialTheme.typography.bodyMedium,
