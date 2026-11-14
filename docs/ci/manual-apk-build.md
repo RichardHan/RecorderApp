@@ -22,6 +22,11 @@ GitHub runner 上每次都會產生一把新的 debug key，用它簽出來的 A
   - Secret 不會進入快取或 artifact。
 
 如果沒有設定這個 secret，建置預設會**直接失敗**，不會產出無法更新的 APK。
+
+### Google Drive 登入用的 client ID
+- Secret 名稱：`DRIVE_WEB_CLIENT_ID`，內容是 Web application OAuth client ID（不是密碼或 token，見 `docs/DRIVE_SETUP.md`）。
+- 建置前會檢查它有沒有設定，沒設定就直接失敗；建置後再確認 APK 裡真的有這個值。兩個步驟都只回報「有／沒有」，不會印出內容。
+- 少了它，APK 雖然裝得起來，但 Settings → Cloud 登入會跳出「DRIVE_WEB_CLIENT_ID is missing」。
 如果只是想測試 CI 能不能跑，可以在觸發時勾選 `allow_ephemeral_signing`。這時檔名會標示 `ephemeral`，這個 APK 不能覆蓋安裝現有的 App。
 
 ## 啟用方式（重要）
