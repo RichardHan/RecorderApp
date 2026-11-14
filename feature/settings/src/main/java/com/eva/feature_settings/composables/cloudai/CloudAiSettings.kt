@@ -122,6 +122,7 @@ internal fun CloudAiSettingsContent(
 	var keyInput by remember { mutableStateOf("") }
 	var confirmTest by remember { mutableStateOf(false) }
 	var confirmAuto by remember { mutableStateOf(false) }
+	var confirmAutoSummary by remember { mutableStateOf(false) }
 	var savedMsg by remember { mutableStateOf<String?>(null) }
 
 	Column(
@@ -173,6 +174,7 @@ internal fun CloudAiSettingsContent(
 		SwitchRow("幻覺長度警示", draft.hallucinationWarning) { draft = draft.copy(hallucinationWarning = it) }
 		SwitchRow("錄音完成後自動雲端轉錄（預設關閉）", draft.autoAfterRecording) { if (it) confirmAuto = true else draft = draft.copy(autoAfterRecording = false) }
 		if (draft.autoAfterRecording) SwitchRow("自動轉錄只在 Wi‑Fi／不計量網路", draft.autoWifiOnly) { draft = draft.copy(autoWifiOnly = it) }
+		SwitchRow("雲端轉錄成功後自動產生摘要（預設關閉）", draft.autoSummaryAfterTranscript) { if (it) confirmAutoSummary = true else draft = draft.copy(autoSummaryAfterTranscript = false) }
 		Button(onClick = {
 			viewModel.save(draft.copy(chunkSeconds = draft.normalizedChunkSeconds, workers = draft.normalizedWorkers))
 			savedMsg = "已儲存"
@@ -207,6 +209,14 @@ internal fun CloudAiSettingsContent(
 		text = { Text("會使用已儲存的供應商、Endpoint、API Key 與轉錄模型，送出一次『回覆 OK』的文字請求。可能產生少量 API 費用；沒有任何錄音上傳，不自動重試。") },
 		confirmButton = { TextButton(onClick = { confirmTest = false; viewModel.testSavedSettings() }) { Text("同意費用，測試一次") } },
 		dismissButton = { TextButton(onClick = { confirmTest = false }) { Text("取消") } },
+	)
+
+	if (confirmAutoSummary) AlertDialog(
+		onDismissRequest = { confirmAutoSummary = false },
+		title = { Text("開啟自動摘要？") },
+		text = { Text("每次雲端轉錄成功後（手動或自動轉錄都算），會再送出 1 次摘要請求：只送逐字稿文字、不上傳音訊，使用你設定的摘要模型，可能產生 API 費用。部分完成、失敗或取消的轉錄不會送；同一份逐字稿已有摘要時不會重複送。") },
+		confirmButton = { TextButton({ draft = draft.copy(autoSummaryAfterTranscript = true); confirmAutoSummary = false }) { Text("我了解，開啟") } },
+		dismissButton = { TextButton({ confirmAutoSummary = false }) { Text("取消") } },
 	)
 
 	if (confirmAuto) AlertDialog(
