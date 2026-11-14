@@ -30,6 +30,7 @@ fun NavGraphBuilder.recordingsSearchRoute(controller: NavController) =
 
         val categories by viewModel.categories.collectAsStateWithLifecycle()
         val searchResults by viewModel.recordings.collectAsStateWithLifecycle()
+        val transcriptResults by viewModel.transcriptResults.collectAsStateWithLifecycle()
         val screenState by viewModel.searchState.collectAsStateWithLifecycle()
 
         // lifeCycleState
@@ -42,10 +43,22 @@ fun NavGraphBuilder.recordingsSearchRoute(controller: NavController) =
                 state = screenState,
                 categories = categories,
                 searchResults = searchResults,
+                transcriptHits = transcriptResults.hits,
+                hitsTruncated = transcriptResults.truncated,
                 onEvent = viewModel::onEvent,
                 onSelectRecording = { record ->
                     if (lifeCycleState.isAtLeast(Lifecycle.State.RESUMED)) {
                         val audioRoute = PlayerSubGraph.AudioPlayerRoute(record.id, true)
+                        controller.navigate(audioRoute)
+                    }
+                },
+                onSelectTranscriptHit = { hit ->
+                    if (lifeCycleState.isAtLeast(Lifecycle.State.RESUMED)) {
+                        val audioRoute = PlayerSubGraph.AudioPlayerRoute(
+                            audioId = hit.recordingId,
+                            appActionsEnabled = true,
+                            startPositionMs = hit.startMs ?: 0L,
+                        )
                         controller.navigate(audioRoute)
                     }
                 },

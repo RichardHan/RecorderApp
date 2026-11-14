@@ -38,6 +38,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.eva.cloudtranscribe.model.RunStatus
+import com.eva.cloudtranscribe.model.SummaryFormat
 import com.eva.cloudtranscribe.model.SummaryRecord
 import com.eva.cloudtranscribe.model.TranscriptRecord
 import com.eva.cloudtranscribe.model.TranscriptSource
@@ -108,6 +109,14 @@ class CloudTranscriptsViewModel @Inject constructor(
 		scheduler.startSummary(recordingId, transcriptId).onFailure { _messages.emit(it.message ?: "無法摘要") }.onSuccess { _messages.emit("已排入摘要") }
 		refresh()
 	}
+
+	/** Another format for the same transcript: always a NEW summary record, the old one is left untouched. */
+	fun regenerateSummary(transcriptId: String, format: SummaryFormat) = viewModelScope.launch {
+		scheduler.startSummary(recordingId, transcriptId, format)
+			.onFailure { _messages.emit(it.message ?: "無法摘要") }
+			.onSuccess { _messages.emit("已用「${format.zh()}」排入新摘要") }
+		refresh()
+	}
 	fun deleteTranscript(id: String) = viewModelScope.launch(Dispatchers.IO) { scheduler.cancel(id); store.deleteTranscript(recordingId, id); refresh() }
 	fun deleteSummary(id: String) = viewModelScope.launch(Dispatchers.IO) { store.deleteSummary(recordingId, id); refresh() }
 }
@@ -115,6 +124,13 @@ class CloudTranscriptsViewModel @Inject constructor(
 private val fmt = SimpleDateFormat("MM/dd HH:mm", Locale.getDefault())
 
 private fun TranscriptRecord.label() = "${if (source == TranscriptSource.OFFLINE) (if (provenance.trigger == "live") "離線即時" else "離線") else "雲端"}・${provenance.model}・${fmt.format(Date(createdAtMillis))}"
+
+private fun SummaryFormat.zh() = when (this) {
+	SummaryFormat.CONCISE -> "精簡"
+	SummaryFormat.DECISIONS_AND_ACTIONS -> "決議與待辦"
+	SummaryFormat.BULLETS_AND_OPEN_QUESTIONS -> "條列＋未解問題"
+	SummaryFormat.CUSTOM -> "自訂"
+}
 
 private fun RunStatus.zh() = when (this) {
 	RunStatus.QUEUED -> "排隊中"; RunStatus.RUNNING -> "處理中"; RunStatus.SUCCESS -> "完成"
@@ -133,6 +149,7 @@ fun CloudTranscriptsDialog(
 	var offlinePick by remember { mutableStateOf<String?>(null) }
 	var confirmUpload by remember { mutableStateOf(false) }
 	var confirmDelete by remember { mutableStateOf<String?>(null) }
+	var regenerateFor by remember { mutableStateOf<String?>(null) }
 	var compare by remember { mutableStateOf(listOf<String>()) }
 	var message by remember { mutableStateOf<String?>(null) }
 	LaunchedEffect(viewModel) { viewModel.messages.collect { message = it } }
@@ -214,10 +231,15 @@ fun CloudTranscriptsDialog(
 					Card {
 						Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
 							val src = state.transcripts.firstOrNull { it.id == s.sourceTranscriptId }
-							Text("${s.provenance.model}・${s.status.zh()}・來源：${src?.label() ?: s.sourceTranscriptId}", style = MaterialTheme.typography.labelMedium)
+							val storedFormat = s.provenance.summaryFormat
+								?.let { name -> SummaryFormat.entries.firstOrNull { it.name == name } }
+							Text("${s.provenance.model}・${s.status.zh()}・${storedFormat?.let { "${it.zh()}・" } ?: ""}來源：${src?.label() ?: s.sourceTranscriptId}", style = MaterialTheme.typography.labelMedium)
 							s.error?.let { Text("錯誤：$it", color = MaterialTheme.colorScheme.error) }
 							if (s.text.isNotBlank()) SelectionContainer { Text(s.text, style = MaterialTheme.typography.bodySmall) }
-							TextButton({ confirmDelete = "s:" + s.id }) { Text("刪除摘要") }
+							Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+								OutlinedButton({ regenerateFor = s.sourceTranscriptId }) { Text("用其他格式重新整理") }
+								TextButton({ confirmDelete = "s:" + s.id }) { Text("刪除摘要") }
+							}
 						}
 					}
 				}
@@ -232,6 +254,34 @@ fun CloudTranscriptsDialog(
 		confirmButton = { TextButton({ confirmUpload = false; viewModel.start() }) { Text("確認上傳") } },
 		dismissButton = { TextButton({ confirmUpload = false }) { Text("取消") } },
 	)
+	regenerateFor?.let { transcriptId ->
+		val stored = state.summaries.firstOrNull { it.sourceTranscriptId == transcriptId }
+		var picked by remember(transcriptId) {
+			mutableStateOf(SummaryFormat.entries.firstOrNull { it.name != stored?.provenance?.summaryFormat } ?: SummaryFormat.CONCISE)
+		}
+		AlertDialog(
+			onDismissRequest = { regenerateFor = null },
+			title = { Text("用其他格式重新整理？") },
+			text = {
+				Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+					Text("會用目前儲存的雲端設定（摘要模型與主機）再呼叫一次摘要服務，逐字稿會再次上傳；可能產生費用。選「自訂」但自訂說明是空白時會改用精簡格式。原本的摘要不會被覆蓋，結果會另存一份新摘要。")
+					Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+						SummaryFormat.entries.forEach { f ->
+							FilterChip(picked == f, { picked = f }, { Text(f.zh()) })
+						}
+					}
+				}
+			},
+			confirmButton = {
+				TextButton({
+					val format = picked
+					regenerateFor = null
+					viewModel.regenerateSummary(transcriptId, format)
+				}) { Text("呼叫並另存") }
+			},
+			dismissButton = { TextButton({ regenerateFor = null }) { Text("取消") } },
+		)
+	}
 	confirmDelete?.let { target ->
 		AlertDialog(
 			onDismissRequest = { confirmDelete = null },

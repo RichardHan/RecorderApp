@@ -24,8 +24,16 @@ data class CloudSettings(
 	val hallucinationWarning: Boolean = true,
 	/** Skip upload of chunks that measure as near-silent. Off by default: quiet speech must not be lost. */
 	val skipSilentChunks: Boolean = false,
+	/** Shape of NEW post-recording summaries. Existing summaries are never rewritten by changing this. */
+	val summaryFormat: SummaryFormat = SummaryFormat.CONCISE,
+	/** Used only when [summaryFormat] is [SummaryFormat.CUSTOM]; blank falls back to the concise format. */
+	val customSummaryInstructions: String = "",
 ) {
 	val normalizedChunkSeconds: Int get() = chunkSeconds.coerceIn(MIN_CHUNK_SECONDS, MAX_CHUNK_SECONDS)
+
+	/** Format actually used for a new summary; a blank custom prompt degrades to the concise default. */
+	val effectiveSummaryFormat: SummaryFormat
+		get() = if (summaryFormat == SummaryFormat.CUSTOM && customSummaryInstructions.isBlank()) SummaryFormat.CONCISE else summaryFormat
 	val normalizedWorkers: Int get() = workers.coerceIn(1, MAX_WORKERS)
 
 	/** Returns a human readable problem or null when usable. */
@@ -45,6 +53,7 @@ data class CloudSettings(
 		/** Desktop pipeline used 6; phones default to 2 to bound memory, heat and concurrent mobile uploads. */
 		const val DEFAULT_WORKERS = 2
 		const val MAX_WORKERS = 6
+		const val MAX_SUMMARY_INSTRUCTIONS = 1200
 		const val MAX_ATTEMPTS = 3
 		const val MAX_TOKENS = 16384
 		const val TIMEOUT_SECONDS = 120
@@ -56,6 +65,13 @@ enum class TranscriptSource { OFFLINE, CLOUD }
 
 @Serializable
 enum class RunStatus { QUEUED, RUNNING, SUCCESS, PARTIAL, FAILED, CANCELLED }
+
+/**
+ * Shape of a post-recording summary. Only the instructions change; every variant keeps the same rules (no invented
+ * owner/deadline, omit what was not said, answer [com.eva.cloudtranscribe.engine.Prompts.NO_KEY_POINTS] when empty).
+ */
+@Serializable
+enum class SummaryFormat { CONCISE, DECISIONS_AND_ACTIONS, BULLETS_AND_OPEN_QUESTIONS, CUSTOM }
 
 @Serializable
 enum class SegmentStatus { OK, SILENT, CONTENT_FILTERED, EMPTY, FAILED }
@@ -87,6 +103,8 @@ data class Provenance(
 	val workers: Int? = null,
 	val audioFormat: String? = null,
 	val trigger: String = "manual",
+	/** [SummaryFormat] name for summaries; null for transcripts and for summaries made before formats existed. */
+	val summaryFormat: String? = null,
 )
 
 /**

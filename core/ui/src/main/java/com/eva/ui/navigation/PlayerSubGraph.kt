@@ -15,6 +15,8 @@ sealed interface PlayerSubGraph {
     data class AudioPlayerRoute(
         @SerialName("audioId") val audioId: Long,
         @SerialName("actions") val appActionsEnabled: Boolean = false,
+        /** 0 = start from the beginning; a search hit asks the player to jump to its real timestamp once loaded. */
+        @SerialName("startMs") val startPositionMs: Long = 0L,
     ) :
         PlayerSubGraph
 
