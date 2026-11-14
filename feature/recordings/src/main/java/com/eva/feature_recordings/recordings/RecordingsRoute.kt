@@ -79,6 +79,11 @@ fun NavGraphBuilder.recordingsRoute(controller: NavController) =
                         controller.navigate(audioRoute)
                     }
                 },
+                onOpenRecordingById = { id ->
+                    if (lifeCycleState.isAtLeast(Lifecycle.State.RESUMED)) {
+                        controller.navigate(PlayerSubGraph.AudioPlayerRoute(id, true))
+                    }
+                },
                 onShowRenameDialog = { record ->
                     if (lifeCycleState.isAtLeast(Lifecycle.State.RESUMED) && record != null) {
                         val dialog = NavDialogs.RenameRecordingDialog(record.id)
