@@ -64,6 +64,7 @@ internal fun RecordingsScreen(
 	onNavigationToCategories: () -> Unit = {},
 	onNavigateToSearch: () -> Unit = {},
 	navigation: @Composable () -> Unit = {},
+	badges: Map<Long, List<String>> = emptyMap(),
 ) {
 	val snackBarProvider = LocalSnackBarProvider.current
 	val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
@@ -164,6 +165,7 @@ internal fun RecordingsScreen(
 				recordings = recordings,
 				categories = categories,
 				onItemClick = onRecordingSelect,
+				badges = badges,
 				onCategorySelect = { category ->
 					onScreenEvent(RecordingScreenEvent.OnCategoryChanged(category))
 				},
