@@ -193,6 +193,7 @@ class CloudTranscribeWorker @AssistedInject constructor(
 			))
 			if (result.status == RunStatus.SUCCESS) store.clearCheckpoints(recordingId, runId)
 			pcm.delete()
+			notifyDone(recordingId, result.status)
 			return Result.success()
 		} catch (e: CancellationException) {
 			store.transcript(recordingId, runId)?.let { store.saveTranscript(it.copy(status = RunStatus.CANCELLED, updatedAtMillis = System.currentTimeMillis())) }
@@ -204,9 +205,17 @@ class CloudTranscribeWorker @AssistedInject constructor(
 		}
 	}
 
-	private fun fail(record: TranscriptRecord, message: String): Result {
+	private suspend fun fail(record: TranscriptRecord, message: String): Result {
 		store.saveTranscript(record.copy(status = RunStatus.FAILED, error = message, updatedAtMillis = System.currentTimeMillis()))
+		notifyDone(record.recordingId, RunStatus.FAILED)
 		return Result.failure()
+	}
+
+	/** Opt-in only; never throws. Cancelled runs never reach here. */
+	private suspend fun notifyDone(recordingId: Long, status: RunStatus) = runCatching {
+		if (!settingsRepo.current().notifyWhenDone) return@runCatching
+		val title = recordingTitle(recordings, recordingId)
+		CloudDoneMessages.transcription(status, title)?.let { CloudDoneNotifier.post(applicationContext, recordingId, "transcript", it) }
 	}
 
 	private suspend fun recordingUri(id: Long): Uri = withContext(Dispatchers.IO) {
@@ -227,6 +236,7 @@ class CloudSummaryWorker @AssistedInject constructor(
 	private val store: TranscriptStore,
 	private val settingsRepo: CloudSettingsRepository,
 	private val keys: ApiKeyStore,
+	private val recordings: VoiceRecordingsProvider,
 ) : CoroutineWorker(context, params) {
 	override suspend fun doWork(): Result {
 		val recordingId = inputData.getLong(CloudJobScheduler.KEY_RECORDING, -1)
@@ -258,7 +268,18 @@ class CloudSummaryWorker @AssistedInject constructor(
 		return done(record.copy(status = RunStatus.FAILED, error = msg))
 	}
 
-	private fun done(r: SummaryRecord): Result { store.saveSummary(r); return if (r.status == RunStatus.SUCCESS) Result.success() else Result.failure() }
+	private suspend fun done(r: SummaryRecord): Result {
+		store.saveSummary(r)
+		runCatching {
+			if (settingsRepo.current().notifyWhenDone) CloudDoneMessages.summary(r.status, recordingTitle(recordings, r.recordingId), r.text)
+				?.let { CloudDoneNotifier.post(applicationContext, r.recordingId, "summary", it) }
+		}
+		return if (r.status == RunStatus.SUCCESS) Result.success() else Result.failure()
+	}
+}
+
+private suspend fun recordingTitle(recordings: VoiceRecordingsProvider, id: Long): String? = withContext(Dispatchers.IO) {
+	(recordings.getVoiceRecordingAsResourceFromId(id) as? Resource.Success)?.data?.let { it.title.ifBlank { it.displayName } }
 }
 
 internal fun foregroundInfoFor(context: Context, id: Int, text: String) = buildForeground(context, id, text)
