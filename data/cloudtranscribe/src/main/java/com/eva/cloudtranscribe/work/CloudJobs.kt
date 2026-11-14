@@ -181,6 +181,8 @@ class CloudTranscribeWorker @AssistedInject constructor(
 				workers = p.workers ?: s.normalizedWorkers,
 				hallucinationWarning = s.hallucinationWarning,
 				skipSilentChunks = s.skipSilentChunks,
+				prompt = Prompts.withVocabulary(Prompts.TRANSCRIBE, s.customVocabulary),
+				alternatePrompt = Prompts.withVocabulary(Prompts.TRANSCRIBE_ALT, s.customVocabulary),
 			))
 			val result = engine.run(PcmFileSource(pcm)) { done, total ->
 				setProgress(workDataOf(CloudJobScheduler.PROGRESS_DONE to done, CloudJobScheduler.PROGRESS_TOTAL to total))
