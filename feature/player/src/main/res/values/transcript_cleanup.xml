@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cleanup_tab">清稿</string>
+    <string name="cleanup_intro">清稿會另存一份去掉語助詞與重複的書面稿，原逐字稿與會議重點都不會被改動。</string>
+    <string name="cleanup_intensity_low">低強度（預設）</string>
+    <string name="cleanup_intensity_medium">中強度</string>
+    <string name="cleanup_empty">尚無清稿。只有你手動按下「產生清稿」並確認後才會建立。</string>
+    <string name="cleanup_stale">逐字稿在清稿後更新過，這份清稿可能已過期（不會自動重跑）</string>
+    <string name="cleanup_view_clean">清稿</string>
+    <string name="cleanup_view_compare">對照原文</string>
+    <string name="cleanup_copy">複製</string>
+    <string name="cleanup_copied">已複製清稿</string>
+    <string name="cleanup_delete">刪除清稿</string>
+    <string name="cleanup_generate">產生清稿</string>
+    <string name="cleanup_regenerate">重新產生清稿</string>
+    <string name="cleanup_running">清稿中…（第 %1$d／%2$d 段）</string>
+    <string name="cleanup_running_plain">清稿中…</string>
+    <string name="cleanup_cancel">取消</string>
+    <string name="cleanup_ok">知道了</string>
+    <string name="cleanup_original_prefix">原文：%1$s</string>
+    <string name="cleanup_confirm_title">產生清稿？</string>
+    <string name="cleanup_confirm_body">會把這份逐字稿的文字（約 %1$d 字，分 %2$d 次請求）送到你設定的雲端摘要服務（使用已儲存的 API Key），會產生 token 費用。不會再上傳音訊。模型只能整理原句，不得新增內容；回應對不上原句、失敗或取消時，整次都不儲存。</string>
+    <string name="cleanup_confirm_send">同意費用，送出</string>
+</resources>
