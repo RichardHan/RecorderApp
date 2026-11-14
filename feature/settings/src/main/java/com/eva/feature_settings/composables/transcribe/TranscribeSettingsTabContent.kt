@@ -122,7 +122,8 @@ internal fun TranscribeSettingsTabContent(
                 onSelect = { onSelectSTTModel(model.model) },
                 onUnSelect = onUnSelectSTTModel,
                 onSelectInvalid = { onSelectInvalidModel(model.model) },
-                enabled = isTranscriptionActive,
+                // Picking a model must not depend on the live-caption switch: the recorder's 即時字幕 toggle
+                // writes the same flag, and a disabled card silently ignored taps ("cannot select a local model").
                 modifier = Modifier
                     .fillMaxWidth()
                     .animateItem(),
