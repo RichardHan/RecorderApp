@@ -29,6 +29,7 @@ import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
@@ -60,6 +61,13 @@ internal fun RenameRecordingsDialogContent(
 			onRename = { onEvent(RenameRecordingEvent.OnRenameRecording) },
 			onCancel = onDismissRequest,
 			modifier = modifier,
+			suggestions = state.recording?.id?.let { id ->
+				{
+					TitleSuggestionRow(id, onSuggest = { title ->
+						onEvent(RenameRecordingEvent.OnTextValueChange(TextFieldValue(title, TextRange(title.length))))
+					})
+				}
+			},
 		)
 	}
 }
@@ -75,6 +83,7 @@ private fun RenameRecordingDialogContent(
 	onRename: () -> Unit = {},
 	errorMessage: String = "",
 	hasError: Boolean = false,
+	suggestions: (@Composable () -> Unit)? = null,
 ) {
 	Surface(
 		shape = AlertDialogDefaults.shape,
@@ -117,6 +126,10 @@ private fun RenameRecordingDialogContent(
 				exit = slideOutVertically()
 			) {
 				Text(text = errorMessage)
+			}
+			suggestions?.let {
+				Spacer(modifier = Modifier.height(8.dp))
+				it()
 			}
 			Spacer(modifier = Modifier.height(12.dp))
 			Row(
