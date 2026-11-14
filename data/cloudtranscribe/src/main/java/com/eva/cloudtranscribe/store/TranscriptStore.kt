@@ -11,6 +11,7 @@ import kotlinx.serialization.json.Json
  * File-backed per-recording store (versioned JSON, no Room migration needed):
  * `<root>/v1/<recordingId>/transcripts/<id>.json`  — offline OR cloud transcripts (never overwritten by the other source)
  * `<root>/v1/<recordingId>/summaries/<id>.json`     — summaries, each pointing at its source transcript id
+ * `<root>/v1/<recordingId>/outline.json`             — optional AI outline of a summary (#38)
  * `<root>/v1/<recordingId>/checkpoints/<runId>/NNN.json` — per-chunk cloud checkpoints, removed only after success or explicit cleanup
  * The raw recording is never touched.
  */
@@ -37,6 +38,14 @@ class TranscriptStore(root: File) {
 		File(transcriptsDir(recordingId), "${safe(id)}.json").delete()
 		clearCheckpoints(recordingId, id)
 	}
+
+	fun saveOutline(recordingId: Long, outline: com.eva.cloudtranscribe.outline.SavedOutline) =
+		write(File(recDir(recordingId), "outline.json"), json.encodeToString(com.eva.cloudtranscribe.outline.SavedOutline.serializer(), outline))
+
+	fun outline(recordingId: Long): com.eva.cloudtranscribe.outline.SavedOutline? =
+		read(File(recDir(recordingId), "outline.json"))?.let { runCatching { json.decodeFromString(com.eva.cloudtranscribe.outline.SavedOutline.serializer(), it) }.getOrNull() }
+
+	fun deleteOutline(recordingId: Long) { synchronized(lock) { File(recDir(recordingId), "outline.json").delete() } }
 
 	fun deleteSummary(recordingId: Long, id: String) { File(summariesDir(recordingId), "${safe(id)}.json").delete() }
 	fun clearCheckpoints(recordingId: Long, runId: String) { checkpointDir(recordingId, runId).deleteRecursively() }
