@@ -1,7 +1,7 @@
 package com.eva.feature_recordings.search.transcript
 
 import com.eva.cloudtranscribe.model.PlaybackLine
-import com.eva.cloudtranscribe.model.PlaybackTranscripts
+import com.eva.cloudtranscribe.model.TranscriptSearch
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -31,7 +31,7 @@ internal data class TranscriptSearchResult(
 )
 
 /**
- * On-device search over the default transcript of every recording. Reuses [PlaybackTranscripts.search] so a hit here
+ * On-device search over the default transcript of every recording. Reuses [TranscriptSearch.matchingLines] so a hit here
  * and a hit in the player can never disagree. Loads one recording at a time, so a cancelled search stops at the next
  * suspension point instead of walking every file.
  */
@@ -47,7 +47,7 @@ internal class TranscriptSearcher(private val maxHits: Int = DEFAULT_MAX_HITS) {
 		val hits = mutableListOf<TranscriptHit>()
 		for (recording in recordings) {
 			val recordingLines = lines(recording.id) ?: continue
-			for (index in PlaybackTranscripts.search(recordingLines, q)) {
+			for (index in TranscriptSearch.matchingLines(recordingLines, q)) {
 				if (hits.size >= maxHits) return TranscriptSearchResult(hits.toImmutableList(), truncated = true)
 				val line = recordingLines[index]
 				hits += TranscriptHit(recording.id, recording.name, line.text, line.startMs)
