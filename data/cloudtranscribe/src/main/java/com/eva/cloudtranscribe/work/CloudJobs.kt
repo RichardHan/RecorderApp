@@ -31,6 +31,7 @@ import com.eva.cloudtranscribe.audio.PcmFileSource
 import com.eva.cloudtranscribe.engine.CloudTranscriptionEngine
 import com.eva.cloudtranscribe.engine.EngineConfig
 import com.eva.cloudtranscribe.engine.Prompts
+import com.eva.cloudtranscribe.model.AutoSummaryPolicy
 import com.eva.cloudtranscribe.model.CloudSettings
 import com.eva.cloudtranscribe.model.Provenance
 import com.eva.cloudtranscribe.model.RunStatus
@@ -158,6 +159,7 @@ class CloudTranscribeWorker @AssistedInject constructor(
 	private val settingsRepo: CloudSettingsRepository,
 	private val keys: ApiKeyStore,
 	private val recordings: VoiceRecordingsProvider,
+	private val scheduler: CloudJobScheduler,
 ) : CoroutineWorker(context, params) {
 
 	override suspend fun doWork(): Result {
@@ -193,6 +195,7 @@ class CloudTranscribeWorker @AssistedInject constructor(
 			))
 			if (result.status == RunStatus.SUCCESS) store.clearCheckpoints(recordingId, runId)
 			pcm.delete()
+			maybeAutoSummary(recordingId, runId, result.status, result.text)
 			return Result.success()
 		} catch (e: CancellationException) {
 			store.transcript(recordingId, runId)?.let { store.saveTranscript(it.copy(status = RunStatus.CANCELLED, updatedAtMillis = System.currentTimeMillis())) }
@@ -201,6 +204,16 @@ class CloudTranscribeWorker @AssistedInject constructor(
 		} catch (e: Exception) {
 			pcm.delete()
 			return fail(record, Redactor.redact(e.message ?: e.javaClass.simpleName, apiKey))
+		}
+	}
+
+	/** Opt-in, at most once per transcript; never fails the transcription. */
+	private suspend fun maybeAutoSummary(recordingId: Long, runId: String, status: RunStatus, text: String) {
+		try {
+			if (!AutoSummaryPolicy.shouldStart(settingsRepo.current(), status, text, runId, store.summaries(recordingId))) return
+			scheduler.startSummary(recordingId, runId).onFailure { Log.w(CloudJobScheduler.TAG, "auto summary skipped: ${it.message}") }
+		} catch (e: CancellationException) { throw e } catch (e: Exception) {
+			Log.w(CloudJobScheduler.TAG, "auto summary not scheduled", e)
 		}
 	}
 
