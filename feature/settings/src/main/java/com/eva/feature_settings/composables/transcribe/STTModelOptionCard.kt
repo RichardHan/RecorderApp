@@ -151,8 +151,9 @@ internal fun STTModelOptionCard(
             tonalElevation = tonalElevation,
             shadowElevation = shadowElevation,
             onClick = {
+                // A not-yet-installed model only explains itself; it must not clear the current selection.
                 if (sttModel.model.state != STTModelState.DOWNLOADED) onSelectInvalid()
-                if (isSelected) onUnSelect() else onSelect()
+                else if (isSelected) onUnSelect() else onSelect()
             },
             enabled = enabled,
             color = cardContainerColor,
