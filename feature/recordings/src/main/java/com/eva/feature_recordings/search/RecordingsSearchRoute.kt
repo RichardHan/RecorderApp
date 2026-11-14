@@ -6,6 +6,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.Modifier
+import com.eva.feature_recordings.search.ask.AskAcross
+import com.eva.feature_recordings.search.ask.AskAcrossButton
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -61,6 +66,23 @@ fun NavGraphBuilder.recordingsSearchRoute(controller: NavController) =
                         )
                         controller.navigate(audioRoute)
                     }
+                },
+                askAi = {
+                    val candidates = remember(transcriptResults.hits, searchResults) {
+                        AskAcross.candidates(
+                            hits = transcriptResults.hits.map { it.recordingId to it.recordingName },
+                            results = searchResults.map { it.id to it.title.ifBlank { it.displayName } },
+                        )
+                    }
+                    AskAcrossButton(
+                        candidates = candidates,
+                        onOpenRecording = { id ->
+                            if (lifeCycleState.isAtLeast(Lifecycle.State.RESUMED)) {
+                                controller.navigate(PlayerSubGraph.AudioPlayerRoute(id, true))
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 },
                 navigation = {
                     if (controller.previousBackStackEntry?.destination?.route != null) {
