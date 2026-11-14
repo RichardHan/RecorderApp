@@ -3,8 +3,8 @@ package com.eva.feature_recordings.recordings.state
 import com.eva.datastore.domain.enums.RecordingSortOrder
 
 internal data class UIRecordingSortInfo(
-	val identifier: UISortIdentifier = UISortIdentifier.NAME,
-	val sortDirection: UISortOrder = UISortOrder.ASC
+	val identifier: UISortIdentifier = UISortIdentifier.DATE_CREATED,
+	val sortDirection: UISortOrder = UISortOrder.DESC
 )
 
 internal fun RecordingSortOrder.toUIOrder() = when (this) {

@@ -1,5 +1,7 @@
 package com.eva.cloudtranscribe.work
 
+import com.eva.cloudtranscribe.util.boundedRetry
+
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.net.Uri
@@ -110,7 +112,7 @@ class CloudJobScheduler @Inject constructor(
 				recordingId = recordingId,
 				transcriptId = transcriptId,
 				settings = s,
-				format = format ?: s.effectiveSummaryFormat,
+				format = (format ?: s.effectiveSummaryFormat).let { if (it == SummaryFormat.CUSTOM && s.customSummaryInstructions.isBlank()) SummaryFormat.CONCISE else it },
 				now = System.currentTimeMillis(),
 			),
 		)
@@ -239,16 +241,14 @@ class CloudSummaryWorker @AssistedInject constructor(
 			?: s.effectiveSummaryFormat
 		store.saveSummary(record.copy(status = RunStatus.RUNNING))
 		val client = CloudAiClients.create(s, apiKey, UrlConnectionTransport(), record.provenance.model)
-		var last: CallOutcome? = null
-		repeat(CloudSettings.MAX_ATTEMPTS) { attempt ->
-			last = withContext(Dispatchers.IO) {
-				client.complete(Prompts.summary(transcript.text, format, s.customSummaryInstructions))
-			}
-			val outcome = last
-			if (outcome is CallOutcome.Text) return done(record.copy(status = RunStatus.SUCCESS, text = outcome.text))
-			if (outcome !is CallOutcome.Failure || !outcome.retryable) return@repeat
-			kotlinx.coroutines.delay(2000L * (attempt + 1))
-		}
+		val prompt = Prompts.summary(transcript.text, format, s.customSummaryInstructions)
+		val last = boundedRetry(
+			attempts = CloudSettings.MAX_ATTEMPTS,
+			request = { withContext(Dispatchers.IO) { client.complete(prompt) } },
+			shouldRetry = { it is CallOutcome.Failure && it.retryable },
+			pause = { kotlinx.coroutines.delay(it) },
+		)
+		if (last is CallOutcome.Text) return done(record.copy(status = RunStatus.SUCCESS, text = last.text))
 		val msg = when (val o = last) {
 			is CallOutcome.Failure -> o.message
 			CallOutcome.ContentFiltered -> "內容過濾"

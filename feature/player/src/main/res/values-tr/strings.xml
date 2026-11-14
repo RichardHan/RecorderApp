@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-  <string name="transcript_search_placeholder">Transkriptte ara</string>
-  <string name="transcript_search_previous">Önceki eşleşme</string>
-  <string name="transcript_search_next">Sonraki eşleşme</string>
-</resources>

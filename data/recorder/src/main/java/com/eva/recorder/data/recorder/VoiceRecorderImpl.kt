@@ -16,6 +16,7 @@ import com.eva.recorder.domain.recorder.VoiceRecorder
 import com.eva.recorder.domain.stopwatch.RecorderStopWatch
 import com.eva.recordings.domain.provider.RecorderFileProvider
 import com.eva.utils.tryWithLock
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -48,6 +49,10 @@ internal class VoiceRecorderImpl(
 	private val settings: RecorderAudioSettingsRepo,
 	private val locationProvider: LocationProvider,
 	private val pcmReader: AudioDataReader,
+	@Suppress("DEPRECATION")
+	private val recorderFactory: () -> MediaRecorder = {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(context) else MediaRecorder()
+	},
 ) : VoiceRecorder, AudioByteDataProvider {
 
 	private val _scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -89,9 +94,7 @@ internal class VoiceRecorderImpl(
 			return false
 		}
 		// set recorder
-		_recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
-			MediaRecorder(context)
-		else MediaRecorder()
+		_recorder = recorderFactory()
 
 		_recorder?.setOnErrorListener(errorListener)
 		Log.d(TAG, "CREATED RECORDER AND AMPLITUDE SUCCESSFULLY")
@@ -102,11 +105,11 @@ internal class VoiceRecorderImpl(
 	 * Creates the file uri in which the audio to be recorded and initiate
 	 * the recorder parameters
 	 */
-	private suspend fun initiateRecorderParams() = coroutineScope {
+	private suspend fun initiateRecorderParams(): Boolean = coroutineScope {
 
 		if (_recorder == null) {
 			val isSuccess = createRecorder()
-			if (!isSuccess) return@coroutineScope
+			if (!isSuccess) return@coroutineScope false
 		}
 
 		val audioSettings = settings.audioSettings()
@@ -115,7 +118,7 @@ internal class VoiceRecorderImpl(
 		val channelCount = if (audioSettings.enableStereo) 2 else 1
 
 		// recorder should be ready by now
-		val recorder = _recorder ?: return@coroutineScope
+		val recorder = _recorder ?: return@coroutineScope false
 		// initiate the amplitude reader
 		pcmReader.initiateRecorder()
 
@@ -166,6 +169,7 @@ internal class VoiceRecorderImpl(
 			}
 		}
 		recorder.logMetrics()
+		true
 	}
 
 	/**
@@ -212,39 +216,52 @@ internal class VoiceRecorderImpl(
 		}
 	}
 
-	override suspend fun startRecording() {
-		_lock.tryWithLock(this) {
+	override suspend fun startRecording(onBeforeCapture: suspend () -> Unit): Boolean {
+		return _lock.tryWithLock(this) {
 			// current uri is already set cannot set it again
 			if (_recordingFile != null) {
 				Log.d(TAG, "CURRENT URI IS ALREADY SET")
-				return@tryWithLock
+				return@tryWithLock false
 			}
 			Log.i(TAG, "PREPARING FILE FOR RECORDING")
-			initiateRecorderParams()
-			// now start the stopwatch
-			stopWatch.prepare()
-			// prepare the recorder
-			_recorder?.prepare()
-			Log.d(TAG, "RECORDER PREPARED")
-			//start the recorder
-			stopWatch.startOrResume()
-			pcmReader.startRecorder()
-			_recorder?.start()
-			Log.d(TAG, "RECORDER STARTED")
+			try {
+				if (!initiateRecorderParams()) {
+					return@tryWithLock false
+				}
+				// prepare the stopwatch and recorder before invoking pre-capture hooks
+				stopWatch.prepare()
+				_recorder?.prepare()
+				Log.d(TAG, "RECORDER PREPARED")
+				onBeforeCapture()
+				// start capture only after pre-capture subscribers are attached
+				pcmReader.startRecorder()
+				stopWatch.startOrResume()
+				_recorder?.start()
+				Log.d(TAG, "RECORDER STARTED")
+				true
+			} catch (e: Throwable) {
+				stopWatch.reset()
+				stopAndDeleteFileMetaData()
+				if (e is CancellationException) throw e
+				Log.e(TAG, "FAILED TO START RECORDER", e)
+				false
+			}
+		}.getOrElse { e ->
+			if (e is CancellationException) throw e
+			false
 		}
 	}
 
 	override suspend fun stopRecording(): Result<Long> {
-		// staring an operation lock it
-		return _lock.withLock(this) {
-			val file = _recordingFile ?: return Result.failure(RecorderNotConfiguredException())
+		// Wait for any in-flight recorder transition instead of failing with owner re-entrancy
+		return _lock.withLock {
+			val file = _recordingFile ?: return@withLock Result.failure(RecorderNotConfiguredException())
 			// reset the timer
 			Log.d(TAG, "STOPWATCH STOPPED")
 			stopWatch.stop()
 			//stop the ongoing recording
 			_recorder?.stop()
 			Log.d(TAG, "RECORDER STOPPED")
-			Result.success(0L)
 			// update the file
 			updateRecordingToExternalStorage(file)
 		}
@@ -281,8 +298,8 @@ internal class VoiceRecorderImpl(
 	}
 
 	override suspend fun cancelRecording() {
-		// if it's holding the lock don't do anything
-		_lock.tryWithLock(this) {
+		_lock.withLock {
+			if (_recordingFile == null) return@withLock
 			try {
 				// cancel the timer watch
 				Log.d(TAG, "STOPWATCH STOPPED")
@@ -290,11 +307,14 @@ internal class VoiceRecorderImpl(
 				//stop the ongoing recording
 				Log.d(TAG, "RECORDER STOPPED")
 				_recorder?.stop()
-				// delete the current recording
-				stopAndDeleteFileMetaData()
-				Log.d(TAG, "RECORDER STOPPED")
+			} catch (e: CancellationException) {
+				throw e
 			} catch (e: Exception) {
 				e.printStackTrace()
+			} finally {
+				// delete the current recording even if MediaRecorder.stop() threw on a very short clip
+				stopAndDeleteFileMetaData()
+				Log.d(TAG, "RECORDER CANCEL CLEANUP DONE")
 			}
 		}
 	}
