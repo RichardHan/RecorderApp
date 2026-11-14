@@ -249,6 +249,46 @@ class DBMigrationsTests {
 	}
 
 	@Test
+	fun migrate_10_to_11_creates_action_items_keeping_existing_rows() = runTest {
+		deleteTestDatabase()
+
+		val old = testHelper.createDatabase(10).apply {
+			execSQL("INSERT INTO recording_meta_data (RECORDING_ID, IS_FAVOURITE) VALUES (7, 0)")
+			execSQL("INSERT INTO recordings_category (CATEGORY_ID, CATEGORY_NAME, CREATED_AT) VALUES (1, \"Work\", 1000)")
+			execSQL("INSERT INTO recording_bookmark_table (BOOKMARK_ID, BOOKMARK_TEXT, RECORDING_ID, BOOKMARK_TIMESTAMP) VALUES (1, \"keep me\", 7, 1000)")
+		}
+		old.close()
+
+		val db = testHelper.runMigrationsAndValidate(11)
+
+		// the new table exists and starts empty
+		assertThat(db.countOf("recording_action_items")).isEqualTo(0L)
+		// existing rows survive the upgrade
+		assertThat(db.countOf("recording_meta_data")).isEqualTo(1L)
+		assertThat(db.countOf("recordings_category")).isEqualTo(1L)
+		assertThat(db.countOf("recording_bookmark_table")).isEqualTo(1L)
+
+		db.execSQL(
+			"INSERT INTO recording_action_items (RECORDING_ID, TEXT, IS_DONE, CREATED_AT, SOURCE) " +
+				"VALUES (7, '寫報價單', 0, 1000, 'summary')",
+		)
+		db.prepare("SELECT TEXT, IS_DONE, SOURCE FROM recording_action_items").use { statement ->
+			assertThat(statement.step()).isTrue()
+			assertThat(statement.getText(0)).isEqualTo("寫報價單")
+			assertThat(statement.getLong(1)).isEqualTo(0L)
+			assertThat(statement.getText(2)).isEqualTo("summary")
+		}
+
+		// deleting the recording cascades to its action items. The migration helper opens a plain SQLite connection, so
+		// the pragma Room normally sets has to be enabled here before the foreign key can act.
+		db.execSQL("PRAGMA foreign_keys=ON")
+		db.execSQL("DELETE FROM recording_meta_data WHERE RECORDING_ID = 7")
+		assertThat(db.countOf("recording_meta_data")).isEqualTo(0L)
+		assertThat(db.countOf("recording_action_items")).isEqualTo(0L)
+		db.close()
+	}
+
+	@Test
 	fun migrate_9_to_10_creates_drive_upload_status_table() = runTest {
 		deleteTestDatabase()
 

@@ -12,12 +12,14 @@ import com.eva.database.convertors.STTModelConvertors
 import com.eva.database.dao.RecordingCategoryDao
 import com.eva.database.dao.RecordingsBookmarkDao
 import com.eva.database.dao.DriveUploadDao
+import com.eva.database.dao.RecordingActionItemsDao
 import com.eva.database.dao.RecordingsMetadataDao
 import com.eva.database.dao.STTModelsDao
 import com.eva.database.dao.TrashFileDao
 import com.eva.database.entity.RecordingBookMarkEntity
 import com.eva.database.entity.RecordingCategoryEntity
 import com.eva.database.entity.DriveUploadEntity
+import com.eva.database.entity.RecordingActionItemEntity
 import com.eva.database.entity.RecordingsMetaDataEntity
 import com.eva.database.entity.STTModelEntity
 import com.eva.database.entity.TrashFileEntity
@@ -32,8 +34,9 @@ import kotlinx.coroutines.Dispatchers
         RecordingBookMarkEntity::class,
         STTModelEntity::class,
 		DriveUploadEntity::class,
+		RecordingActionItemEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -45,6 +48,8 @@ import kotlinx.coroutines.Dispatchers
         AutoMigration(from = 7, to = 8, spec = DBMigrations.STTModelMigrationSpec::class),
         // manual migration from 8 to 9
 		AutoMigration(from = 9, to = 10),
+		// new table only; existing recordings/categories/bookmarks are untouched
+		AutoMigration(from = 10, to = 11),
     ],
 )
 @ColumnTypeConverters(
@@ -67,6 +72,8 @@ abstract class RecorderDataBase : RoomDatabase() {
     abstract fun sTTModelDao(): STTModelsDao
 
 	abstract fun driveUploadDao(): DriveUploadDao
+
+	abstract fun recordingActionItemsDao(): RecordingActionItemsDao
 
     companion object {
 
