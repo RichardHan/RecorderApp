@@ -230,6 +230,9 @@
   <string name="search_filter_date_created_title">Date Created</string>
   <string name="search_filter_title">Filters</string>
   <string name="menu_option_search">Search</string>
+  <string name="search_transcript_section">Transcript matches</string>
+  <string name="search_recordings_section">Recordings</string>
+  <string name="search_transcript_too_many">Too many matches — narrow the search</string>
   <string name="no_search_results">No search results</string>
   <string name="voice_recognizer" translatable="false">Mic Input</string>
   <string name="voice_search_prompt" translatable="false">Speak your search query</string>

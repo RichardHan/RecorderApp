@@ -34,6 +34,7 @@ import com.eva.cloudtranscribe.engine.Prompts
 import com.eva.cloudtranscribe.model.CloudSettings
 import com.eva.cloudtranscribe.model.Provenance
 import com.eva.cloudtranscribe.model.RunStatus
+import com.eva.cloudtranscribe.model.SummaryFormat
 import com.eva.cloudtranscribe.model.SummaryRecord
 import com.eva.cloudtranscribe.model.TranscriptRecord
 import com.eva.cloudtranscribe.model.TranscriptSource
@@ -93,13 +94,28 @@ class CloudJobScheduler @Inject constructor(
 		return Result.success(runId)
 	}
 
-	suspend fun startSummary(recordingId: Long, transcriptId: String): Result<String> {
+	/**
+	 * Creates a NEW summary for [transcriptId]; an existing summary is never overwritten. [format] lets the dialog ask
+	 * for another shape than the saved default for this one run.
+	 */
+	suspend fun startSummary(
+		recordingId: Long,
+		transcriptId: String,
+		format: SummaryFormat? = null,
+	): Result<String> {
 		val s = settings.current()
 		s.validate(keys.hasKey.value)?.let { return Result.failure(IllegalStateException(it)) }
 		val id = "summary-${System.currentTimeMillis()}"
-		store.saveSummary(SummaryRecord(id, recordingId, transcriptId,
-			Provenance("cloud-summary", s.providerType, Redactor.hostOf(s.baseUrl), s.summaryModel, s.reasoningEffort.wire),
-			System.currentTimeMillis(), RunStatus.QUEUED))
+		store.saveSummary(
+			newSummaryRecord(
+				id = id,
+				recordingId = recordingId,
+				transcriptId = transcriptId,
+				settings = s,
+				format = (format ?: s.effectiveSummaryFormat).let { if (it == SummaryFormat.CUSTOM && s.customSummaryInstructions.isBlank()) SummaryFormat.CONCISE else it },
+				now = System.currentTimeMillis(),
+			),
+		)
 		val request = OneTimeWorkRequestBuilder<CloudSummaryWorker>()
 			.setInputData(workDataOf(KEY_RECORDING to recordingId, KEY_RUN to id))
 			.setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
@@ -220,9 +236,12 @@ class CloudSummaryWorker @AssistedInject constructor(
 		val transcript = store.transcript(recordingId, record.sourceTranscriptId)
 			?: return done(record.copy(status = RunStatus.FAILED, error = "來源逐字稿不存在"))
 		val s = settingsRepo.current().let { it.copy(providerType = record.provenance.providerType ?: it.providerType) }
+		val format = record.provenance.summaryFormat
+			?.let { name -> SummaryFormat.entries.firstOrNull { it.name == name } }
+			?: s.effectiveSummaryFormat
 		store.saveSummary(record.copy(status = RunStatus.RUNNING))
 		val client = CloudAiClients.create(s, apiKey, UrlConnectionTransport(), record.provenance.model)
-		val prompt = Prompts.summary(transcript.text)
+		val prompt = Prompts.summary(transcript.text, format, s.customSummaryInstructions)
 		val last = boundedRetry(
 			attempts = CloudSettings.MAX_ATTEMPTS,
 			request = { withContext(Dispatchers.IO) { client.complete(prompt) } },
@@ -259,3 +278,30 @@ private fun buildForeground(context: Context, id: Int, text: String): Foreground
 		ForegroundInfo(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
 	else ForegroundInfo(id, notification)
 }
+
+/**
+ * Single place that builds a queued summary record, so the format a run will use is snapshotted in its provenance and
+ * a re-run can never be confused with the older summary it was derived from.
+ */
+internal fun newSummaryRecord(
+	id: String,
+	recordingId: Long,
+	transcriptId: String,
+	settings: CloudSettings,
+	format: SummaryFormat,
+	now: Long,
+): SummaryRecord = SummaryRecord(
+	id = id,
+	recordingId = recordingId,
+	sourceTranscriptId = transcriptId,
+	provenance = Provenance(
+		engine = "cloud-summary",
+		providerType = settings.providerType,
+		endpointHost = Redactor.hostOf(settings.baseUrl),
+		model = settings.summaryModel,
+		reasoningEffort = settings.reasoningEffort.wire,
+		summaryFormat = format.name,
+	),
+	createdAtMillis = now,
+	status = RunStatus.QUEUED,
+)

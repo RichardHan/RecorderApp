@@ -43,12 +43,14 @@ import com.eva.feature_recordings.search.composables.SearchFilterOptions
 import com.eva.feature_recordings.search.composables.SearchResultsContent
 import com.eva.feature_recordings.search.state.SearchRecordingScreenEvent
 import com.eva.feature_recordings.search.state.SearchRecordingScreenState
+import com.eva.feature_recordings.search.transcript.TranscriptHit
 import com.eva.feature_recordings.util.RecordingsPreviewFakes
 import com.eva.recordings.domain.models.RecordedVoiceModel
 import com.eva.ui.R
 import com.eva.ui.theme.RecorderAppTheme
 import com.eva.ui.utils.LocalSnackBarProvider
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 
@@ -58,7 +60,10 @@ internal fun SearchRecordingsScreen(
 	state: SearchRecordingScreenState,
 	categories: ImmutableList<RecordingCategoryModel>,
 	searchResults: ImmutableList<RecordedVoiceModel>,
+	transcriptHits: ImmutableList<TranscriptHit>,
+	hitsTruncated: Boolean,
 	onSelectRecording: (RecordedVoiceModel) -> Unit,
+	onSelectTranscriptHit: (TranscriptHit) -> Unit,
 	onEvent: (SearchRecordingScreenEvent) -> Unit,
 	modifier: Modifier = Modifier,
 	navigation: @Composable () -> Unit = {},
@@ -143,7 +148,10 @@ internal fun SearchRecordingsScreen(
 			)
 			SearchResultsContent(
 				searchResults = searchResults,
+				transcriptHits = transcriptHits,
+				hitsTruncated = hitsTruncated,
 				onItemSelect = onSelectRecording,
+				onHitSelect = onSelectTranscriptHit,
 				modifier = Modifier.fillMaxSize(),
 			)
 		}
@@ -160,7 +168,10 @@ private fun SearchRecordingsScreenPreview() = RecorderAppTheme {
 		searchResults = RecordingsPreviewFakes.FAKE_VOICE_RECORDINGS_SELECTED.map { it.recording }
 			.toImmutableList(),
 		onEvent = {},
+		transcriptHits = persistentListOf(),
+		hitsTruncated = false,
 		onSelectRecording = {},
+		onSelectTranscriptHit = {},
 		navigation = {
 			Icon(
 				imageVector = Icons.AutoMirrored.Default.ArrowBack,
