@@ -2,7 +2,6 @@ package com.eva.drive.data.repository;
 
 import android.content.Context;
 import com.eva.database.dao.DriveUploadDao;
-import com.eva.drive.domain.provider.DriveNetworkChecker;
 import com.eva.drive.domain.provider.DriveUploader;
 import com.eva.drive.domain.repository.DriveSettingsRepository;
 import dagger.internal.DaggerGenerated;
@@ -39,37 +38,32 @@ public final class RecordingUploadTaskImpl_Factory implements Factory<RecordingU
 
   private final Provider<DriveUploader> uploaderProvider;
 
-  private final Provider<DriveNetworkChecker> networkCheckerProvider;
-
   private RecordingUploadTaskImpl_Factory(Provider<Context> contextProvider,
       Provider<DriveSettingsRepository> settingsRepositoryProvider,
       Provider<DriveRecordingsProvider> recordingsProvider,
-      Provider<DriveUploadDao> uploadDaoProvider, Provider<DriveUploader> uploaderProvider,
-      Provider<DriveNetworkChecker> networkCheckerProvider) {
+      Provider<DriveUploadDao> uploadDaoProvider, Provider<DriveUploader> uploaderProvider) {
     this.contextProvider = contextProvider;
     this.settingsRepositoryProvider = settingsRepositoryProvider;
     this.recordingsProvider = recordingsProvider;
     this.uploadDaoProvider = uploadDaoProvider;
     this.uploaderProvider = uploaderProvider;
-    this.networkCheckerProvider = networkCheckerProvider;
   }
 
   @Override
   public RecordingUploadTaskImpl get() {
-    return newInstance(contextProvider.get(), settingsRepositoryProvider.get(), recordingsProvider.get(), uploadDaoProvider.get(), uploaderProvider.get(), networkCheckerProvider.get());
+    return newInstance(contextProvider.get(), settingsRepositoryProvider.get(), recordingsProvider.get(), uploadDaoProvider.get(), uploaderProvider.get());
   }
 
   public static RecordingUploadTaskImpl_Factory create(Provider<Context> contextProvider,
       Provider<DriveSettingsRepository> settingsRepositoryProvider,
       Provider<DriveRecordingsProvider> recordingsProvider,
-      Provider<DriveUploadDao> uploadDaoProvider, Provider<DriveUploader> uploaderProvider,
-      Provider<DriveNetworkChecker> networkCheckerProvider) {
-    return new RecordingUploadTaskImpl_Factory(contextProvider, settingsRepositoryProvider, recordingsProvider, uploadDaoProvider, uploaderProvider, networkCheckerProvider);
+      Provider<DriveUploadDao> uploadDaoProvider, Provider<DriveUploader> uploaderProvider) {
+    return new RecordingUploadTaskImpl_Factory(contextProvider, settingsRepositoryProvider, recordingsProvider, uploadDaoProvider, uploaderProvider);
   }
 
   public static RecordingUploadTaskImpl newInstance(Context context,
       DriveSettingsRepository settingsRepository, DriveRecordingsProvider recordingsProvider,
-      DriveUploadDao uploadDao, DriveUploader uploader, DriveNetworkChecker networkChecker) {
-    return new RecordingUploadTaskImpl(context, settingsRepository, recordingsProvider, uploadDao, uploader, networkChecker);
+      DriveUploadDao uploadDao, DriveUploader uploader) {
+    return new RecordingUploadTaskImpl(context, settingsRepository, recordingsProvider, uploadDao, uploader);
   }
 }
