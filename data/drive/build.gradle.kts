@@ -22,6 +22,15 @@ android {
 	buildFeatures {
 		buildConfig = true
 	}
+	packaging {
+		resources {
+			// Google auth JAR indexes also reach this module's instrumented test APK.
+			excludes += "/META-INF/INDEX.LIST"
+		}
+	}
+	testOptions {
+		unitTests.isReturnDefaultValues = true
+	}
 }
 
 dependencies {
@@ -44,4 +53,6 @@ dependencies {
 	implementation(project(":data:recordings"))
 
 	testImplementation(libs.junit)
+	testImplementation(libs.mockk)
+	testImplementation(libs.work.runtime.testing)
 }

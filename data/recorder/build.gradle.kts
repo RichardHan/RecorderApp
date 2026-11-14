@@ -29,4 +29,6 @@ dependencies {
 	implementation(project(":data:transcribe"))
 
     testImplementation(libs.mockk)
+    // OfflineSpeechEngine exposes Sherpa types; :data:transcribe compileOnly is not transitive.
+    testImplementation(files(rootProject.file("third_party/sherpa-onnx/classes.jar")))
 }

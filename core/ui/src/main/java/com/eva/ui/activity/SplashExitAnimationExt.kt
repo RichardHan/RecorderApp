@@ -18,7 +18,7 @@ fun SplashScreen.animateOnExit(
 	onAnimationEnd: () -> Unit = {}
 ) = setOnExitAnimationListener { screenView ->
 
-	// TODO: Cannot reproduce but sometime icon view is null
+	// SplashScreenViewProvider.iconView throws when the splash icon was not inflated.
 	val icon = try {
 		screenView.iconView
 	} catch (_: NullPointerException) {
