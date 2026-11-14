@@ -161,6 +161,7 @@ internal fun CloudAiSettingsContent(
 				supportingText = { Text("只描述排版與取捨；仍會遵守「沒說的不寫、沒有就省略、沒有重點時回目前無重點」。") },
 			)
 		}
+		SwitchRow("摘要附來源時間（只限雲端逐字稿；prompt 與回覆變長，會多用 token，預設關）", draft.summaryCitations) { draft = draft.copy(summaryCitations = it) }
 		Text("reasoning_effort（名稱含 transcribe / flash-lite 的模型一律不送）", style = MaterialTheme.typography.titleSmall)
 		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 			ReasoningEffort.entries.forEach { e -> FilterChip(draft.reasoningEffort == e, { draft = draft.copy(reasoningEffort = e) }, { Text(e.wire ?: "off") }) }

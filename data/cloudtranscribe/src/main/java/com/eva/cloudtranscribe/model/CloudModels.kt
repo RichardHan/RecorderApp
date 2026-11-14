@@ -28,6 +28,8 @@ data class CloudSettings(
 	val summaryFormat: SummaryFormat = SummaryFormat.CONCISE,
 	/** Used only when [summaryFormat] is [SummaryFormat.CUSTOM]; blank falls back to the concise format. */
 	val customSummaryInstructions: String = "",
+	/** Ask NEW summaries to cite cloud segments (longer prompt and reply → more tokens). Off by default. */
+	val summaryCitations: Boolean = false,
 ) {
 	val normalizedChunkSeconds: Int get() = chunkSeconds.coerceIn(MIN_CHUNK_SECONDS, MAX_CHUNK_SECONDS)
 
@@ -105,6 +107,8 @@ data class Provenance(
 	val trigger: String = "manual",
 	/** [SummaryFormat] name for summaries; null for transcripts and for summaries made before formats existed. */
 	val summaryFormat: String? = null,
+	/** True when a summary was requested with segment citations. */
+	val citations: Boolean? = null,
 )
 
 /**
@@ -139,4 +143,6 @@ data class SummaryRecord(
 	val status: RunStatus,
 	val text: String = "",
 	val error: String? = null,
+	/** Verified links from summary lines to cloud segments; empty for old or uncited summaries. */
+	val citations: List<com.eva.cloudtranscribe.citations.Citation> = emptyList(),
 )

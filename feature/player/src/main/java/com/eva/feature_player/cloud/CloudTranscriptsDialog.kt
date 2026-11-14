@@ -142,6 +142,8 @@ fun CloudTranscriptsDialog(
 	recordingId: Long,
 	onDismiss: () -> Unit,
 	viewModel: CloudTranscriptsViewModel = hiltViewModel(),
+	/** Seeks playback to a cited segment start; no-op by default. */
+	onSeekTo: (Long) -> Unit = {},
 ) {
 	LaunchedEffect(recordingId) { viewModel.bind(recordingId) }
 	val state by viewModel.state.collectAsStateWithLifecycle()
@@ -235,7 +237,14 @@ fun CloudTranscriptsDialog(
 								?.let { name -> SummaryFormat.entries.firstOrNull { it.name == name } }
 							Text("${s.provenance.model}・${s.status.zh()}・${storedFormat?.let { "${it.zh()}・" } ?: ""}來源：${src?.label() ?: s.sourceTranscriptId}", style = MaterialTheme.typography.labelMedium)
 							s.error?.let { Text("錯誤：$it", color = MaterialTheme.colorScheme.error) }
-							if (s.text.isNotBlank()) SelectionContainer { Text(s.text, style = MaterialTheme.typography.bodySmall) }
+							if (s.text.isNotBlank()) {
+								if (s.citations.isEmpty()) SelectionContainer { Text(s.text, style = MaterialTheme.typography.bodySmall) }
+								else CitedSummaryText(s.text, s.citations, onSeekTo = { ms -> onSeekTo(ms); onDismiss() })
+							}
+							if (s.provenance.citations == true && s.status == RunStatus.SUCCESS) Text(
+								if (s.citations.isEmpty()) "無可驗證的引用（只支援雲端分段逐字稿）" else "時間標籤只代表該段有出現相同的詞，不保證意思完全出自該段。",
+								style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+							)
 							Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
 								OutlinedButton({ regenerateFor = s.sourceTranscriptId }) { Text("用其他格式重新整理") }
 								TextButton({ confirmDelete = "s:" + s.id }) { Text("刪除摘要") }
