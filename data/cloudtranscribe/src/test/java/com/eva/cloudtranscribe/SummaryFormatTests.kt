@@ -145,6 +145,14 @@ class SummaryFormatRecordTests {
 	}
 
 	@Test
+	fun citationsAreSnapshottedOnlyWhenTheUserTurnedThemOn() {
+		val off = newSummaryRecord("a", 7, "t", settings, SummaryFormat.CONCISE, 1)
+		assertEquals(null, off.provenance.citations)
+		val on = newSummaryRecord("b", 7, "t", settings.copy(summaryCitations = true), SummaryFormat.CONCISE, 1)
+		assertEquals(true, on.provenance.citations)
+	}
+
+	@Test
 	fun savingTheNewSummaryLeavesTheOldOneUntouched() {
 		val store = TranscriptStore(Files.createTempDirectory("summary-format").toFile())
 		val old = oldSummary("t-1")
