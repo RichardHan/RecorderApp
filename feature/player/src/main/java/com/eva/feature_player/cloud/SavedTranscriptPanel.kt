@@ -21,6 +21,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import com.eva.feature_player.R
+import androidx.compose.runtime.produceState
+import com.eva.cloudtranscribe.model.TranscriptKeywords
 import com.eva.cloudtranscribe.model.TranscriptSearch
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -137,7 +139,12 @@ internal fun TranscriptLines(
 		matches.getOrNull(matchIndex)?.let { listState.animateScrollToItem(it) }
 	}
 
+	val keywords by produceState(emptyList<String>(), lines) {
+		value = withContext(Dispatchers.Default) { TranscriptKeywords.extract(lines.map { it.text }) }
+	}
+
 	Column(modifier) {
+		TranscriptKeywordChips(keywords, query, onPick = { query = it })
 		OutlinedTextField(query, { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("transcript-search-input"),
 			label = { Text(stringResource(R.string.transcript_search_label)) })
 		if (searching) {
