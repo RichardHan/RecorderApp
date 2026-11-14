@@ -67,6 +67,7 @@ internal fun SearchRecordingsScreen(
 	onEvent: (SearchRecordingScreenEvent) -> Unit,
 	modifier: Modifier = Modifier,
 	navigation: @Composable () -> Unit = {},
+	askAi: @Composable () -> Unit = {},
 ) {
 	val snackBarProvider = LocalSnackBarProvider.current
 	val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
@@ -146,6 +147,7 @@ internal fun SearchRecordingsScreen(
 				onVoiceInput = { onEvent(SearchRecordingScreenEvent.OnVoiceSearchResults(it)) },
 				modifier = Modifier.align(Alignment.CenterHorizontally)
 			)
+			askAi()
 			SearchResultsContent(
 				searchResults = searchResults,
 				transcriptHits = transcriptHits,
