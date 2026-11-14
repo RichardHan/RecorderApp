@@ -19,6 +19,21 @@
       android:enabled="true"
       android:exported="false"
       android:foregroundServiceType="microphone" />
+
+    <!-- Quick Settings tile: the user adds it from the shade; never pinned automatically -->
+    <service
+      android:name=".data.tile.RecorderTileService"
+      android:exported="true"
+      android:icon="@drawable/ic_microphone"
+      android:label="@string/recorder_tile_label"
+      android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+      <intent-filter>
+        <action android:name="android.service.quicksettings.action.QS_TILE" />
+      </intent-filter>
+      <meta-data
+        android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+        android:value="true" />
+    </service>
   </application>
 
 </manifest>

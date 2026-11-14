@@ -6,6 +6,9 @@ import com.eva.datastore.domain.repository.TranscriptionSettingsRepo
 import com.eva.recorder.domain.recorder.LiveTranscriptState
 import com.eva.recorder.domain.RecorderActionHandler
 import com.eva.recorder.domain.RecorderServiceBinder
+import com.eva.recorder.domain.RecorderStatusTracker
+import com.eva.recorder.domain.tile.TileStartRequestGate
+import androidx.lifecycle.SavedStateHandle
 import com.eva.recorder.domain.models.RecorderAction
 import com.eva.recorder.domain.models.RecorderState
 import com.eva.ui.viewmodel.AppViewModel
@@ -42,7 +45,31 @@ internal class RecorderViewModel @Inject constructor(
     private val handler: RecorderActionHandler,
     private val recorderService: RecorderServiceBinder,
     private val transcriptionSettings: TranscriptionSettingsRepo,
+    private val statusTracker: RecorderStatusTracker,
+    private val savedStateHandle: SavedStateHandle,
 ) : AppViewModel() {
+
+    private val tileStartGate = TileStartRequestGate(
+        savedStateHandle.get<LongArray>(KEY_HANDLED_TILE_STARTS)?.toList().orEmpty()
+    )
+
+    /**
+     * Quick Settings tile asked to start. Called only while the screen is resumed and the mic permission
+     * is granted. Each request id starts at most once (rotation / recreation / replayed intents are
+     * ignored), and nothing happens if a recording is already preparing, running or paused.
+     */
+    fun onTileStartRequest(requestId: Long?) {
+        if (!tileStartGate.consume(requestId)) return
+        savedStateHandle[KEY_HANDLED_TILE_STARTS] = tileStartGate.handledIds.toLongArray()
+        if (!statusTracker.canStartNewRecording) return
+        onAction(RecorderAction.StartRecorderAction)
+    }
+
+    /** Request was seen but cannot run (e.g. no permission yet): drop it so granting later does not auto-start. */
+    fun discardTileStartRequest(requestId: Long?) {
+        if (!tileStartGate.consume(requestId)) return
+        savedStateHandle[KEY_HANDLED_TILE_STARTS] = tileStartGate.handledIds.toLongArray()
+    }
 
     /** Live on-device captions on/off; only this preference changes (cloud settings are independent). */
     fun setLiveTranscription(enabled: Boolean) {
@@ -145,5 +172,9 @@ internal class RecorderViewModel @Inject constructor(
     override fun onCleared() {
         recorderService.unBindService()
         recorderService.cleanUp()
+    }
+
+    private companion object {
+        const val KEY_HANDLED_TILE_STARTS = "handled_tile_start_requests"
     }
 }
