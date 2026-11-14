@@ -141,6 +141,7 @@ private fun RunStatus.zh() = when (this) {
 fun CloudTranscriptsDialog(
 	recordingId: Long,
 	onDismiss: () -> Unit,
+	onSeekTo: ((Long) -> Unit)? = null,
 	viewModel: CloudTranscriptsViewModel = hiltViewModel(),
 ) {
 	LaunchedEffect(recordingId) { viewModel.bind(recordingId) }
@@ -227,6 +228,7 @@ fun CloudTranscriptsDialog(
 						latestSummaryAtMillis = newestSummary?.createdAtMillis,
 					)
 				}
+				item { RecordingQaCard(recordingId = recordingId, onSeekTo = onSeekTo) }
 				items(state.summaries, key = { it.id }) { s ->
 					Card {
 						Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
