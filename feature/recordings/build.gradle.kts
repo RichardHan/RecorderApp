@@ -28,6 +28,8 @@ dependencies {
 	implementation(project(":data:recordings"))
 	implementation(project(":data:use_case"))
 	implementation(project(":data:interactions"))
+	implementation(project(":data:cloudtranscribe"))
+	testImplementation(project(":data:cloudtranscribe"))
 
 	implementation(project(":feature:categories"))
 }
