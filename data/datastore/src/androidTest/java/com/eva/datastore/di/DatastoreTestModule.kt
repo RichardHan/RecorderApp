@@ -15,7 +15,7 @@ import javax.inject.Singleton
 	components = [SingletonComponent::class],
 	replaces = [DatastoreModule::class]
 )
-object DatastoreTestModule {
+internal object DatastoreTestModule {
 
 	@Singleton
 	@Provides

@@ -9,6 +9,10 @@ android {
 	buildFeatures {
 		buildConfig = true
 	}
+
+	testOptions {
+		unitTests.isReturnDefaultValues = true
+	}
 }
 
 dependencies {
@@ -23,4 +27,6 @@ dependencies {
 	implementation(project(":data:datastore"))
 	implementation(project(":data:location"))
 	implementation(project(":data:categories"))
+
+	testImplementation(libs.mockk)
 }

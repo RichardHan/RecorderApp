@@ -1,0 +1,9 @@
+<resources>
+    <string name="transcript_search_label">搜尋這份逐字稿（僅手機內）</string>
+    <string name="transcript_search_previous">上一筆</string>
+    <string name="transcript_search_next">下一筆</string>
+    <string name="transcript_search_clear">清除</string>
+    <string name="transcript_search_count">第 %1$d／%2$d 個符合段落</string>
+    <string name="transcript_search_empty">找不到符合的段落</string>
+    <string name="transcript_search_hint">搜尋時暫停自動捲動；點有時間的段落可回聽，清除搜尋後恢復跟隨播放。</string>
+</resources>

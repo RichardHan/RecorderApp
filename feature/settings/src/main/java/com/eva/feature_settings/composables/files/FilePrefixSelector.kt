@@ -23,7 +23,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -99,10 +98,6 @@ private fun RenamePrefixDialog(
 
 	val state = rememberTextFieldState(initialName)
 
-	val isNameUpdateAllowed by remember(state) {
-		derivedStateOf { state.text.isNotBlank() }
-	}
-
 	BasicAlertDialog(
 		onDismissRequest = onDismiss,
 		modifier = modifier,
@@ -132,10 +127,8 @@ private fun RenamePrefixDialog(
 					label = { Text(text = stringResource(id = R.string.recording_item_prefix_label)) },
 					shape = MaterialTheme.shapes.large,
 					onKeyboardAction = {
-						if (isNameUpdateAllowed) {
-							onRename(state.text.toString())
-							it()
-						}
+						onRename(state.text.toString())
+						it()
 					},
 					keyboardOptions = KeyboardOptions(
 						keyboardType = KeyboardType.Text,
@@ -151,7 +144,6 @@ private fun RenamePrefixDialog(
 						Text(text = stringResource(id = R.string.action_cancel))
 					}
 					Button(
-						enabled = isNameUpdateAllowed,
 						onClick = { onRename(state.text.toString()) },
 					) {
 						Text(text = stringResource(id = R.string.action_set))
