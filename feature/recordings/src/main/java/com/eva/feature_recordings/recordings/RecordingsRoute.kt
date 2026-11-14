@@ -7,6 +7,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -56,8 +58,17 @@ fun NavGraphBuilder.recordingsRoute(controller: NavController) =
         // lifeCycleState
         val lifeCycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
 
+        // local status labels; refreshed whenever the list changes or the screen resumes
+        val badgesViewModel = hiltViewModel<com.eva.feature_recordings.badges.RecordingBadgesViewModel>()
+        val badges by badgesViewModel.badges.collectAsStateWithLifecycle()
+        val resumed = lifeCycleState.isAtLeast(Lifecycle.State.RESUMED)
+        val recordingIds = remember(recordings) { recordings.map { it.recording.id } }
+        LaunchedEffect(recordingIds, resumed) { if (resumed) badgesViewModel.refresh(recordingIds) }
+        val badgeLabels = remember(badges) { badges.mapValues { it.value.labels } }
+
         CompositionLocalProvider(LocalSharedTransitionVisibilityScopeProvider provides this) {
             RecordingsScreen(
+                badges = badgeLabels,
                 isRecordingsLoaded = isRecordingsLoaded,
                 recordings = recordings,
                 categories = categories,

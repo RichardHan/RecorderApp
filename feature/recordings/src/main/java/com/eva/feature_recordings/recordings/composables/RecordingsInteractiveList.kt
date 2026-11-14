@@ -47,6 +47,7 @@ internal fun RecordingsInteractiveList(
 	onCategorySelect: (RecordingCategoryModel) -> Unit,
 	modifier: Modifier = Modifier,
 	contentPadding: PaddingValues = PaddingValues(0.dp),
+	badges: Map<Long, List<String>> = emptyMap(),
 ) {
 	val isLocalInspectionMode = LocalInspectionMode.current
 
@@ -93,6 +94,7 @@ internal fun RecordingsInteractiveList(
 							isSelectable = isAnySelected,
 							onItemClick = { onItemClick(record.recording) },
 							onItemSelect = { onItemSelect(record.recording) },
+							badges = badges[record.recording.id].orEmpty(),
 							modifier = Modifier
 								.fillMaxWidth()
 								.animateItem(),
