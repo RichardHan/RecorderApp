@@ -29,6 +29,8 @@ internal fun FileSettingsTabContent(
 	modifier: Modifier = Modifier,
 	model: DeviceTotalStorageModel = DeviceTotalStorageModel(),
 	contentPadding: PaddingValues = PaddingValues(0.dp),
+	/** Bulk text export row; empty in previews. */
+	bulkExport: @Composable () -> Unit = {},
 ) {
 	LazyColumn(
 		modifier = modifier.fillMaxSize(),
@@ -100,6 +102,7 @@ internal fun FileSettingsTabContent(
 				currentPrefix = settings.exportItemPrefix,
 				onPrefixChange = { onEvent(FileSettingsChangeEvent.OnExportItemPrefixChange(it)) })
 		}
+		item { bulkExport() }
 	}
 
 }
