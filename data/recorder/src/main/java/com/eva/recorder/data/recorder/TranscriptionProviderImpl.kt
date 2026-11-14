@@ -19,6 +19,7 @@ import com.eva.transcribe.offline.OfflineSpeechEngine
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -71,7 +72,7 @@ internal class TranscriptionProviderImpl(
 		if (started) return
 		started = true
 		// counts captured samples from recording start so offline line times share the recorded-audio timeline
-		scope.launch { source.stream.collect { (_, size) -> if (size > 0) samplesSeen += size } }
+		scope.launch(start = CoroutineStart.UNDISPATCHED) { source.stream.collect { (_, size) -> if (size > 0) samplesSeen += size } }
 		scope.launch {
 			controller.state.collect { s ->
 				_display.value = LiveTranscriptState(
@@ -129,7 +130,7 @@ internal class TranscriptionProviderImpl(
 		private val runScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
 		private val p = LiveUtterancePipeline(runScope) { samples -> offlineEngine.decode(samples) }
 		private val _timedRun = MutableStateFlow<List<Pair<Long, String>>>(emptyList())
-		private val feeder: Job = runScope.launch { source.stream.collect { (buffer, size) -> if (size > 0) p.accept(buffer, size) } }
+		private val feeder: Job = runScope.launch(start = CoroutineStart.UNDISPATCHED) { source.stream.collect { (buffer, size) -> if (size > 0) p.accept(buffer, size) } }
 		init { runScope.launch { p.timedLines.collect { l -> _timedRun.value = l.map { (ms, t) -> (ms + offsetMs) to t } } } }
 		override val lines: StateFlow<List<String>> get() = p.lines
 		override val timedLines: StateFlow<List<Pair<Long, String>>> get() = _timedRun
@@ -154,7 +155,7 @@ internal class TranscriptionProviderImpl(
 		private var dropped = 0L
 		private var failed = 0
 		private val queue = Channel<ShortArray>(capacity = 64)
-		private val feeder: Job = runScope.launch {
+		private val feeder: Job = runScope.launch(start = CoroutineStart.UNDISPATCHED) {
 			source.stream.collect { (buffer, size) ->
 				if (size <= 0) return@collect
 				if (queue.trySend(buffer.copyOf(size)).isFailure) { dropped += size; _warning.value = "辨識跟不上，部分音訊未辨識（錄音完整保存）" }

@@ -5,6 +5,8 @@ import com.eva.drive.domain.provider.DriveUploadedFile
 import com.eva.drive.domain.provider.DriveUploader
 import com.eva.drive.domain.provider.DriveUploadException
 import com.eva.drive.domain.provider.DriveClientFactory
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.google.api.client.http.HttpResponseException
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.model.File
 import java.io.IOException
@@ -19,29 +21,32 @@ internal class DriveUploaderImpl @Inject constructor(
 		preferredFolderName: String,
 		recording: DriveRecording,
 	): DriveUploadedFile {
-		val drive = Drive.Builder(
-			clientFactory.transport,
-			clientFactory.jsonFactory,
-			clientFactory.requestInitializer(accessToken),
-		).setApplicationName(APPLICATION_NAME).build()
-		val folderId = targetFolderId ?: findOrCreateFolder(drive, preferredFolderName)
-		val existing = findExistingRecording(drive, recording.recordingId, folderId)
-		if (existing?.id != null) {
-			recording.media.inputStream.close()
-			return DriveUploadedFile(existing.id, folderId)
-		}
-
-		// A pre-generated ID makes a timeout retry safe: Drive returns 409 instead of a duplicate.
-		val generatedId = drive.files().generateIds().setCount(1).execute().ids.firstOrNull()
-			?: throw DriveUploadException("Drive did not provide an upload file ID")
-		val metadata = File().apply {
-			id = generatedId
-			name = recording.fileName
-			parents = listOf(folderId)
-			description = recordingDescription(recording.recordingId)
-			appProperties = mapOf(RECORDING_ID_PROPERTY to recording.recordingId.toString())
-		}
+		var resolvedFolderId: String? = targetFolderId
+		var generatedId: String? = null
 		try {
+			val drive = Drive.Builder(
+				clientFactory.transport,
+				clientFactory.jsonFactory,
+				clientFactory.requestInitializer(accessToken),
+			).setApplicationName(APPLICATION_NAME).build()
+			val folderId = targetFolderId ?: findOrCreateFolder(drive, preferredFolderName)
+			resolvedFolderId = folderId
+			val existing = findExistingRecording(drive, recording.recordingId, folderId)
+			if (existing?.id != null) {
+				return DriveUploadedFile(existing.id, folderId)
+			}
+
+			// A pre-generated ID makes a timeout retry safe: Drive returns 409 instead of a duplicate.
+			val newFileId = drive.files().generateIds().setCount(1).execute().ids?.firstOrNull()
+				?: throw DriveUploadException("Drive did not provide an upload file ID")
+			generatedId = newFileId
+			val metadata = File().apply {
+				id = newFileId
+				name = recording.fileName
+				parents = listOf(folderId)
+				description = recordingDescription(recording.recordingId)
+				appProperties = mapOf(RECORDING_ID_PROPERTY to recording.recordingId.toString())
+			}
 			val uploadedId = drive.files().create(metadata, recording.media).apply {
 				fields = "id,name,parents,appProperties"
 				mediaHttpUploader.isDirectUploadEnabled = false
@@ -49,9 +54,22 @@ internal class DriveUploaderImpl @Inject constructor(
 				check(!result.id.isNullOrBlank()) { "Drive returned no file ID" }
 			}.id
 			return DriveUploadedFile(uploadedId, folderId)
-		} catch (e: com.google.api.client.googleapis.json.GoogleJsonResponseException) {
-			if (e.statusCode == 409) return DriveUploadedFile(generatedId, folderId)
+		} catch (e: DriveUploadException) {
+			throw e
+		} catch (e: GoogleJsonResponseException) {
+			if (e.statusCode == 409 && generatedId != null && resolvedFolderId != null) {
+				return DriveUploadedFile(generatedId, resolvedFolderId)
+			}
 			throw e.asDriveUploadException()
+		} catch (e: HttpResponseException) {
+			if (e.statusCode == 409 && generatedId != null && resolvedFolderId != null) {
+				return DriveUploadedFile(generatedId, resolvedFolderId)
+			}
+			throw DriveUploadException(
+				message = e.statusMessage ?: e.message ?: "Drive responded with HTTP ${e.statusCode}",
+				cause = e,
+				httpStatusCode = e.statusCode,
+			)
 		} catch (e: IOException) {
 			throw DriveUploadException("Audio upload was interrupted; WorkManager can retry", e)
 		} finally {
@@ -90,12 +108,19 @@ internal class DriveUploaderImpl @Inject constructor(
 		).setFields("id").execute().id ?: throw DriveUploadException("Cannot create Drive folder")
 	}
 
-	private fun com.google.api.client.googleapis.json.GoogleJsonResponseException.asDriveUploadException() =
-		DriveUploadException(
+	private fun GoogleJsonResponseException.asDriveUploadException(): DriveUploadException {
+		val reasons = details?.errors
+			?.mapNotNull { it.reason?.takeIf(String::isNotBlank) }
+			?.toSet()
+			.orEmpty()
+		return DriveUploadException(
 			message = details?.message ?: message ?: "Drive responded with HTTP $statusCode",
 			cause = this,
 			httpStatusCode = statusCode,
+			errorReason = reasons.firstOrNull(),
+			errorReasons = reasons,
 		)
+	}
 
 	private fun String.escapeDriveQuery(): String = replace("\\", "\\\\").replace("'", "\\'")
 

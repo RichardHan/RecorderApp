@@ -148,10 +148,9 @@ internal class RenameDialogViewModel @Inject constructor(
 	private fun handleSecurityException(
 		error: SecurityException,
 		recording: RecordedVoiceModel? = null,
-		isEnabled: Boolean = false,
 	) {
 
-		if (recording == null || !isEnabled) return
+		if (recording == null) return
 		if (error !is RecoverableSecurityException) return
 
 		val request = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
