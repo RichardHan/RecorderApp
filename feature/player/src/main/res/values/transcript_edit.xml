@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="transcript_edit_toggle">修改逐字稿</string>
+    <string name="transcript_edit_hint">修改模式：點一句即可修改文字（只存在手機上，不改錄音、不改時間）。搜尋後可逐筆取代。</string>
+    <string name="transcript_edit_running">仍在轉錄，完成後才能修改逐字稿</string>
+    <string name="transcript_edit_conflict">原文在你修改後更新過，先前的 %1$d 處修改暫未套用</string>
+    <string name="transcript_edit_conflict_keep">仍套用我的修改</string>
+    <string name="transcript_edit_conflict_discard">捨棄修改</string>
+    <string name="transcript_edit_undo">還原上一次修改</string>
+    <string name="transcript_edit_count">已修改 %1$d 句</string>
+    <string name="transcript_edit_title">修改這一句</string>
+    <string name="transcript_edit_time_kept">時間維持原本的 %1$s</string>
+    <string name="transcript_edit_original">原文：%1$s</string>
+    <string name="transcript_edit_restore_original">改回原文</string>
+    <string name="transcript_edit_save">儲存</string>
+    <string name="transcript_edit_dismiss">知道了</string>
+    <string name="transcript_replace_current">取代此筆</string>
+    <string name="transcript_replace_title">取代這一句裡的「%1$s」</string>
+    <string name="transcript_replace_label">改成</string>
+    <string name="transcript_replace_before">原本：%1$s</string>
+    <string name="transcript_replace_after">之後：%1$s</string>
+    <string name="transcript_replace_confirm">取代</string>
+    <string name="transcript_replace_skip">略過</string>
+</resources>

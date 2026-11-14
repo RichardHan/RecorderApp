@@ -73,7 +73,7 @@ class ChaptersViewModel @Inject constructor(
 		bound = true
 		viewModelScope.launch {
 			withContext(Dispatchers.IO) {
-				val selected = PlaybackTranscripts.defaultSelection(store.transcripts(id))
+				val selected = PlaybackTranscripts.defaultSelection(store.transcriptsWithEdits(id))
 				val lines = selected?.let(PlaybackTranscripts::lines).orEmpty()
 				transcript = selected
 				canGenerate = selected != null && ChapterPlanner.hasTimedSentences(lines)
