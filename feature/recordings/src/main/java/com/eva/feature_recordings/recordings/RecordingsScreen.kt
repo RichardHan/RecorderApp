@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -57,6 +58,7 @@ internal fun RecordingsScreen(
 	categories: ImmutableList<RecordingCategoryModel>,
 	onScreenEvent: (RecordingScreenEvent) -> Unit,
 	onRecordingSelect: (RecordedVoiceModel) -> Unit,
+	onOpenRecordingById: (Long) -> Unit = {},
 	modifier: Modifier = Modifier,
 	onNavigateToBin: () -> Unit = {},
 	onShowRenameDialog: (RecordedVoiceModel?) -> Unit = {},
@@ -101,6 +103,15 @@ internal fun RecordingsScreen(
 		}
 	}
 
+	var showRecap by rememberSaveable { mutableStateOf(false) }
+	if (showRecap) com.eva.feature_recordings.recap.RecentRecapDialog(
+		onDismiss = { showRecap = false },
+		onOpenRecording = { id ->
+			showRecap = false
+			onOpenRecordingById(id)
+		},
+	)
+
 	BackHandler(
 		enabled = isAnySelected,
 		onBack = { onScreenEvent(RecordingScreenEvent.OnUnSelectAllRecordings) },
@@ -123,6 +134,7 @@ internal fun RecordingsScreen(
 						}
 				},
 				onNavigateToBin = onNavigateToBin,
+				onShowRecap = { showRecap = true },
 				scrollBehavior = scrollBehavior
 			)
 		},
