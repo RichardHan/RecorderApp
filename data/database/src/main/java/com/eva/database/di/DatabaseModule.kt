@@ -5,6 +5,7 @@ import com.eva.database.RecorderDataBase
 import com.eva.database.dao.RecordingCategoryDao
 import com.eva.database.dao.RecordingsBookmarkDao
 import com.eva.database.dao.DriveUploadDao
+import com.eva.database.dao.RecordingActionItemsDao
 import com.eva.database.dao.RecordingsMetadataDao
 import com.eva.database.dao.STTModelsDao
 import com.eva.database.dao.TrashFileDao
@@ -52,4 +53,8 @@ object DatabaseModule {
 	@Provides
 	@Singleton
 	fun providesDriveUploadDao(database: RecorderDataBase): DriveUploadDao = database.driveUploadDao()
+
+	@Provides
+	@Singleton
+	fun providesActionItemsDao(database: RecorderDataBase): RecordingActionItemsDao = database.recordingActionItemsDao()
 }
