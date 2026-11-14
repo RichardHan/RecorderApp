@@ -171,6 +171,8 @@ internal fun CloudAiSettingsContent(
 			label = { Text("同時上傳段數（1–6，手機預設 2）") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
 		SwitchRow("略過近乎無聲的段落（預設關；小聲說話可能被誤判）", draft.skipSilentChunks) { draft = draft.copy(skipSilentChunks = it) }
 		SwitchRow("幻覺長度警示", draft.hallucinationWarning) { draft = draft.copy(hallucinationWarning = it) }
+		SwitchRow("送出摘要／章節前遮蔽電話、Email、身分證號、卡號（預設關）", draft.redactPiiForCloud) { draft = draft.copy(redactPiiForCloud = it) }
+		if (draft.redactPiiForCloud) Text("只在本機替換送出的文字，原始逐字稿不變；雲端音訊轉錄無法遮蔽。格式比對無法保證找出所有個資，人名不遮蔽。", style = MaterialTheme.typography.bodySmall)
 		SwitchRow("錄音完成後自動雲端轉錄（預設關閉）", draft.autoAfterRecording) { if (it) confirmAuto = true else draft = draft.copy(autoAfterRecording = false) }
 		if (draft.autoAfterRecording) SwitchRow("自動轉錄只在 Wi‑Fi／不計量網路", draft.autoWifiOnly) { draft = draft.copy(autoWifiOnly = it) }
 		Button(onClick = {
