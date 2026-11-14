@@ -127,7 +127,14 @@ fun NavGraphBuilder.audioPlayerRoute(controller: NavHostController) =
 
         var showCloud by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
         var transcriptRefresh by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
-        if (showCloud) com.eva.feature_player.cloud.CloudTranscriptsDialog(recordingId = route.audioId, onDismiss = { showCloud = false; transcriptRefresh++ })
+        if (showCloud) com.eva.feature_player.cloud.CloudTranscriptsDialog(
+            recordingId = route.audioId,
+            onDismiss = { showCloud = false; transcriptRefresh++ },
+            onSeekTo = { ms ->
+                playerViewModel.onPlayerEvents(com.eva.feature_player.state.PlayerEvents.OnSeekingPlayer(with(kotlin.time.Duration) { ms.milliseconds }))
+                playerViewModel.onPlayerEvents(com.eva.feature_player.state.PlayerEvents.OnSeekEndPlayer)
+            },
+        )
 
         val lifeCycleState by backStackEntry.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
 

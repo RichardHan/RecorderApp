@@ -11,6 +11,7 @@ import kotlinx.serialization.json.Json
  * File-backed per-recording store (versioned JSON, no Room migration needed):
  * `<root>/v1/<recordingId>/transcripts/<id>.json`  — offline OR cloud transcripts (never overwritten by the other source)
  * `<root>/v1/<recordingId>/summaries/<id>.json`     — summaries, each pointing at its source transcript id
+ * `<root>/v1/<recordingId>/qa/<id>.json`            — single-recording questions and answers (#7)
  * `<root>/v1/<recordingId>/checkpoints/<runId>/NNN.json` — per-chunk cloud checkpoints, removed only after success or explicit cleanup
  * The raw recording is never touched.
  */
@@ -37,6 +38,13 @@ class TranscriptStore(root: File) {
 		File(transcriptsDir(recordingId), "${safe(id)}.json").delete()
 		clearCheckpoints(recordingId, id)
 	}
+
+	private fun qaDir(id: Long) = File(recDir(id), "qa")
+	fun saveQa(record: com.eva.cloudtranscribe.qa.QaRecord) =
+		write(File(qaDir(record.recordingId), "${safe(record.id)}.json"), json.encodeToString(com.eva.cloudtranscribe.qa.QaRecord.serializer(), record))
+	fun qa(recordingId: Long): List<com.eva.cloudtranscribe.qa.QaRecord> =
+		list(qaDir(recordingId)) { json.decodeFromString(com.eva.cloudtranscribe.qa.QaRecord.serializer(), it) }.sortedByDescending { it.createdAtMillis }
+	fun deleteQa(recordingId: Long, id: String) { synchronized(lock) { File(qaDir(recordingId), "${safe(id)}.json").delete() } }
 
 	fun deleteSummary(recordingId: Long, id: String) { File(summariesDir(recordingId), "${safe(id)}.json").delete() }
 	fun clearCheckpoints(recordingId: Long, runId: String) { checkpointDir(recordingId, runId).deleteRecursively() }
