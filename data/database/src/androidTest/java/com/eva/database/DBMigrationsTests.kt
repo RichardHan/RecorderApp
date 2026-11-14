@@ -289,6 +289,43 @@ class DBMigrationsTests {
 	}
 
 	@Test
+	fun migrate_11_to_12_creates_chapters_keeping_action_items() = runTest {
+		deleteTestDatabase()
+
+		val old = testHelper.createDatabase(11).apply {
+			execSQL("INSERT INTO recording_meta_data (RECORDING_ID, IS_FAVOURITE) VALUES (9, 0)")
+			execSQL(
+				"INSERT INTO recording_action_items (RECORDING_ID, TEXT, IS_DONE, CREATED_AT, SOURCE) " +
+					"VALUES (9, '既有待辦', 0, 1000, 'manual')",
+			)
+		}
+		old.close()
+
+		val db = testHelper.runMigrationsAndValidate(12)
+
+		assertThat(db.countOf("recording_chapters")).isEqualTo(0L)
+		assertThat(db.countOf("recording_action_items")).isEqualTo(1L)
+		assertThat(db.countOf("recording_meta_data")).isEqualTo(1L)
+
+		db.execSQL(
+			"INSERT INTO recording_chapters (RECORDING_ID, TITLE, START_MS, SOURCE_SENTENCE_INDEX, CREATED_AT, TRANSCRIPT_REVISION) " +
+				"VALUES (9, '報價', 60000, 1, 2000, 't-1@2000')",
+		)
+		db.prepare("SELECT TITLE, START_MS, SOURCE_SENTENCE_INDEX FROM recording_chapters").use { statement ->
+			assertThat(statement.step()).isTrue()
+			assertThat(statement.getText(0)).isEqualTo("報價")
+			assertThat(statement.getLong(1)).isEqualTo(60000L)
+			assertThat(statement.getLong(2)).isEqualTo(1L)
+		}
+
+		db.execSQL("PRAGMA foreign_keys=ON")
+		db.execSQL("DELETE FROM recording_meta_data WHERE RECORDING_ID = 9")
+		assertThat(db.countOf("recording_chapters")).isEqualTo(0L)
+		assertThat(db.countOf("recording_action_items")).isEqualTo(0L)
+		db.close()
+	}
+
+	@Test
 	fun migrate_9_to_10_creates_drive_upload_status_table() = runTest {
 		deleteTestDatabase()
 

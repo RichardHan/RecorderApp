@@ -12,4 +12,5 @@ object DataBaseConstants {
 	const val STT_MODELS_TABLE = "stt_models_table"
 	const val DRIVE_UPLOAD_TABLE = "google_drive_uploads"
 	const val RECORDING_ACTION_ITEMS_TABLE = "recording_action_items"
+	const val RECORDING_CHAPTERS_TABLE = "recording_chapters"
 }

@@ -156,10 +156,20 @@ fun NavGraphBuilder.audioPlayerRoute(controller: NavHostController) =
                 },
                 onCloudTranscripts = { showCloud = true },
                 transcriptPanel = { panelModifier ->
-                    com.eva.feature_player.cloud.SavedTranscriptPanel(
+                    com.eva.feature_player.cloud.PlayerSidePanel(
                         recordingId = route.audioId,
-                        trackData = { trackData },
-                        refreshKey = transcriptRefresh,
+                        transcriptPanel = { modifier ->
+                            com.eva.feature_player.cloud.SavedTranscriptPanel(
+                                recordingId = route.audioId,
+                                trackData = { trackData },
+                                refreshKey = transcriptRefresh,
+                                onSeekTo = { ms ->
+                                    playerViewModel.onPlayerEvents(com.eva.feature_player.state.PlayerEvents.OnSeekingPlayer(with(kotlin.time.Duration) { ms.milliseconds }))
+                                    playerViewModel.onPlayerEvents(com.eva.feature_player.state.PlayerEvents.OnSeekEndPlayer)
+                                },
+                                modifier = modifier,
+                            )
+                        },
                         onSeekTo = { ms ->
                             playerViewModel.onPlayerEvents(com.eva.feature_player.state.PlayerEvents.OnSeekingPlayer(with(kotlin.time.Duration) { ms.milliseconds }))
                             playerViewModel.onPlayerEvents(com.eva.feature_player.state.PlayerEvents.OnSeekEndPlayer)
