@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.eva.cloudtranscribe.model.CloudSettings
+import com.eva.cloudtranscribe.model.CustomVocabulary
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -27,6 +28,7 @@ class CloudSettingsRepository @Inject constructor(@ApplicationContext private va
 	/** Trims the free-text format instructions so a pasted block cannot grow without bound. */
 	private fun CloudSettings.normalized() = copy(
 		customSummaryInstructions = customSummaryInstructions.trim().take(CloudSettings.MAX_SUMMARY_INSTRUCTIONS),
+		customVocabulary = CustomVocabulary.normalize(customVocabulary),
 	)
 
 	val settings: Flow<CloudSettings> = context.cloudAiPrefs.data.map { prefs -> decode(prefs[key]) }

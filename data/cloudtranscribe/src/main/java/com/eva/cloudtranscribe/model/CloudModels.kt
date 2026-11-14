@@ -28,6 +28,8 @@ data class CloudSettings(
 	val summaryFormat: SummaryFormat = SummaryFormat.CONCISE,
 	/** Used only when [summaryFormat] is [SummaryFormat.CUSTOM]; blank falls back to the concise format. */
 	val customSummaryInstructions: String = "",
+	/** Spelling hints for CLOUD transcription only (empty = prompt unchanged). Sent with audio only when cloud transcription runs. */
+	val customVocabulary: List<VocabularyTerm> = emptyList(),
 ) {
 	val normalizedChunkSeconds: Int get() = chunkSeconds.coerceIn(MIN_CHUNK_SECONDS, MAX_CHUNK_SECONDS)
 

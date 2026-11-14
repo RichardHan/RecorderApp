@@ -217,6 +217,10 @@ object Prompts {
 		"keep English as spoken). Do not guess, continue or repeat words beyond the audio; use ［聽不清楚］ for unintelligible parts. " +
 		"Format as `Speaker N: text` only for clearly distinct voices. If there is no intelligible speech, output exactly $NO_SPEECH."
 
+	/** [base] unchanged when [vocabulary] is empty; otherwise [base] followed by the spelling-reference suffix. */
+	fun withVocabulary(base: String, vocabulary: List<com.eva.cloudtranscribe.model.VocabularyTerm>): String =
+		com.eva.cloudtranscribe.model.CustomVocabulary.promptSuffix(vocabulary)?.let { "$base $it" } ?: base
+
 	/** True when the model reported no speech (marker possibly with punctuation/whitespace). */
 	fun isNoSpeech(text: String): Boolean {
 		val t = text.trim().trim('`', '"', '\'', '。', '.', ' ').uppercase()
