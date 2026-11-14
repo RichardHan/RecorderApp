@@ -25,21 +25,35 @@ fun PlayerSidePanel(
 	transcriptPanel: @Composable (Modifier) -> Unit,
 	onSeekTo: (Long) -> Unit,
 	modifier: Modifier = Modifier,
+	positionMs: () -> Long = { 0L },
+	totalMs: () -> Long = { 0L },
+	bookmarkTimesMs: List<Long> = emptyList(),
 ) {
-	var showChapters by rememberSaveable(recordingId) { mutableStateOf(false) }
+	// 0 = transcript, 1 = chapters, 2 = clips
+	var tab by rememberSaveable(recordingId) { mutableStateOf(0) }
 	Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
 		Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-			FilterChip(selected = !showChapters, onClick = { showChapters = false }, label = { Text("逐字稿") })
-			FilterChip(selected = showChapters, onClick = { showChapters = true }, label = { Text("章節") })
+			FilterChip(selected = tab == 0, onClick = { tab = 0 }, label = { Text("逐字稿") })
+			FilterChip(selected = tab == 1, onClick = { tab = 1 }, label = { Text("章節") })
+			FilterChip(selected = tab == 2, onClick = { tab = 2 }, label = { Text("片段") })
 		}
-		if (showChapters) {
-			ChaptersPanel(
+		when (tab) {
+			1 -> ChaptersPanel(
 				recordingId = recordingId,
 				onSeekTo = onSeekTo,
 				modifier = Modifier.fillMaxWidth().weight(1f),
 			)
-		} else {
-			transcriptPanel(Modifier.fillMaxWidth().weight(1f))
+
+			2 -> com.eva.feature_player.clips.ClipsPanel(
+				recordingId = recordingId,
+				positionMs = positionMs,
+				totalMs = totalMs,
+				bookmarkTimesMs = bookmarkTimesMs,
+				onSeekTo = onSeekTo,
+				modifier = Modifier.fillMaxWidth().weight(1f),
+			)
+
+			else -> transcriptPanel(Modifier.fillMaxWidth().weight(1f))
 		}
 	}
 }
