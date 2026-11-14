@@ -37,6 +37,7 @@ fun NavGraphBuilder.recorderRoute(navController: NavHostController) =
 		val transcriptionsResult by viewModel.transcriptionsResult.collectAsStateWithLifecycle()
 		val transcriptionSettings by viewModel.transcribeSettings.collectAsStateWithLifecycle()
 		val liveCloud by viewModel.liveCloud.collectAsStateWithLifecycle()
+		val slackStatus by viewModel.slackStatus.collectAsStateWithLifecycle()
 
 		UiEventsHandler(eventsFlow = viewModel::uiEvent)
 
@@ -48,6 +49,8 @@ fun NavGraphBuilder.recorderRoute(navController: NavHostController) =
 				recorderState = recorderState,
 				transcriptions = transcriptionsResult,
 				liveCloud = liveCloud,
+				slackStatus = slackStatus,
+				onToggleSlackSync = viewModel::setSlackSyncForThisRecording,
 				transcriptionSettings = transcriptionSettings,
 				recorderTimer = { recorderTimer },
 				bookMarksSetDeferred = { bookMarksSet },

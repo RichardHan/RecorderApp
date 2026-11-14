@@ -2,4 +2,6 @@
 <full-backup-content>
   <!-- Encrypted cloud AI API key: never back up (Keystore key is device-bound anyway). -->
   <exclude domain="sharedpref" path="cloud_ai_secure.xml" />
+  <!-- Slack webhook URL contains a secret: never back up -->
+  <exclude domain="sharedpref" path="slack_webhook_secure.xml" />
 </full-backup-content>

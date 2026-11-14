@@ -49,6 +49,8 @@ internal fun RecorderContent(
 	transcriptionSettings: TranscriptionSettings = TranscriptionSettings(),
 	onNavigateToSettings: () -> Unit = {},
 	onToggleLiveTranscription: (Boolean) -> Unit = {},
+	slackStatus: com.eva.cloudtranscribe.slack.SlackSyncStatus = com.eva.cloudtranscribe.slack.SlackSyncStatus(),
+	onToggleSlackSync: (Boolean) -> Unit = {},
 ) {
 	Box(modifier = modifier) {
 		// compact header (timer + waveform) so the multi-line live transcript gets most of the screen
@@ -79,6 +81,11 @@ internal fun RecorderContent(
 					onToggleLiveTranscription = onToggleLiveTranscription,
 				)
 			}
+			SlackSyncIndicator(
+				status = slackStatus,
+				isRecording = recorderState == RecorderState.RECORDING || recorderState == RecorderState.PAUSED,
+				onToggle = onToggleSlackSync,
+			)
 			RecorderAmplitudeGraph(
 				recoderPointsCallback = recordingPointsCallback,
 				bookMarksDeferred = bookMarksDeferred,
