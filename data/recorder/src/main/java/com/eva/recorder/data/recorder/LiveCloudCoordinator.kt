@@ -84,6 +84,8 @@ internal class LiveCloudCoordinator(
 		withContext(Dispatchers.Default) { Mp3Encoder.encode(samples, 16_000) }
 	},
 	private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+	/** Per-recording notes draft (#5); blank falls back to the global meeting notes. */
+	private val recordingNotes: () -> String = { "" },
 ) {
 	private val _state = MutableStateFlow(LiveCloudState())
 	val state: StateFlow<LiveCloudState> = _state.asStateFlow()
@@ -154,6 +156,7 @@ internal class LiveCloudCoordinator(
 					summaryClient?.complete(prompt) ?: CallOutcome.Failure("重點整理未啟動：${summaryProblem ?: "缺少摘要 Key"}", retryable = false)
 				},
 				transcribeModel = cloud.transcribeModel,
+				meetingNotes = { com.eva.cloudtranscribe.notes.RecordingNotes.effective(recordingNotes(), live.meetingNotes) },
 			)
 			val sessionJobs = mutableListOf<Job>()
 			val installed = synchronized(lock) {

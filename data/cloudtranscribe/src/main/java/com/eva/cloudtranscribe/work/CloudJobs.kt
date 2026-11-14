@@ -241,7 +241,11 @@ class CloudSummaryWorker @AssistedInject constructor(
 			?: s.effectiveSummaryFormat
 		store.saveSummary(record.copy(status = RunStatus.RUNNING))
 		val client = CloudAiClients.create(s, apiKey, UrlConnectionTransport(), record.provenance.model)
-		val prompt = Prompts.summary(transcript.text, format, s.customSummaryInstructions)
+		// per-recording notes (#5) are reference-only; without notes the prompt is unchanged
+		val prompt = com.eva.cloudtranscribe.notes.RecordingNotes.withNotes(
+			Prompts.summary(transcript.text, format, s.customSummaryInstructions),
+			runCatching { store.notes(recordingId)?.text }.getOrNull(),
+		)
 		val last = boundedRetry(
 			attempts = CloudSettings.MAX_ATTEMPTS,
 			request = { withContext(Dispatchers.IO) { client.complete(prompt) } },

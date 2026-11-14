@@ -94,8 +94,12 @@ internal object RecorderServiceModule {
 		asrKeys: com.eva.cloudtranscribe.secure.ApiKeyStore,
 		summaryKeys: com.eva.cloudtranscribe.secure.SummaryApiKeyStore,
 		store: com.eva.cloudtranscribe.store.TranscriptStore,
+		notesDraft: com.eva.cloudtranscribe.notes.RecordingNotesDraft,
 	): com.eva.recorder.data.recorder.LiveCloudCoordinator =
-		com.eva.recorder.data.recorder.LiveCloudCoordinator(source, transcriber, liveRepo, cloudRepo, asrKeys, summaryKeys, store)
+		com.eva.recorder.data.recorder.LiveCloudCoordinator(
+			source, transcriber, liveRepo, cloudRepo, asrKeys, summaryKeys, store,
+			recordingNotes = { notesDraft.current() },
+		)
 
 	@Provides
 	@ServiceScoped
