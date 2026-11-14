@@ -4,6 +4,9 @@ import android.content.Context
 import android.os.Build
 import com.eva.database.dao.RecordingActionItemsDao
 import com.eva.database.dao.RecordingChaptersDao
+import com.eva.database.dao.RecordingClipsDao
+import com.eva.recordings.data.provider.RecordingClipsProviderImpl
+import com.eva.recordings.domain.provider.RecordingClipsProvider
 import com.eva.database.dao.RecordingsMetadataDao
 import com.eva.database.dao.TrashFileDao
 import com.eva.datastore.domain.repository.RecorderFileSettingsRepo
@@ -62,12 +65,14 @@ object RecordingsProviderModule {
 		@ApplicationContext context: Context,
 		trashMetaData: TrashFileDao,
 		metadataDao: RecordingsMetadataDao,
+		clipsProvider: RecordingClipsProvider,
 	): TrashRecordingsProvider = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
-		TrashRecordingsProviderImpl(context = context, recordingsDao = metadataDao)
+		TrashRecordingsProviderImpl(context = context, recordingsDao = metadataDao, clipsProvider = clipsProvider)
 	else TrashRecordingsProviderApi29Impl(
 		context = context,
 		trashMediaDao = trashMetaData,
-		recordingsDao = metadataDao
+		recordingsDao = metadataDao,
+		clipsProvider = clipsProvider,
 	)
 
 	@Provides
@@ -118,4 +123,14 @@ object RecordingsProviderModule {
 	@Singleton
 	fun providesChaptersProvider(dao: RecordingChaptersDao): RecordingChaptersProvider =
 		RecordingChaptersProviderImpl(dao)
+
+	@Provides
+	@Singleton
+	fun providesClipsProvider(
+		@ApplicationContext context: Context,
+		dao: RecordingClipsDao,
+	): RecordingClipsProvider = RecordingClipsProviderImpl(
+		dao = dao,
+		rootDirectory = { java.io.File(context.filesDir, RecordingClipsProviderImpl.CLIPS_FOLDER) },
+	)
 }

@@ -175,6 +175,9 @@ fun NavGraphBuilder.audioPlayerRoute(controller: NavHostController) =
                             playerViewModel.onPlayerEvents(com.eva.feature_player.state.PlayerEvents.OnSeekEndPlayer)
                         },
                         modifier = panelModifier,
+                        positionMs = { trackData.current.inWholeMilliseconds },
+                        totalMs = { trackData.total.inWholeMilliseconds },
+                        bookmarkTimesMs = bookMarks.map { it.timeStamp.toMillisecondOfDay().toLong() },
                     )
                 },
                 onNavigateToRecordings = {

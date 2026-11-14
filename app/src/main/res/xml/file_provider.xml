@@ -4,4 +4,9 @@
     name="exported_bookmarks"
     path="/bookmarks" />
 
+  <!-- short clips exported from a recording (app-private, shared only via the share sheet) -->
+  <files-path
+    name="recording_clips"
+    path="clips/" />
+
 </paths>

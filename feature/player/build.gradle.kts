@@ -28,6 +28,7 @@ dependencies {
 	implementation(project(":data:interactions"))
 	implementation(project(":data:cloudtranscribe"))
 	implementation(project(":data:transcribe"))
+	implementation(project(":data:editor"))
 
 	// feature
 	implementation(project(":feature:player-shared"))
