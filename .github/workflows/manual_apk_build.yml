@@ -157,9 +157,23 @@ jobs:
           done
           echo "::error::Official sherpa-onnx AAR unavailable after 6 bounded attempts"; exit 1
 
+      - name: Check Drive OAuth client ID
+        # Without it the APK builds fine but Drive sign-in fails with "DRIVE_WEB_CLIENT_ID is missing".
+        # Only presence is checked; the value itself is never printed.
+        env:
+          DRIVE_WEB_CLIENT_ID: ${{ secrets.DRIVE_WEB_CLIENT_ID }}
+        run: |
+          if [ -z "${DRIVE_WEB_CLIENT_ID// /}" ]; then
+            echo "::error::Repository secret DRIVE_WEB_CLIENT_ID is not set: Drive sign-in would fail in this APK. See docs/DRIVE_SETUP.md."
+            exit 1
+          fi
+          echo "DRIVE_WEB_CLIENT_ID is set (value not shown)."
+
       - name: Build arm64 debug APK
         # Dependency downloads hit the same transient 504s. Gradle's (internal, unsupported) retry
         # knobs: 6 attempts total with exponential backoff from 5 s (~2.5 min max per artifact).
+        env:
+          DRIVE_WEB_CLIENT_ID: ${{ secrets.DRIVE_WEB_CLIENT_ID }}
         run: >-
           ./gradlew --no-daemon :app:assembleDebug -Parm64Only=true -PcompressNative=true
           -Dorg.gradle.internal.repository.max.tentatives=6
@@ -180,6 +194,12 @@ jobs:
             echo "::error::Certificate mismatch: the keystore secret is not the key used on the phones."
             exit 1
           fi
+          # The Drive client ID must be compiled into BuildConfig; count matches only, never print it.
+          if ! unzip -p "$APK" 'classes*.dex' | grep -aq 'apps\.googleusercontent\.com'; then
+            echo "::error::Drive OAuth client ID not found in the APK (Drive sign-in would fail)."
+            exit 1
+          fi
+          echo "Drive OAuth client ID embedded in APK: yes"
           VERSION=$("$BT/aapt2" dump badging "$APK" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -1)
           SIZE=$(stat -c %s "$APK")
           [ "$SIZE" -lt 104857600 ] || { echo "::error::APK is >= 100 MB"; exit 1; }
@@ -191,6 +211,7 @@ jobs:
             echo "### APK"; echo "- file: \`$OUT\`"; echo "- size: $SIZE bytes"
             echo "- sha256: \`$(cut -d' ' -f1 dist/SHA256SUMS.txt)\`"
             echo "- signing: ${SIGNING_MODE} (cert $CERT)"
+            echo "- Drive OAuth client ID: embedded (value not shown)"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove keystore from runner

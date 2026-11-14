@@ -16,7 +16,7 @@ android {
 		buildConfigField(
 			"String",
 			"DRIVE_WEB_CLIENT_ID",
-			"\"${localProperties.getProperty("DRIVE_WEB_CLIENT_ID") ?: System.getenv("DRIVE_WEB_CLIENT_ID") ?: ""}\"",
+			"\"${localProperties.getProperty("DRIVE_WEB_CLIENT_ID")?.trim()?.takeIf { it.isNotEmpty() } ?: System.getenv("DRIVE_WEB_CLIENT_ID")?.trim().orEmpty()}\"",
 		)
 	}
 	buildFeatures {
