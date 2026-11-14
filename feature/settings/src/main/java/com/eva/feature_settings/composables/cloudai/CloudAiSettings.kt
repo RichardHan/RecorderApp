@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -41,6 +42,7 @@ import androidx.lifecycle.viewModelScope
 import com.eva.cloudtranscribe.model.CloudSettings
 import com.eva.cloudtranscribe.model.ProviderType
 import com.eva.cloudtranscribe.model.ReasoningEffort
+import com.eva.cloudtranscribe.model.SummaryFormat
 import com.eva.cloudtranscribe.secure.ApiKeyStore
 import com.eva.cloudtranscribe.settings.CloudSettingsRepository
 import com.eva.feature_settings.composables.drive.DriveSettingsContent
@@ -138,6 +140,27 @@ internal fun CloudAiSettingsContent(
 			isError = draft.baseUrl.isNotBlank() && !draft.baseUrl.startsWith("https://"))
 		OutlinedTextField(draft.transcribeModel, { draft = draft.copy(transcribeModel = it.trim()) }, Modifier.fillMaxWidth(), label = { Text("轉錄模型") }, singleLine = true)
 		OutlinedTextField(draft.summaryModel, { draft = draft.copy(summaryModel = it.trim()) }, Modifier.fillMaxWidth(), label = { Text("摘要模型") }, singleLine = true)
+		Text("錄音後摘要格式（只影響之後產生的摘要；舊摘要不變）", style = MaterialTheme.typography.titleSmall)
+		Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+			SummaryFormat.entries.forEach { format ->
+				FilterChip(
+					selected = draft.summaryFormat == format,
+					onClick = { draft = draft.copy(summaryFormat = format) },
+					label = { Text(summaryFormatLabel(format)) },
+				)
+			}
+		}
+		if (draft.summaryFormat == SummaryFormat.CUSTOM) {
+			OutlinedTextField(
+				draft.customSummaryInstructions,
+				{ draft = draft.copy(customSummaryInstructions = it.take(CloudSettings.MAX_SUMMARY_INSTRUCTIONS)) },
+				Modifier.fillMaxWidth(),
+				label = { Text("自訂格式說明（空白時退回精簡格式）") },
+				minLines = 3,
+				maxLines = 8,
+				supportingText = { Text("只描述排版與取捨；仍會遵守「沒說的不寫、沒有就省略、沒有重點時回目前無重點」。") },
+			)
+		}
 		Text("reasoning_effort（名稱含 transcribe / flash-lite 的模型一律不送）", style = MaterialTheme.typography.titleSmall)
 		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 			ReasoningEffort.entries.forEach { e -> FilterChip(draft.reasoningEffort == e, { draft = draft.copy(reasoningEffort = e) }, { Text(e.wire ?: "off") }) }
@@ -193,6 +216,14 @@ internal fun CloudAiSettingsContent(
 		confirmButton = { TextButton({ draft = draft.copy(autoAfterRecording = true); confirmAuto = false }) { Text("我了解，開啟") } },
 		dismissButton = { TextButton({ confirmAuto = false }) { Text("取消") } },
 	)
+}
+
+/** UI label for a summary format; the prompt text lives in Prompts, never here. */
+internal fun summaryFormatLabel(format: SummaryFormat): String = when (format) {
+	SummaryFormat.CONCISE -> "精簡（預設）"
+	SummaryFormat.DECISIONS_AND_ACTIONS -> "決議與待辦"
+	SummaryFormat.BULLETS_AND_OPEN_QUESTIONS -> "條列＋未解問題"
+	SummaryFormat.CUSTOM -> "自訂"
 }
 
 @Composable
