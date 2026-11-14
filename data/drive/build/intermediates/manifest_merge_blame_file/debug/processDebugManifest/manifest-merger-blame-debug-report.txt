@@ -7,7 +7,10 @@
 5-->INJECTED
 6
 7    <uses-permission android:name="android.permission.INTERNET" />
-7-->/workspace/RecorderApp/data/drive/src/main/AndroidManifest.xml:2:2-64
-7-->/workspace/RecorderApp/data/drive/src/main/AndroidManifest.xml:2:19-61
-8
-9</manifest>
+7-->/workspace/wt-merge/data/drive/src/main/AndroidManifest.xml:2:2-64
+7-->/workspace/wt-merge/data/drive/src/main/AndroidManifest.xml:2:19-61
+8    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+8-->/workspace/wt-merge/data/drive/src/main/AndroidManifest.xml:3:2-76
+8-->/workspace/wt-merge/data/drive/src/main/AndroidManifest.xml:3:19-73
+9
+10</manifest>

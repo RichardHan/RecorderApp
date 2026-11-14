@@ -8,5 +8,5 @@ public final class BuildConfig {
   public static final String LIBRARY_PACKAGE_NAME = "com.eva.drive";
   public static final String BUILD_TYPE = "debug";
   // Field from default config.
-  public static final String DRIVE_WEB_CLIENT_ID = "";
+  public static final String DRIVE_WEB_CLIENT_ID = "532268897077-tvgn1qhkue0u8dou8jfap9orsh2rotac.apps.googleusercontent.com";
 }
