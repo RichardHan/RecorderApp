@@ -20,9 +20,13 @@ interface VoiceRecorder {
 	val recorderTimer: StateFlow<LocalTime>
 
 	/**
-	 * Start recording
+	 * Start recording.
+	 * [onBeforeCapture] runs only when a new recording is confirmed to start, after recorder
+	 * preparation succeeds and strictly before audio capture begins emitting frames.
+	 *
+	 * @return `true` if a new recording started, `false` if a recording is already active or startup could not proceed.
 	 */
-	suspend fun startRecording()
+	suspend fun startRecording(onBeforeCapture: suspend () -> Unit = {}): Boolean
 
 	/**
 	 * Stop the running recording

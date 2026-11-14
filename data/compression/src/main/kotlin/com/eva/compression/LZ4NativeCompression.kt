@@ -22,6 +22,11 @@ object LZ4NativeCompression {
         return ByteArray(written).also(output::get)
     }
 
+    /**
+     * @throws IllegalArgumentException if [expectedSize] is negative.
+     * @throws IllegalStateException if [input] is not a complete LZ4 frame, contains trailing data,
+     * or its decoded size differs from [expectedSize].
+     */
     fun decompress(input: ByteArray, expectedSize: Int): ByteArray {
         require(expectedSize >= 0) { "expectedSize must not be negative" }
 
@@ -63,6 +68,11 @@ object LZ4NativeCompression {
         return ByteArray(written).also(output::get)
     }
 
+    /**
+     * @throws IllegalArgumentException if [expectedFloatCount] is negative.
+     * @throws IllegalStateException if [input] is not a complete LZ4 frame, contains trailing data,
+     * or its decoded size differs from [expectedFloatCount] floats.
+     */
     fun decompressFloats(input: ByteArray, expectedFloatCount: Int): FloatArray {
         require(expectedFloatCount >= 0) {
             "expectedFloatCount must not be negative"

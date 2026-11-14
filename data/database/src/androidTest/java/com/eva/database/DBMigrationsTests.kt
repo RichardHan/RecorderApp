@@ -167,14 +167,22 @@ class DBMigrationsTests {
 		assertThat(db.countOf("recordings_category")).isEqualTo(1L)
 		assertThat(db.countOf("recording_meta_data")).isEqualTo(1L)
 		assertThat(db.countOf("recording_bookmark_table")).isEqualTo(1L)
+		assertThat(db.countOf("stt_models_table")).isEqualTo(0L)
 
-        db.execSQL("INSERT INTO stt_models_table VALUES (\"model-1\", \"en-in\", \"https://example.com/model.zip\", \"v1.0\", 1, null, 1024, 2, 12345)")
+		// Version 7 stores the supplied status; it does not reset newly inserted rows to NOT_READY.
+		db.execSQL(
+			"INSERT INTO stt_models_table " +
+				"(_id, local_model_locale, model_download_uri, model_download_version, " +
+				"local_metadata_version, local_saved_model_uri, local_model_size, local_model_status, updated_at) " +
+				"VALUES ('model-1', 'en-in', 'https://example.com/model.zip', 'v1.0', " +
+				"1, 'file:///models/model-1', 1024, 2, 12345)"
+		)
 
 		db.prepare("SELECT _id, local_model_status, local_model_size FROM stt_models_table")
 			.use { statement ->
 				assertThat(statement.step()).isTrue()
 				assertThat(statement.getText(0)).isEqualTo("model-1")
-				assertThat(statement.getLong(1)).isEqualTo(0L)
+				assertThat(statement.getLong(1)).isEqualTo(2L)
 				assertThat(statement.getLong(2)).isEqualTo(1024L)
 			}
 
