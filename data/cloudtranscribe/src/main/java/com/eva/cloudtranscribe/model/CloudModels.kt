@@ -28,6 +28,8 @@ data class CloudSettings(
 	val summaryFormat: SummaryFormat = SummaryFormat.CONCISE,
 	/** Used only when [summaryFormat] is [SummaryFormat.CUSTOM]; blank falls back to the concise format. */
 	val customSummaryInstructions: String = "",
+	/** Optional style for follow-up drafts; blank uses the built-in default. Never contains keys or URLs. */
+	val followUpInstructions: String = "",
 ) {
 	val normalizedChunkSeconds: Int get() = chunkSeconds.coerceIn(MIN_CHUNK_SECONDS, MAX_CHUNK_SECONDS)
 
