@@ -29,4 +29,26 @@ class DriveUploadException(
 	message: String,
 	cause: Throwable? = null,
 	val httpStatusCode: Int? = null,
-) : IOException(message, cause)
+	val errorReason: String? = null,
+	val errorReasons: Set<String> = setOfNotNull(errorReason),
+) : IOException(message, cause) {
+
+	val isRateLimitForbidden: Boolean
+		get() = httpStatusCode == 403 && errorReasons.any { it in RETRYABLE_FORBIDDEN_REASONS }
+
+	fun isTerminal(canRetryUnauthorized: Boolean): Boolean = when (httpStatusCode) {
+		400, 404 -> true
+		401 -> !canRetryUnauthorized
+		403 -> !isRateLimitForbidden
+		else -> false
+	}
+
+	companion object {
+		val RETRYABLE_FORBIDDEN_REASONS = setOf(
+			"rateLimitExceeded",
+			"userRateLimitExceeded",
+			"sharingRateLimitExceeded",
+			"concurrentLimitExceeded",
+		)
+	}
+}

@@ -1,5 +1,6 @@
 package com.eva.recordings.data.provider
 
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.database.SQLException
@@ -51,6 +52,7 @@ internal class TrashRecordingsProviderApi29Impl(
 	private val context: Context,
 	private val trashMediaDao: TrashFileDao,
 	private val recordingsDao: RecordingsMetadataDao,
+	private val audioVolumeUriProvider: () -> android.net.Uri = { RecordingsConstants.AUDIO_VOLUME_URI },
 ) : RecordingsContentResolverWrapper(context), TrashRecordingsProvider {
 
 	private val folderName = "trash_recordings"
@@ -88,31 +90,44 @@ internal class TrashRecordingsProviderApi29Impl(
 	override suspend fun restoreRecordingsFromTrash(recordings: Collection<TrashRecordingModel>): Resource<Unit, Exception> {
 		return try {
 			// recordings are from here only so no need to check for owner
-			supervisorScope {
+			val results = supervisorScope {
 				val operations = recordings.map { model ->
 					val entity = model.toEntity()
-					// async
 					async(Dispatchers.IO) {
-						// restore from internal storage
-						restoreRecordingsDataFromTableAndFile(entity)
-						// delete from internal storage
-						removeBackupFileAndMetadata(entity)
+						// restore from internal storage; only delete backup once restore succeeds
+						restoreRecordingsDataFromTableAndFile(entity).onSuccess {
+							removeBackupFileAndMetadata(entity)
+						}
 					}
 				}
 				// run all the operations together
 				operations.awaitAll()
 			}
 
-			val createSecondaryMetadata = recordings.map { model ->
-				RecordingsMetaDataEntity(model.id)
+			val restoredIds = results.mapNotNull { it.getOrNull() }
+			if (restoredIds.isNotEmpty()) {
+				val createSecondaryMetadata = restoredIds.map { id ->
+					RecordingsMetaDataEntity(id)
+				}
+				recordingsDao.updateOrInsertRecordingMetadataBulk(createSecondaryMetadata)
 			}
-			recordingsDao.updateOrInsertRecordingMetadataBulk(createSecondaryMetadata)
+
+			val firstFailure = results.firstNotNullOfOrNull { it.exceptionOrNull() }
+			if (firstFailure != null) {
+				val exception = firstFailure as? Exception ?: Exception(firstFailure)
+				val errorMessage = context.getString(R.string.recording_restore_request_failed)
+				return Resource.Error(exception, errorMessage)
+			}
+
 			Log.d(TAG, "TRASHED ITEMS RECOVERED")
 
 			val message = context.getString(R.string.restore_recordings_success)
 			Resource.Success(Unit, message)
+		} catch (e: CancellationException) {
+			throw e
 		} catch (e: Exception) {
-			Resource.Error(e)
+			val errorMessage = context.getString(R.string.recording_restore_request_failed)
+			Resource.Error(e, errorMessage)
 		}
 	}
 
@@ -226,11 +241,14 @@ internal class TrashRecordingsProviderApi29Impl(
 	}
 
 
-	private suspend fun restoreRecordingsDataFromTableAndFile(entity: TrashFileEntity) {
+	private suspend fun restoreRecordingsDataFromTableAndFile(entity: TrashFileEntity): Result<Long> {
 
-		val file = entity.file.toUri().toFile()
+		val file = resolveBackupFile(entity.file)
+			?: return Result.failure(IOException("Invalid backup URI for recording ${entity.id}"))
 
-		if (!file.exists()) return
+		if (!file.exists()) {
+			return Result.failure(IOException("Backup file missing for recording ${entity.id}"))
+		}
 
 		val metaData = ContentValues().apply {
 			put(
@@ -248,29 +266,39 @@ internal class TrashRecordingsProviderApi29Impl(
 			put(MediaStore.Audio.AudioColumns.DATE_MODIFIED, System.currentTimeMillis())
 		}
 
-		try {
+		return try {
 			val newUri = withContext(Dispatchers.IO) {
-				contentResolver.insert(RecordingsConstants.AUDIO_VOLUME_URI, metaData)
-			} ?: return
+				contentResolver.insert(audioVolumeUriProvider(), metaData)
+			} ?: return Result.failure(IOException("Cannot create MediaStore entry for ${entity.id}"))
 
 			try {
 				withContext(Dispatchers.IO) {
-					contentResolver.openOutputStream(newUri, "w")?.use { stream ->
+					val outputStream = contentResolver.openOutputStream(newUri, "w")
+						?: throw IOException("Cannot open output stream for $newUri")
+					outputStream.use { stream ->
 						// read the bytes and submit to the new uri
 						file.inputStream().use { inStream -> inStream.copyTo(stream) }
 						Log.d(TAG, "WRITTEN DATA FOR DATA : ${entity.id}")
 					}
-					contentResolver.update(newUri, updateMetaData, null, null)
+					val updatedRows = contentResolver.update(newUri, updateMetaData, null, null)
+					if (updatedRows <= 0) {
+						throw IOException("Failed to finalize restored recording $newUri")
+					}
 				}
-			} catch (e: CancellationException) {
-				withContext(NonCancellable) {
-					contentResolver.delete(newUri, null, null)
+				val restoredId = runCatching { ContentUris.parseId(newUri) }.getOrDefault(entity.id)
+				Result.success(restoredId)
+			} catch (e: Throwable) {
+				withContext(NonCancellable + Dispatchers.IO) {
+					runCatching { contentResolver.delete(newUri, null, null) }
 					Log.d(TAG, "DELETING NEW URI")
 				}
 				throw e
 			}
+		} catch (e: CancellationException) {
+			throw e
 		} catch (e: Exception) {
 			Log.e(TAG, "ISSUE IN CREATING NEW URI", e)
+			Result.failure(e)
 		}
 
 	}
@@ -280,7 +308,7 @@ internal class TrashRecordingsProviderApi29Impl(
 			try {
 				val fileDeleteJob = async(Dispatchers.IO) {
 					try {
-						val file = entity.file.toUri().toFile()
+						val file = resolveBackupFile(entity.file) ?: return@async
 						if (!file.exists()) return@async
 						val result = file.delete()
 						Log.d(TAG, "FILE REMOVE RESULT $result")
@@ -342,6 +370,14 @@ internal class TrashRecordingsProviderApi29Impl(
 			Log.e(TAG, "CANNOT CREATE BACKUP FILE", e)
 			null
 		}
+	}
+
+	private fun resolveBackupFile(uriString: String): File? = runCatching {
+		val uri = java.net.URI(uriString)
+		if (uri.scheme != "file") null else File(uri)
+	}.getOrElse {
+		val androidUri = runCatching { uriString.toUri() }.getOrNull() ?: return null
+		if (androidUri.scheme != "file") null else runCatching { androidUri.toFile() }.getOrNull()
 	}
 }
 

@@ -4,6 +4,7 @@ import android.util.Log
 import com.eva.cloudtranscribe.api.AudioPayload
 import com.eva.cloudtranscribe.api.CallOutcome
 import com.eva.cloudtranscribe.api.CloudAiClients
+import com.eva.cloudtranscribe.api.HttpTransport
 import com.eva.cloudtranscribe.api.OpenAiCompatibleClient
 import com.eva.cloudtranscribe.api.Redactor
 import com.eva.cloudtranscribe.api.UrlConnectionTransport
@@ -30,7 +31,9 @@ import com.eva.cloudtranscribe.store.TranscriptStore
 import com.eva.recorder.domain.recorder.AudioByteDataProvider
 import com.eva.recorder.domain.recorder.TranscriptionProvider
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -39,9 +42,29 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 private const val TAG = "LIVE_CLOUD"
+
+internal class DetachedCloudFinish(
+	private val coordinator: LiveCloudCoordinator,
+	private val session: LiveCloudSession,
+	private val ownJobs: List<Job>,
+	private val model: String?,
+	private val host: String?,
+) {
+	suspend fun finishAndSave(recordingId: Long) {
+		coordinator.completeDetachedFinish(
+			recordingId = recordingId,
+			s = session,
+			ownJobs = ownJobs,
+			model = model,
+			host = host,
+		)
+	}
+}
 
 /**
  * Glue for the advanced live-cloud mode (default OFF). With default settings [start] returns immediately and no
@@ -56,14 +79,20 @@ internal class LiveCloudCoordinator(
 	private val asrKeys: ApiKeyStore,
 	private val summaryKeys: SummaryApiKeyStore,
 	private val store: TranscriptStore,
+	private val transportFactory: () -> HttpTransport = { UrlConnectionTransport() },
+	private val audioEncoder: suspend (ShortArray) -> ByteArray = { samples ->
+		withContext(Dispatchers.Default) { Mp3Encoder.encode(samples, 16_000) }
+	},
+	private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
-	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 	private val _state = MutableStateFlow(LiveCloudState())
 	val state: StateFlow<LiveCloudState> = _state.asStateFlow()
 
 	private var session: LiveCloudSession? = null
 	private var jobs = mutableListOf<Job>()
 	private val lock = Any()
+	private val startupLock = Mutex()
+	private var generation = 0L
 	/** Session of a stopped recording still flushing/saving; shown in the UI only until a newer recording starts. */
 	private var finishing: LiveCloudSession? = null
 	private var transcribeModel: String? = null
@@ -71,69 +100,150 @@ internal class LiveCloudCoordinator(
 
 	suspend fun start() {
 		// a new recording always starts from a clean state; a stale/unfinished earlier session is dropped (not saved)
-		synchronized(lock) {
+		val startGeneration = synchronized(lock) {
+			generation += 1L
 			// an unfinished session that was never stopped (e.g. service reused without stop) is dropped; a session that
 			// is already finishing for a stopped recording is NOT touched — it keeps flushing and saving its own results
-			session?.cancel(); session = null
-			jobs.forEach { it.cancel() }; jobs = mutableListOf()
+			session?.cancel()
+			session = null
+			jobs.forEach { it.cancel() }
+			jobs = mutableListOf()
 			finishing = null
 			_state.value = LiveCloudState()
+			generation
 		}
-		val live = liveRepo.current()
-		if (!live.isActive) return // default: OFF, nothing happens
-		val cloud = cloudRepo.current()
-		val asrKey = asrKeys.read()
-		cloud.validate(asrKey != null)?.let { problem ->
-			_state.value = LiveCloudState(active = true, phase = LiveCloudPhase.DONE, transcribeError = "雲端轉錄未啟動：$problem")
-			return
-		}
-		val summaryKey = if (live.summaryReuseTranscribeKey) asrKey else summaryKeys.read()
-		val summaryProblem = live.validateSummary(summaryKeys.read() != null, asrKey != null)
-		val transport = UrlConnectionTransport()
-		val asrClient = CloudAiClients.create(cloud, asrKey!!, transport, cloud.transcribeModel)
-		val summaryClient = if (summaryProblem == null && summaryKey != null)
-			OpenAiCompatibleClient(live.summaryBaseUrl, summaryKey, live.summaryModel, ReasoningEffort.OFF, transport)
-		else null
+		startupLock.withLock {
+			synchronized(lock) { if (generation != startGeneration) return }
+			val live = liveRepo.current()
+			synchronized(lock) { if (generation != startGeneration) return }
+			if (!live.isActive) return // default: OFF, nothing happens
+			val cloud = cloudRepo.current()
+			val asrKey = asrKeys.read()
+			synchronized(lock) { if (generation != startGeneration) return }
+			cloud.validate(asrKey != null)?.let { problem ->
+				synchronized(lock) {
+					if (generation == startGeneration) {
+						_state.value = LiveCloudState(
+							active = true,
+							phase = LiveCloudPhase.DONE,
+							transcribeError = "雲端轉錄未啟動：$problem",
+						)
+					}
+				}
+				return
+			}
+			val explicitSummaryKey = summaryKeys.read()
+			synchronized(lock) { if (generation != startGeneration) return }
+			val summaryKey = if (live.summaryReuseTranscribeKey) asrKey else explicitSummaryKey
+			val summaryProblem = live.validateSummary(explicitSummaryKey != null, asrKey != null)
+			val transport = transportFactory()
+			val asrClient = CloudAiClients.create(cloud, asrKey!!, transport, cloud.transcribeModel)
+			val summaryClient = if (summaryProblem == null && summaryKey != null)
+				OpenAiCompatibleClient(live.summaryBaseUrl, summaryKey, live.summaryModel, ReasoningEffort.OFF, transport)
+			else null
 
-		val s = LiveCloudSession(
-			scope = scope,
-			settings = live,
-			sessionId = UUID.randomUUID().toString(),
-			transcribe = { samples, _, _ ->
-				val mp3 = withContext(Dispatchers.Default) { Mp3Encoder.encode(samples, 16_000) }
-				asrClient.transcribe(Prompts.TRANSCRIBE, AudioPayload(mp3, "mp3"))
-			},
-			summarize = { prompt ->
-				summaryClient?.complete(prompt) ?: CallOutcome.Failure("重點整理未啟動：${summaryProblem ?: "缺少摘要 Key"}", retryable = false)
-			},
-			transcribeModel = cloud.transcribeModel,
-		)
-		val sessionJobs = mutableListOf<Job>()
-		synchronized(lock) { session = s; jobs = sessionJobs; transcribeModel = cloud.transcribeModel; endpointHost = Redactor.hostOf(cloud.baseUrl) }
-		// only the current session may publish UI state: a finishing older session can never overwrite a newer one
-		sessionJobs += scope.launch { s.state.collect { st -> synchronized(lock) { if (com.eva.cloudtranscribe.live.LiveCloudOwnership.mayPublish(s, session, finishing)) _state.value = st } } }
-		sessionJobs += scope.launch { source.stream.collect { (buffer, size) -> if (size > 0) s.onAudio(buffer, size) } }
-		sessionJobs += scope.launch { transcriber.offlineTimedLines.collect { l -> s.onOfflineLines(l.map { (ms, t) -> OfflineLine(ms, t) }) } }
-		Log.i(TAG, "live cloud session started")
+			val s = LiveCloudSession(
+				scope = scope,
+				settings = live,
+				sessionId = UUID.randomUUID().toString(),
+				transcribe = { samples, _, _ ->
+					val mp3 = audioEncoder(samples)
+					asrClient.transcribe(Prompts.TRANSCRIBE, AudioPayload(mp3, "mp3"))
+				},
+				summarize = { prompt ->
+					summaryClient?.complete(prompt) ?: CallOutcome.Failure("重點整理未啟動：${summaryProblem ?: "缺少摘要 Key"}", retryable = false)
+				},
+				transcribeModel = cloud.transcribeModel,
+			)
+			val sessionJobs = mutableListOf<Job>()
+			val installed = synchronized(lock) {
+				if (generation != startGeneration) {
+					false
+				} else {
+					session = s
+					jobs = sessionJobs
+					transcribeModel = cloud.transcribeModel
+					endpointHost = Redactor.hostOf(cloud.baseUrl)
+					true
+				}
+			}
+			if (!installed) {
+				s.cancel()
+				return
+			}
+			// CoroutineStart.UNDISPATCHED attaches collectors to the replay-0 PCM stream synchronously
+			// before start() returns, preventing initial audio frame loss when capture starts immediately.
+			sessionJobs += scope.launch(start = CoroutineStart.UNDISPATCHED) {
+				s.state.collect { st ->
+					synchronized(lock) {
+						if (com.eva.cloudtranscribe.live.LiveCloudOwnership.mayPublish(s, session, finishing)) _state.value = st
+					}
+				}
+			}
+			sessionJobs += scope.launch(start = CoroutineStart.UNDISPATCHED) {
+				source.stream.collect { (buffer, size) -> if (size > 0) s.onAudio(buffer, size) }
+			}
+			sessionJobs += scope.launch(start = CoroutineStart.UNDISPATCHED) {
+				transcriber.offlineTimedLines.collect { l -> s.onOfflineLines(l.map { (ms, t) -> OfflineLine(ms, t) }) }
+			}
+			Log.i(TAG, "live cloud session started")
+		}
+	}
+
+	/**
+	 * Waits for any in-flight [start] to finish assigning its session, then detaches the active session so a
+	 * subsequent recording's [start] can proceed without waiting on network flush/summary persistence.
+	 */
+	suspend fun detachForFinish(): DetachedCloudFinish? = startupLock.withLock {
+		val s: LiveCloudSession
+		val ownJobs: List<Job>
+		val model: String?
+		val host: String?
+		synchronized(lock) {
+			s = session ?: return@withLock null
+			ownJobs = jobs
+			model = transcribeModel
+			host = endpointHost
+			// detach immediately: a new recording's start() can neither cancel nor be overwritten by this session
+			session = null
+			jobs = mutableListOf()
+			finishing = s
+		}
+		ownJobs.filterIndexed { i, _ -> i != 0 }.forEach { it.cancel() } // stop audio/offline feeds, keep UI mirror
+		DetachedCloudFinish(this, s, ownJobs, model, host)
 	}
 
 	/** Flush + wait (bounded) and persist results as NEW immutable records; never touches audio or other transcripts. */
 	suspend fun finishAndSave(recordingId: Long) {
-		// capture THIS recording's session + jobs + config; a newer start() cannot be affected by this finish
-		val s: LiveCloudSession; val ownJobs: List<Job>; val model: String?; val host: String?
-		synchronized(lock) {
-			s = session ?: return; ownJobs = jobs; model = transcribeModel; host = endpointHost
-			// detach immediately: a new recording's start() can neither cancel nor be overwritten by this session
-			session = null; jobs = mutableListOf(); finishing = s
-		}
-		ownJobs.filterIndexed { i, _ -> i != 0 }.forEach { it.cancel() } // stop audio/offline feeds, keep UI mirror
-		val end = try { s.finish() } catch (e: Exception) {
+		detachForFinish()?.finishAndSave(recordingId)
+	}
+
+	internal suspend fun completeDetachedFinish(
+		recordingId: Long,
+		s: LiveCloudSession,
+		ownJobs: List<Job>,
+		model: String?,
+		host: String?,
+	) {
+		val end = try {
+			s.finish()
+		} catch (e: CancellationException) {
+			ownJobs.forEach { it.cancel() }
+			synchronized(lock) { if (finishing === s) finishing = null }
+			throw e
+		} catch (e: Exception) {
 			Log.e(TAG, "finish failed", e)
-			ownJobs.forEach { it.cancel() }; synchronized(lock) { if (finishing === s) finishing = null }
+			ownJobs.forEach { it.cancel() }
+			synchronized(lock) { if (finishing === s) finishing = null }
 			return
 		}
 		ownJobs.forEach { it.cancel() }
-		synchronized(lock) { if (finishing === s) finishing = null }
+		synchronized(lock) {
+			if (com.eva.cloudtranscribe.live.LiveCloudOwnership.mayPublish(s, session, finishing)) {
+				_state.value = end
+			}
+			if (finishing === s) finishing = null
+		}
 		val now = System.currentTimeMillis()
 		val spans = end.cloudSpans
 		if (spans.isEmpty()) return
@@ -171,11 +281,25 @@ internal class LiveCloudCoordinator(
 		}.onFailure { Log.e(TAG, "save failed", it) }
 	}
 
+	/** Cancels only the current active/starting session without disturbing an earlier detached finishing session. */
+	fun cancelActiveSession() = synchronized(lock) {
+		generation += 1L
+		session?.cancel()
+		session = null
+		jobs.forEach { it.cancel() }
+		jobs = mutableListOf()
+		if (finishing == null) {
+			_state.value = LiveCloudState()
+		}
+	}
+
 	fun cancel() = synchronized(lock) {
+		generation += 1L
 		finishing = null
 		session?.cancel()
 		session = null
 		jobs.forEach { it.cancel() }
+		jobs = mutableListOf()
 		_state.value = LiveCloudState()
 	}
 
