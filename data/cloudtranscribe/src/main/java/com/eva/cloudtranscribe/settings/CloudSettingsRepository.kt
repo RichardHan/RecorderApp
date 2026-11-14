@@ -21,16 +21,21 @@ class CloudSettingsRepository @Inject constructor(@ApplicationContext private va
 	private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 	private val key = stringPreferencesKey("settings_v1")
 
-	val settings: Flow<CloudSettings> = context.cloudAiPrefs.data.map { prefs ->
-		prefs[key]?.let { runCatching { json.decodeFromString(CloudSettings.serializer(), it) }.getOrNull() } ?: CloudSettings()
-	}
+	private fun decode(raw: String?): CloudSettings =
+		raw?.let { runCatching { json.decodeFromString(CloudSettings.serializer(), it) }.getOrNull() } ?: CloudSettings()
+
+	/** Trims the free-text format instructions so a pasted block cannot grow without bound. */
+	private fun CloudSettings.normalized() = copy(
+		customSummaryInstructions = customSummaryInstructions.trim().take(CloudSettings.MAX_SUMMARY_INSTRUCTIONS),
+	)
+
+	val settings: Flow<CloudSettings> = context.cloudAiPrefs.data.map { prefs -> decode(prefs[key]) }
 
 	suspend fun current(): CloudSettings = settings.first()
 
 	suspend fun update(transform: (CloudSettings) -> CloudSettings) {
 		context.cloudAiPrefs.edit { prefs ->
-			val now = prefs[key]?.let { runCatching { json.decodeFromString(CloudSettings.serializer(), it) }.getOrNull() } ?: CloudSettings()
-			prefs[key] = json.encodeToString(CloudSettings.serializer(), transform(now))
+			prefs[key] = json.encodeToString(CloudSettings.serializer(), transform(decode(prefs[key])).normalized())
 		}
 	}
 }
