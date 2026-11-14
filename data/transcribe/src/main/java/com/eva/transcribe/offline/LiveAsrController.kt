@@ -62,6 +62,8 @@ class LiveAsrController(
 	private val startRun: suspend (modelId: String) -> Result<LiveAsrRun>,
 	/** Frees the native model after a run finished. */
 	private val releaseModel: suspend () -> Unit = {},
+	/** Samples already captured before this run starts (including model load time). */
+	private val capturedSamples: () -> Long = { 0L },
 ) {
 	private val mutex = Mutex()
 	private val _state = MutableStateFlow(LiveAsrSnapshot())
@@ -99,7 +101,7 @@ class LiveAsrController(
 			publish(LiveAsrStatus.ERROR, "離線模型載入失敗：${e.message ?: e.javaClass.simpleName}", modelId)
 			return
 		}
-		if (everStarted) hadGaps = true // gap between previous run and this one
+		if (everStarted || capturedSamples() > 0L) hadGaps = true // initial uncovered audio or gap between runs
 		everStarted = true
 		current = run; currentModel = modelId; models += modelId
 		mirror = scope.launch {

@@ -2,12 +2,13 @@ package com.eva.recordings.data.task
 
 import android.os.Build
 import android.util.Log
-import androidx.core.net.toFile
 import androidx.core.net.toUri
 import com.eva.recordings.domain.models.TrashRecordingModel
 import com.eva.recordings.domain.provider.TrashRecordingsProvider
 import com.eva.recordings.domain.tasks.RemoveTrashRecordingTask
 import com.eva.utils.Resource
+import java.io.File
+import java.net.URI
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
@@ -40,7 +41,7 @@ class RemoveTrashRecordingTaskImpl(val provider: TrashRecordingsProvider) :
 			is Resource.Success -> {
 				val message = "FILES TO BE DELETED TODAY ${trashModels.size} "
 				Log.d(TAG, message)
-				Result.success(Unit)
+				return@withContext Result.success(Unit)
 			}
 
 			else -> {}
@@ -49,8 +50,10 @@ class RemoveTrashRecordingTaskImpl(val provider: TrashRecordingsProvider) :
 	}
 
 	@OptIn(ExperimentalTime::class)
-	private fun evaluateItemsToRemove(items: List<TrashRecordingModel>): List<TrashRecordingModel> {
-		val currentInstant = Clock.System.now()
+	internal fun evaluateItemsToRemove(
+		items: List<TrashRecordingModel>,
+		currentInstant: kotlin.time.Instant = Clock.System.now(),
+	): List<TrashRecordingModel> {
 		// delete-now delete is always at future so
 		// delete-now is always positive except the case of
 		// expires then delete-now is negative
@@ -62,15 +65,22 @@ class RemoveTrashRecordingTaskImpl(val provider: TrashRecordingsProvider) :
 		}
 		// if mistakenly some files are deleted but the metadata already exits then delete them too.
 		val expiredByDelete = items.filter { model ->
-			val fileUri = model.fileUri.toUri()
-			val file = fileUri.toFile()
-			if (!file.isFile) return@filter false
-			// take if file and file don't exit or file is empty
-			!file.exists() || file.length() != 0L
+			val file = resolveLocalFile(model.fileUri) ?: return@filter false
+			if (file.isDirectory) return@filter false
+			// take if file doesn't exist or file is empty
+			!file.exists() || file.length() == 0L
 		}
 
 		val trashModels = expiredByDelete union expiredByTime
 		Log.d(TAG, "NO. OF TO BE  FILES DELETED :${trashModels.size} ")
 		return trashModels.toList()
+	}
+
+	private fun resolveLocalFile(uriString: String): File? = runCatching {
+		val uri = URI(uriString)
+		if (uri.scheme != "file") null else File(uri)
+	}.getOrElse {
+		val androidUri = runCatching { uriString.toUri() }.getOrNull() ?: return null
+		if (androidUri.scheme != "file") null else androidUri.path?.let(::File)
 	}
 }

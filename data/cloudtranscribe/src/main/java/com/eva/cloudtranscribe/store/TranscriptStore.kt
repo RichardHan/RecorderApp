@@ -56,10 +56,7 @@ class TranscriptStore(root: File) {
 
 	/** Atomic write: temp file + rename, so a crash never leaves a half-written result. */
 	private fun write(file: File, text: String) = synchronized(lock) {
-		file.parentFile?.mkdirs()
-		val tmp = File(file.parentFile, file.name + ".tmp")
-		tmp.writeText(text)
-		if (!tmp.renameTo(file)) { file.delete(); tmp.renameTo(file) }
+		AtomicTextFile.write(file, text)
 		Unit
 	}
 
