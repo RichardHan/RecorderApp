@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="live_cloud_meeting_notes_label">Toplantı öncesi notlar / gündem (isteğe bağlı, canlı ana noktaları odaklar)</string>
+  <string name="live_cloud_meeting_notes_hint">Gündem maddeleri, isimler, teknik terimler. Yalnızca referans — söylenmiş sayılmaz. Canlı ana nokta istemiyle gönderilir; kayıt sonrası özette henüz kullanılmaz.</string>
+  <string name="live_cloud_meeting_notes_clear">Notları temizle</string>
+</resources>

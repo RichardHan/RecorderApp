@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="live_cloud_meeting_notes_label">Notizen / Agenda vor dem Meeting (optional, fokussiert die Live-Kernpunkte)</string>
+  <string name="live_cloud_meeting_notes_hint">Agendapunkte, Namen, Fachbegriffe. Nur als Referenz — gilt nie als gesagt. Wird mit dem Live-Kernpunkt-Prompt gesendet; die Zusammenfassung nach der Aufnahme nutzt sie noch nicht.</string>
+  <string name="live_cloud_meeting_notes_clear">Notizen löschen</string>
+</resources>
