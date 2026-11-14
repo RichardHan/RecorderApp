@@ -55,6 +55,7 @@ fun NavGraphBuilder.recorderRoute(navController: NavHostController) =
 				onRecorderAction = viewModel::onAction,
 				onScreenEvent = viewModel::onEvent,
 				onToggleLiveTranscription = viewModel::setLiveTranscription,
+				showNotes = true,
 				onShowRecordings = dropUnlessResumed { navController.navigate(NavRoutes.VoiceRecordings) },
 				onNavigateToBin = dropUnlessResumed { navController.navigate(NavRoutes.TrashRecordings) },
 				onNavigateToSettings = dropUnlessResumed { navController.navigate(NavRoutes.AudioSettings) },
