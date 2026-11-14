@@ -1,9 +1,14 @@
 <resources>
-    <string name="transcript_export_button">匯出完整逐字稿（文字檔）</string>
-    <string name="transcript_export_title">選擇文字檔儲存位置</string>
-    <string name="transcript_export_notice">接下來由系統讓你選擇儲存位置。檔案包含這份逐字稿、來源及時間，可能含敏感內容；若選雲端儲存服務，內容會交給該服務。取消不會匯出。</string>
+    <string name="transcript_export_button">匯出逐字稿（TXT／Markdown／SRT）</string>
+    <string name="transcript_export_title">匯出逐字稿</string>
+    <string name="transcript_export_notice">接下來由系統讓你選擇儲存位置。檔案包含這份逐字稿、來源及時間（以及你勾選的重點與書籤），可能含敏感內容；若選雲端儲存服務，內容會交給該服務。取消不會匯出。</string>
     <string name="transcript_export_continue">選擇位置</string>
     <string name="transcript_export_cancel">取消</string>
     <string name="transcript_export_saved">逐字稿已寫入所選位置</string>
     <string name="transcript_export_failed">寫入失敗，請檢查所選位置；未完成檔案可能需要手動移除。</string>
+    <string name="transcript_export_format">格式</string>
+    <string name="transcript_export_no_srt">這份逐字稿沒有保存逐句的真實時間，所以不提供 SRT（不會估算時間）。</string>
+    <string name="transcript_export_with_summary">包含已儲存的重點／摘要</string>
+    <string name="transcript_export_with_bookmarks">包含書籤</string>
+    <string name="transcript_export_empty">沒有可匯出的逐字稿。</string>
 </resources>

@@ -69,4 +69,20 @@ class TranscriptExportViewModelTest {
 		assertTrue(dir.listFiles()!!.isEmpty())
 	}
 
+	@Test fun `markdown export keeps format and suggested name across recreation`() = runTest {
+		val context = mockk<Context>()
+		every { context.cacheDir } returns folder.root
+		val state = SavedStateHandle()
+		val vm = TranscriptExportViewModel(context, state)
+		val record = TranscriptRecord("t", 9, TranscriptSource.OFFLINE,
+			Provenance("offline", model = "test"), 0, status = RunStatus.SUCCESS, text = "內容")
+		vm.prepare(record, com.eva.cloudtranscribe.model.TranscriptExportFormat.MARKDOWN,
+			com.eva.cloudtranscribe.model.TranscriptExportExtras(title = "週會", summary = "決定 A"))!!.join()
+		val recreated = TranscriptExportViewModel(context, SavedStateHandle(state.keys().associateWith { state.get<Any>(it) }))
+		assertTrue(recreated.pendingFormat == com.eva.cloudtranscribe.model.TranscriptExportFormat.MARKDOWN)
+		assertTrue(recreated.pendingFileName == "週會.md")
+		val name = state.get<String>("pendingExport")!!
+		assertTrue(name.endsWith(".md"))
+		assertTrue(folder.root.resolve("transcript-exports").resolve(name).readText().contains("## 重點／摘要"))
+	}
 }
