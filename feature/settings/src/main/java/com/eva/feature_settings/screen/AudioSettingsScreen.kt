@@ -54,6 +54,7 @@ internal fun AudioSettingsScreen(
     storageModel: DeviceTotalStorageModel = DeviceTotalStorageModel(),
     navigation: @Composable () -> Unit = {},
     onNavigateToInfo: () -> Unit = {},
+    bulkExport: @Composable () -> Unit = {},
 ) {
 
     val snackBarProvider = LocalSnackBarProvider.current
@@ -85,6 +86,7 @@ internal fun AudioSettingsScreen(
                     model = storageModel,
                     onEvent = onFileSettingsChange,
                     contentPadding = PaddingValues(all = dimensionResource(R.dimen.sc_padding)),
+                    bulkExport = bulkExport,
                 )
             },
             transcriptionSettings = {
