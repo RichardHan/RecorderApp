@@ -9,7 +9,6 @@ import app.cash.turbine.test
 import com.eva.recorder.domain.models.RecordedPoint
 import com.eva.recorder.domain.recorder.LiveTranscriptState
 import com.eva.recorder.domain.models.RecorderState
-import com.eva.recorder.domain.recorder.LiveTranscriptState
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
