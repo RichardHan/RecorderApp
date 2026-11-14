@@ -123,7 +123,7 @@ internal class RenameDialogViewModel @Inject constructor(
 							val recordingState = _state.updateAndGet { state ->
 								state.copy(isRenameAllowed = false)
 							}
-							handleSecurityException(error, recordingState.recording, true)
+							handleSecurityException(error, recordingState.recording)
 							return@onEach
 						}
 						val message = result.message ?: result.error.message ?: ""

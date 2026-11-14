@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="live_cloud_meeting_notes_label">Notas / orden del día previas a la reunión (opcional, enfoca los puntos clave en vivo)</string>
+  <string name="live_cloud_meeting_notes_hint">Temas, nombres, términos técnicos. Solo como referencia: nunca se tratan como algo dicho. Se envían con el prompt de puntos clave en vivo; el resumen posterior a la grabación todavía no los usa.</string>
+  <string name="live_cloud_meeting_notes_clear">Borrar notas</string>
+</resources>
