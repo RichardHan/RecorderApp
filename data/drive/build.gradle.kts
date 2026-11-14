@@ -28,6 +28,9 @@ android {
 			excludes += "/META-INF/INDEX.LIST"
 		}
 	}
+	testOptions {
+		unitTests.isReturnDefaultValues = true
+	}
 }
 
 dependencies {
@@ -50,4 +53,6 @@ dependencies {
 	implementation(project(":data:recordings"))
 
 	testImplementation(libs.junit)
+	testImplementation(libs.mockk)
+	testImplementation(libs.work.runtime.testing)
 }

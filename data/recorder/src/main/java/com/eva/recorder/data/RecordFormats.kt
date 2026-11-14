@@ -5,8 +5,6 @@ import android.webkit.MimeTypeMap
 import androidx.media3.common.MimeTypes
 import com.eva.datastore.domain.enums.RecordingEncoders
 
-private val mimeTypesMap = MimeTypeMap.getSingleton()
-
 enum class RecordFormats(val encoder: Int, val outputFormat: Int, val mimeType: String) {
 
 	THREE_GPP(
@@ -34,7 +32,8 @@ enum class RecordFormats(val encoder: Int, val outputFormat: Int, val mimeType: 
 	);
 
 	internal val fileExtension: String?
-		get() = mimeTypesMap.getExtensionFromMimeType(mimeType)
+		get() = MimeTypeMap.getSingleton()
+			?.getExtensionFromMimeType(mimeType)
 			?.let { ext -> ".$ext" }
 
 	companion object {
