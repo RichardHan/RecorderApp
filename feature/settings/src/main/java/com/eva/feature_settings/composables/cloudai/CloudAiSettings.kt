@@ -173,6 +173,7 @@ internal fun CloudAiSettingsContent(
 		SwitchRow("幻覺長度警示", draft.hallucinationWarning) { draft = draft.copy(hallucinationWarning = it) }
 		SwitchRow("錄音完成後自動雲端轉錄（預設關閉）", draft.autoAfterRecording) { if (it) confirmAuto = true else draft = draft.copy(autoAfterRecording = false) }
 		if (draft.autoAfterRecording) SwitchRow("自動轉錄只在 Wi‑Fi／不計量網路", draft.autoWifiOnly) { draft = draft.copy(autoWifiOnly = it) }
+		SwitchRow("背景雲端轉錄／摘要完成時通知（預設關；鎖定畫面不顯示內容）", draft.notifyWhenDone) { draft = draft.copy(notifyWhenDone = it) }
 		Button(onClick = {
 			viewModel.save(draft.copy(chunkSeconds = draft.normalizedChunkSeconds, workers = draft.normalizedWorkers))
 			savedMsg = "已儲存"
