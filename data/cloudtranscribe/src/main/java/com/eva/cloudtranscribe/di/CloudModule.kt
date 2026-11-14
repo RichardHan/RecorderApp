@@ -1,6 +1,7 @@
 package com.eva.cloudtranscribe.di
 
 import android.content.Context
+import com.eva.cloudtranscribe.cleanup.TranscriptCleanupStore
 import com.eva.cloudtranscribe.store.TranscriptStore
 import dagger.Module
 import dagger.Provides
@@ -16,4 +17,8 @@ object CloudModule {
 	@Provides
 	@Singleton
 	fun store(@ApplicationContext context: Context): TranscriptStore = TranscriptStore(File(context.filesDir, "ai_transcripts"))
+
+	@Provides
+	@Singleton
+	fun cleanupStore(@ApplicationContext context: Context): TranscriptCleanupStore = TranscriptCleanupStore(File(context.filesDir, "ai_transcripts"))
 }
