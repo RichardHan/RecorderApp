@@ -89,6 +89,33 @@ class LZ4NativeCompressionTest {
     }
 
     @Test
+    fun byteArray_emptyCompressedData_throws() {
+        assertThrows(IllegalStateException::class.java) {
+            LZ4NativeCompression.decompress(byteArrayOf(), 0)
+        }
+    }
+
+    @Test
+    fun byteArray_truncatedFrame_throws() {
+        val original = ByteArray(1024) { it.toByte() }
+        val compressed = LZ4NativeCompression.compress(original)
+
+        assertThrows(IllegalStateException::class.java) {
+            LZ4NativeCompression.decompress(compressed.copyOf(compressed.size - 1), original.size)
+        }
+    }
+
+    @Test
+    fun byteArray_trailingData_throws() {
+        val original = ByteArray(1024) { it.toByte() }
+        val compressed = LZ4NativeCompression.compress(original)
+
+        assertThrows(IllegalStateException::class.java) {
+            LZ4NativeCompression.decompress(compressed + byteArrayOf(0), original.size)
+        }
+    }
+
+    @Test
     fun floatArray_roundTrip() {
         val original = floatArrayOf(
             0.0f,
@@ -180,6 +207,40 @@ class LZ4NativeCompressionTest {
     fun floatArray_negativeExpectedCount_throws() {
         assertThrows(IllegalArgumentException::class.java) {
             LZ4NativeCompression.decompressFloats(byteArrayOf(1, 2, 3), -1)
+        }
+    }
+
+    @Test
+    fun floatArray_invalidCompressedData_throws() {
+        assertThrows(IllegalStateException::class.java) {
+            LZ4NativeCompression.decompressFloats(byteArrayOf(1, 2, 3, 4, 5), 4)
+        }
+    }
+
+    @Test
+    fun floatArray_emptyCompressedData_throws() {
+        assertThrows(IllegalStateException::class.java) {
+            LZ4NativeCompression.decompressFloats(byteArrayOf(), 0)
+        }
+    }
+
+    @Test
+    fun floatArray_truncatedFrame_throws() {
+        val original = floatArrayOf(1.0f, 2.0f, 3.0f)
+        val compressed = LZ4NativeCompression.compress(original)
+
+        assertThrows(IllegalStateException::class.java) {
+            LZ4NativeCompression.decompressFloats(compressed.copyOf(compressed.size - 1), original.size)
+        }
+    }
+
+    @Test
+    fun floatArray_trailingData_throws() {
+        val original = floatArrayOf(1.0f, 2.0f, 3.0f)
+        val compressed = LZ4NativeCompression.compress(original)
+
+        assertThrows(IllegalStateException::class.java) {
+            LZ4NativeCompression.decompressFloats(compressed + byteArrayOf(0), original.size)
         }
     }
 }

@@ -152,21 +152,21 @@ internal class RecordingsBinViewmodel @Inject constructor(
 	private fun handleSecurityExceptionToDelete(
 		error: SecurityException,
 		recordingsToDelete: Collection<TrashRecordingModel>,
-		isEnabled: Boolean = false,
 	) {
-		if (recordingsToDelete.isEmpty() || !isEnabled) return
+		if (recordingsToDelete.isEmpty()) return
 		if (error !is RecoverableSecurityException) return
 
 		viewModelScope.launch {
+			// API 30+ builds a MediaStore delete request from the URIs.
+			// API 29 (minSdk) uses the recoverable exception's pending intent.
 			val request = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
 				DeleteOrTrashRequestEvent.OnDeleteRequest(recordingsToDelete)
 			} else {
-				// TODO: Check the workflow for android 10 or below
 				val pendingIntent = error.userAction.actionIntent
-				val request = IntentSenderRequest.Builder(pendingIntent).build()
+				val sender = IntentSenderRequest.Builder(pendingIntent).build()
 				DeleteOrTrashRequestEvent.OnDeleteRequest(
-					trashRecordings = selectedRecordings,
-					intentSenderRequest = request
+					trashRecordings = recordingsToDelete,
+					intentSenderRequest = sender
 				)
 			}
 			_deleteEvents.emit(request)

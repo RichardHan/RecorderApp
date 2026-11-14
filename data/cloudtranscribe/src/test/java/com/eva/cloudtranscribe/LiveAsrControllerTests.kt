@@ -29,6 +29,21 @@ class LiveAsrControllerTests {
 		override fun cancel() { cancelled = true }
 	}
 
+	@Test fun firstEnableAfterCapturedAudioMarksInitialGap() = runTest {
+		var captured = 0L
+		val c = LiveAsrController(backgroundScope, { Result.success(FakeRun("r")) }, capturedSamples = { captured })
+		c.apply(false, "m")
+		captured = 160_000L // ten seconds recorded before the user enables captions
+		c.apply(true, "m")
+		assertTrue(c.finishAll()!!.hadGaps)
+	}
+
+	@Test fun configurationBeforeRecordingStartsDoesNotCreateFalseGap() = runTest {
+		val c = LiveAsrController(backgroundScope, { Result.success(FakeRun("r")) }, capturedSamples = { 0L })
+		c.apply(false, "m"); c.apply(true, "m")
+		assertFalse(c.finishAll()!!.hadGaps)
+	}
+
 	@Test fun offWithoutModelNeverStarts() = runTest {
 		var starts = 0
 		val c = LiveAsrController(backgroundScope, { starts++; Result.success(FakeRun("x")) })
