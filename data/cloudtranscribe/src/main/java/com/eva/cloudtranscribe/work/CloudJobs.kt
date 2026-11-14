@@ -31,6 +31,7 @@ import com.eva.cloudtranscribe.audio.PcmFileSource
 import com.eva.cloudtranscribe.engine.CloudTranscriptionEngine
 import com.eva.cloudtranscribe.engine.EngineConfig
 import com.eva.cloudtranscribe.engine.Prompts
+import com.eva.cloudtranscribe.model.PiiRedactor
 import com.eva.cloudtranscribe.model.CloudSettings
 import com.eva.cloudtranscribe.model.Provenance
 import com.eva.cloudtranscribe.model.RunStatus
@@ -241,7 +242,7 @@ class CloudSummaryWorker @AssistedInject constructor(
 			?: s.effectiveSummaryFormat
 		store.saveSummary(record.copy(status = RunStatus.RUNNING))
 		val client = CloudAiClients.create(s, apiKey, UrlConnectionTransport(), record.provenance.model)
-		val prompt = Prompts.summary(transcript.text, format, s.customSummaryInstructions)
+		val prompt = Prompts.summary(if (s.redactPiiForCloud) PiiRedactor.redact(transcript.text) else transcript.text, format, s.customSummaryInstructions)
 		val last = boundedRetry(
 			attempts = CloudSettings.MAX_ATTEMPTS,
 			request = { withContext(Dispatchers.IO) { client.complete(prompt) } },

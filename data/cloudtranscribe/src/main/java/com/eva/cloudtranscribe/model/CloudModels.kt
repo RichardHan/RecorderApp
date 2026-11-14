@@ -28,6 +28,8 @@ data class CloudSettings(
 	val summaryFormat: SummaryFormat = SummaryFormat.CONCISE,
 	/** Used only when [summaryFormat] is [SummaryFormat.CUSTOM]; blank falls back to the concise format. */
 	val customSummaryInstructions: String = "",
+	/** Opt-in: mask phone / email / ID / card numbers in text sent for summary & chapters. Off by default. */
+	val redactPiiForCloud: Boolean = false,
 ) {
 	val normalizedChunkSeconds: Int get() = chunkSeconds.coerceIn(MIN_CHUNK_SECONDS, MAX_CHUNK_SECONDS)
 
