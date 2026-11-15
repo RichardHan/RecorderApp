@@ -6,7 +6,7 @@
    - **OpenAI 相容服務**：Endpoint 填到 `/chat/completions` 前面，例如 `https://api.example.com/v1`（範例網址，請替換為你的服務網址）。App 會呼叫 `POST {Endpoint}/chat/completions`。
    - **Gemini 原生**：Endpoint 例如 `https://generativelanguage.googleapis.com/v1beta`，呼叫 `models/{模型}:generateContent`。
 3. 轉錄模型預設 `gemini-3.8-flash`，可改成任何模型 ID（例如你提到的 `gemini-3.5-transcribe`；App 不保證該 ID 存在，以服務端為準）。摘要模型可分開設定。
-4. 貼上 API Key →「儲存 Key」。Key 以 Android Keystore 加密保存，不會出現在畫面、記錄檔、備份或 APK；可隨時「移除 Key」。
+4. 貼上 API Key →「儲存 Key」。Key 以 Android Keystore 加密保存，可在設定畫面查看完整內容並選取複製；不會寫入記錄檔、備份或 APK，可隨時「移除 Key」。
 5. 按「儲存設定」。
 
 ## 手動雲端重轉
