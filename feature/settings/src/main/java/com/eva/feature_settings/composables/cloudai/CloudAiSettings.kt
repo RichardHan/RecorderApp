@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.ui.res.stringResource
 import com.eva.feature_settings.R
@@ -177,7 +178,8 @@ internal fun CloudAiSettingsContent(
 				}
 			}
 			OutlinedTextField(keyInput, { keyInput = it }, Modifier.fillMaxWidth(), label = { Text(if (hasKey) "輸入新 Key 以取代" else "貼上 API Key") },
-				singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false))
+				singleLine = true, visualTransformation = PasswordVisualTransformation(),
+				keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false))
 			Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 				Button(enabled = keyInput.isNotBlank(), onClick = { viewModel.saveKey(keyInput); keyInput = "" }) { Text("儲存 Key") }
 				OutlinedButton(enabled = hasKey, onClick = { viewModel.removeKey() }) { Text("移除 Key") }
