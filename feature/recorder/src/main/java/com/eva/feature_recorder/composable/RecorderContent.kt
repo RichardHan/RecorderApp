@@ -5,12 +5,9 @@ package com.eva.feature_recorder.composable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,7 +25,6 @@ import com.eva.recorder.domain.recorder.LiveTranscriptState
 import com.eva.recorder.domain.recorder.LiveTranscriptStatus
 import com.eva.recorder.domain.models.RecorderAction
 import com.eva.recorder.domain.models.RecorderState
-import com.eva.recorder.utils.DeferredDurationList
 import com.eva.recorder.utils.DeferredRecordedPointList
 import com.eva.ui.R
 import com.eva.ui.theme.DownloadableFonts
@@ -39,7 +35,6 @@ import kotlinx.datetime.LocalTime
 internal fun RecorderContent(
 	timer: () -> LocalTime,
 	recordingPointsCallback: DeferredRecordedPointList,
-	bookMarksDeferred: DeferredDurationList,
 	recorderState: RecorderState,
 	onRecorderAction: (RecorderAction) -> Unit,
 	modifier: Modifier = Modifier,
@@ -55,7 +50,7 @@ internal fun RecorderContent(
 	showNotes: Boolean = false,
 ) {
 	Box(modifier = modifier) {
-		// compact header (timer + waveform) so the multi-line live transcript gets most of the screen
+		// compact header (timer + thin input-level bar) so transcript + 重點 get most of the screen
 		Column(
 			horizontalAlignment = Alignment.CenterHorizontally,
 			verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -89,12 +84,8 @@ internal fun RecorderContent(
 				isRecording = recorderState == RecorderState.RECORDING || recorderState == RecorderState.PAUSED,
 				onToggle = onToggleSlackSync,
 			)
-			RecorderAmplitudeGraph(
-				recoderPointsCallback = recordingPointsCallback,
-				bookMarksDeferred = bookMarksDeferred,
-				timelineFontFamily = DownloadableFonts.PLUS_CODE_LATIN_FONT_FAMILY,
-				aspectRatio = 8f,
-				minGraphHeight = 48.dp,
+			RecorderInputLevelBar(
+				points = recordingPointsCallback,
 				modifier = Modifier.fillMaxWidth(),
 			)
 			if (liveCloud.active) {
@@ -147,7 +138,6 @@ private fun RecorderContentPreview(
 		RecorderContent(
 			timer = { LocalTime(0, 10, 56, 0) },
 			recorderState = recorderState,
-			bookMarksDeferred = { setOf() },
 			recordingPointsCallback = { RecorderPreviewFakes.PREVIEW_RECORDER_AMPLITUDE_FLOAT_ARRAY_LARGE },
 			onRecorderAction = {},
 			transcriptionSettings = TranscriptionSettings(isEnabled = false),
@@ -165,7 +155,6 @@ private fun RecorderContentWithTranscriptionsPreview() = RecorderAppTheme {
 		RecorderContent(
 			timer = { LocalTime(0, 10, 56, 0) },
 			recorderState = RecorderState.RECORDING,
-			bookMarksDeferred = { setOf() },
 			recordingPointsCallback = { RecorderPreviewFakes.PREVIEW_RECORDER_AMPLITUDE_FLOAT_ARRAY_LARGE },
 			onRecorderAction = {},
 			transcriptionSettings = TranscriptionSettings(isEnabled = true),
