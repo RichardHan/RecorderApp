@@ -245,6 +245,7 @@ fun CloudTranscriptsDialog(
 						acceptedSummaryText = accepted?.text,
 					)
 				}
+				item { SpeechPaceCard(state.transcripts, onSeekTo = { ms -> onSeekTo?.invoke(ms); onDismiss() }) }
 				items(state.summaries, key = { it.id }) { s ->
 					Card {
 						Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

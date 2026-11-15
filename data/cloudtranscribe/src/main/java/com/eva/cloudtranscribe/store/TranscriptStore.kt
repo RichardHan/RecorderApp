@@ -14,7 +14,6 @@ import kotlinx.serialization.json.Json
  * `<root>/v1/<recordingId>/transcripts/<id>.json`  — offline OR cloud transcripts (never overwritten by the other source)
  * `<root>/v1/<recordingId>/summaries/<id>.json`     — summaries, each pointing at its source transcript id
  * `<root>/v1/<recordingId>/qa/<id>.json`            — single-recording questions and answers (#7)
-
  * `<root>/v1/<recordingId>/outline.json`             — optional AI outline of a summary (#38)
  * `<root>/v1/<recordingId>/checkpoints/<runId>/NNN.json` — per-chunk cloud checkpoints, removed only after success or explicit cleanup
  * `<root>/v1/<recordingId>/edits/<transcriptId>.json` — on-device user corrections, an overlay; the transcript file itself is never rewritten
