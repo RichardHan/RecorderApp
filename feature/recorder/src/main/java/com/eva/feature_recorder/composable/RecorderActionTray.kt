@@ -13,7 +13,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AssistChip
@@ -46,6 +45,7 @@ internal fun AnimatedRecorderActionTray(
 	onRecorderAction: (RecorderAction) -> Unit,
 	modifier: Modifier = Modifier,
 	isStartRecordingEnabled: Boolean = true,
+	onAddBookMark: () -> Unit = {},
 ) {
 	val mode by remember(recorderState) {
 		derivedStateOf(recorderState::toAction)
@@ -54,7 +54,7 @@ internal fun AnimatedRecorderActionTray(
 	AnimatedContent(
 		targetState = mode,
 		transitionSpec = { recorderStateAnimation() },
-		modifier = modifier.defaultMinSize(minHeight = 120.dp),
+		modifier = modifier,
 		contentAlignment = Alignment.Center,
 		label = "Recorder Action Animation"
 	) { state ->
@@ -76,6 +76,7 @@ internal fun AnimatedRecorderActionTray(
 					onPause = { onRecorderAction(RecorderAction.PauseRecorderAction) },
 					onCancel = { onRecorderAction(RecorderAction.CancelRecorderAction) },
 					onStop = { onRecorderAction(RecorderAction.StopRecorderAction) },
+					onAddBookMark = onAddBookMark,
 					modifier = Modifier.fillMaxWidth()
 				)
 			}
