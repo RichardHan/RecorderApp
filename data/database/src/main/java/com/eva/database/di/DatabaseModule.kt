@@ -7,6 +7,8 @@ import com.eva.database.dao.RecordingsBookmarkDao
 import com.eva.database.dao.DriveUploadDao
 import com.eva.database.dao.RecordingActionItemsDao
 import com.eva.database.dao.RecordingChaptersDao
+import com.eva.database.dao.RecordingDecisionsDao
+import com.eva.database.dao.RecordingClipsDao
 import com.eva.database.dao.RecordingsMetadataDao
 import com.eva.database.dao.STTModelsDao
 import com.eva.database.dao.TrashFileDao
@@ -62,4 +64,12 @@ object DatabaseModule {
 	@Provides
 	@Singleton
 	fun providesChaptersDao(database: RecorderDataBase): RecordingChaptersDao = database.recordingChaptersDao()
+
+	@Provides
+	@Singleton
+	fun providesDecisionsDao(database: RecorderDataBase): RecordingDecisionsDao = database.recordingDecisionsDao()
+
+	@Provides
+	@Singleton
+	fun providesClipsDao(database: RecorderDataBase): RecordingClipsDao = database.recordingClipsDao()
 }

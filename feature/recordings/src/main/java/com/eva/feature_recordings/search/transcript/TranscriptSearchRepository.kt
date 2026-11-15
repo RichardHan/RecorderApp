@@ -39,7 +39,7 @@ class TranscriptSearchRepository @Inject constructor(store: TranscriptStore) {
 	private val cache = TranscriptLineCache(
 		signature = { recordingId -> store.transcriptsSignature(recordingId) },
 		load = { recordingId ->
-			val selected = PlaybackTranscripts.defaultSelection(store.transcripts(recordingId))
+			val selected = PlaybackTranscripts.defaultSelection(store.transcriptsWithEdits(recordingId))
 			selected?.let { PlaybackTranscripts.lines(it) }
 		},
 	)
