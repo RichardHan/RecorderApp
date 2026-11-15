@@ -1,2 +1,0 @@
-com.eva.drive
-string default_drive_upload_folder
