@@ -26,8 +26,10 @@ data class SlackOutgoing(
 	val sessionId: String,
 	val kind: SlackMessageKind,
 	val text: String,
+	val generation: Int = 0,
+	val consentAtMillis: Long? = null,
 ) {
-	val hash: String get() = SlackMessages.hash(kind, sessionId, text)
+	val hash: String get() = SlackMessages.hash(kind, "$sessionId:$generation", text)
 }
 
 /** Where the coordinator hands finished messages. */
@@ -50,6 +52,14 @@ class SlackDeliveryState @Inject constructor(@ApplicationContext context: Contex
 		set(value) {
 			prefs.edit().putString(KEY_SESSION, value).apply()
 		}
+
+	fun permit(id: String): SlackSessionPermit? = prefs.getString("permit.$id", null)?.let {
+		runCatching { kotlinx.serialization.json.Json.decodeFromString(SlackSessionPermit.serializer(), it) }.getOrNull()
+	}
+
+	fun savePermit(id: String, permit: SlackSessionPermit) {
+		check(prefs.edit().putString("permit.$id", kotlinx.serialization.json.Json.encodeToString(SlackSessionPermit.serializer(), permit)).commit())
+	}
 
 	@Synchronized
 	fun wasSent(hash: String): Boolean = hash in prefs.getStringSet(KEY_SENT, emptySet()).orEmpty()
@@ -110,6 +120,8 @@ internal fun slackWorkData(message: SlackOutgoing, payload: String) = workDataOf
 	SlackSendWorker.KEY_SESSION to message.sessionId,
 	SlackSendWorker.KEY_KIND to message.kind.name,
 	SlackSendWorker.KEY_PAYLOAD to payload,
+	SlackSendWorker.KEY_GENERATION to message.generation,
+	SlackSendWorker.KEY_CONSENT to (message.consentAtMillis ?: -1L),
 )
 
 /** Decides whether a queued message may still go out at delivery time. Pure for tests. */
@@ -120,10 +132,13 @@ object SlackDeliveryRules {
 		hasWebhook: Boolean,
 		currentSessionId: String?,
 		alreadySent: Boolean,
+		permit: SlackSessionPermit? = SlackSessionPermit(),
 	): Boolean {
 		if (alreadySent || !hasWebhook) return false
 		if (message.kind == SlackMessageKind.TEST) return true
-		if (!settings.isActive) return false
+		if (!settings.isActive || message.consentAtMillis != settings.consentAtMillis) return false
+		if (permit == null || !permit.enabled || permit.generation != message.generation) return false
+		if (message.kind != SlackMessageKind.END && (permit.ended || message.sessionId != currentSessionId)) return false
 		// session isolation: an old recording's key points never go out once a new recording started
 		if (message.kind == SlackMessageKind.KEY_POINTS && message.sessionId != currentSessionId) return false
 		return true
@@ -157,18 +172,19 @@ class SlackSendWorker @AssistedInject constructor(
 			sessionId = inputData.getString(KEY_SESSION).orEmpty(),
 			kind = kind,
 			text = text,
+			generation = inputData.getInt(KEY_GENERATION, 0),
+			consentAtMillis = inputData.getLong(KEY_CONSENT, -1).takeIf { it >= 0 },
 		)
 		val url = webhookStore.read()
-		val allowed = SlackDeliveryRules.shouldDeliver(
-			message = message,
-			settings = settingsRepo.current(),
-			hasWebhook = !url.isNullOrBlank(),
-			currentSessionId = state.currentSessionId,
-			alreadySent = state.wasSent(message.hash),
-		)
-		if (!allowed || url == null) return finished()
-		if (!state.retryGate.canSend()) return Result.retry()
-		return when (val result = sender.send(url, message.text)) {
+		suspend fun allowed(): Boolean = SlackDeliveryRules.shouldDeliver(
+			message, settingsRepo.current(), !url.isNullOrBlank(), state.currentSessionId,
+			state.wasSent(message.hash), state.permit(message.sessionId),
+		) && webhookStore.read() == url
+		fun paused() = message.kind != SlackMessageKind.TEST && state.permit(message.sessionId)?.paused == true && message.kind != SlackMessageKind.END
+		if (!allowed() || url == null) return finished()
+		if (paused() || !state.retryGate.canSend()) return Result.retry()
+		return when (val result = sender.send(url, message.text) { allowed() && !paused() }) {
+			SlackSendResult.Suppressed -> if (allowed() && paused()) Result.retry() else finished()
 			SlackSendResult.Sent -> {
 				state.markSent(message.hash)
 				state.setError(null)
@@ -193,6 +209,8 @@ class SlackSendWorker @AssistedInject constructor(
 		const val KEY_KIND = "kind"
 		const val KEY_TEXT = "text" // legacy work queued before file-backed payloads
 		const val KEY_PAYLOAD = "payload_file"
+		const val KEY_GENERATION = "generation"
+		const val KEY_CONSENT = "consent_at"
 		const val TAG = "slack_sync"
 		const val QUEUE = "slack_sync_queue"
 		const val MAX_ATTEMPTS = 8

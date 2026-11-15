@@ -1,5 +1,6 @@
 package com.eva.cloudtranscribe
 
+import com.eva.cloudtranscribe.slack.SlackSessionPermit
 import com.eva.cloudtranscribe.slack.SlackDeliveryRules
 import com.eva.cloudtranscribe.slack.SlackDeliveryStateHolder
 import com.eva.cloudtranscribe.slack.SlackHttpResponse
@@ -101,7 +102,7 @@ class SlackMessagesTests {
 	@Test
 	fun delivery_rules_isolate_sessions_and_respect_opt_out() {
 		val on = SlackSyncSettings(enabled = true, consentAtMillis = 1L)
-		val old = SlackOutgoing("s1", SlackMessageKind.KEY_POINTS, "x")
+		val old = SlackOutgoing("s1", SlackMessageKind.KEY_POINTS, "x", consentAtMillis = 1L)
 		assertFalse(SlackDeliveryRules.shouldDeliver(old, on, true, "s2", false))
 		assertTrue(SlackDeliveryRules.shouldDeliver(old, on, true, "s1", false))
 		// end message of an earlier recording still goes out after a new one started
@@ -140,6 +141,18 @@ class SlackSenderTests {
 		assertEquals(SlackSendResult.RetryAfter(300), limited.send(URL, "a"))
 	}
 
+	@Test
+	fun revocation_during_retry_wait_prevents_second_post() = runTest {
+		var allowed = true
+		var posts = 0
+		val sender = SlackSender(
+			SlackTransport { _, _ -> posts++; SlackHttpResponse(429, "", "2") },
+			sleep = { allowed = false },
+		)
+		assertEquals(SlackSendResult.Suppressed, sender.send(URL, "queued") { allowed })
+		assertEquals(1, posts)
+	}
+
 	private companion object {
 		const val URL = "https://hooks.slack.com/services/T000/B000/XXXXXXXX"
 	}
@@ -155,6 +168,9 @@ class SlackSyncCoordinatorTests {
 
 	private class Holder : SlackDeliveryStateHolder {
 		override var currentSessionId: String? = null
+		private val permits = mutableMapOf<String, SlackSessionPermit>()
+		override fun permit(id: String) = permits[id]
+		override fun savePermit(id: String, permit: SlackSessionPermit) { permits[id] = permit }
 	}
 
 	private val active = SlackSyncSettings(enabled = true, consentAtMillis = 1L, channelLabel = "#notes", minIntervalMinutes = 3)
@@ -172,6 +188,47 @@ class SlackSyncCoordinatorTests {
 		scope = backgroundScope,
 		settingsProvider = { settings },
 	)
+
+	@Test
+	fun queued_messages_stay_revoked_after_reenable_and_cancel() = runTest {
+		val outbox = FakeOutbox()
+		val holder = Holder()
+		val c = coordinator(outbox, holder = holder)
+		c.onRecordingStarted()
+		val queued = outbox.sent.single()
+		fun allowed() = SlackDeliveryRules.shouldDeliver(queued, active, true,
+			holder.currentSessionId, false, holder.permit(queued.sessionId))
+		assertTrue(allowed())
+		c.onPaused()
+		assertTrue(holder.permit(queued.sessionId)!!.paused)
+		c.onResumed()
+		assertFalse(holder.permit(queued.sessionId)!!.paused)
+		c.setSyncForThisRecording(false)
+		assertFalse(allowed())
+		c.setSyncForThisRecording(true)
+		assertFalse(allowed())
+		c.onRecordingCancelled()
+		assertFalse(holder.permit(queued.sessionId)!!.enabled)
+		assertTrue(holder.permit(queued.sessionId)!!.ended)
+	}
+
+	@Test
+	fun saved_session_only_allows_end_and_requires_original_consent() = runTest {
+		val outbox = FakeOutbox()
+		val holder = Holder()
+		val c = coordinator(outbox, holder = holder)
+		c.onRecordingStarted()
+		c.onKeyPoints("- 決定 A")
+		runCurrent()
+		c.onRecordingSaved()
+		outbox.sent.forEach { message ->
+			assertEquals(message.kind == SlackMessageKind.END, SlackDeliveryRules.shouldDeliver(
+				message, active, true, holder.currentSessionId, false, holder.permit(message.sessionId)))
+			assertFalse(SlackDeliveryRules.shouldDeliver(message, active.copy(consentAtMillis = 2L),
+				true, holder.currentSessionId, false, holder.permit(message.sessionId)))
+			assertFalse(SlackDeliveryRules.shouldDeliver(message, active, true, holder.currentSessionId, false, null))
+		}
+	}
 
 	@Test
 	fun nothing_is_sent_without_opt_in_or_webhook() = runTest {

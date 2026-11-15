@@ -52,20 +52,21 @@ class SlackSender(
 	private val mutex = kotlinx.coroutines.sync.Mutex()
 	private var lastPostAt: Long? = null
 
-	suspend fun send(webhookUrl: String, text: String): SlackSendResult = mutex.withLock {
-		var result = postOnce(webhookUrl, text)
+	suspend fun send(webhookUrl: String, text: String, maySend: suspend () -> Boolean = { true }): SlackSendResult = mutex.withLock {
+		var result = postOnce(webhookUrl, text, maySend)
 		if (result is SlackSendResult.RetryAfter && result.seconds <= maxInlineWaitSeconds) {
 			sleep(result.seconds * 1_000L)
-			result = postOnce(webhookUrl, text)
+			result = postOnce(webhookUrl, text, maySend)
 		}
 		result
 	}
 
-	private suspend fun postOnce(webhookUrl: String, text: String): SlackSendResult {
+	private suspend fun postOnce(webhookUrl: String, text: String, maySend: suspend () -> Boolean): SlackSendResult {
 		lastPostAt?.let { last ->
 			val wait = last + minSpacingMillis - clock()
 			if (wait > 0) sleep(wait)
 		}
+		if (!maySend()) return SlackSendResult.Suppressed
 		return try {
 			val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
 				transport.post(webhookUrl, SlackMessages.payload(text))
