@@ -73,7 +73,7 @@ class ChaptersViewModel @Inject constructor(
 		bound = true
 		viewModelScope.launch {
 			withContext(Dispatchers.IO) {
-				val selected = PlaybackTranscripts.defaultSelection(store.transcripts(id))
+				val selected = PlaybackTranscripts.defaultSelection(store.transcriptsWithEdits(id))
 				val lines = selected?.let(PlaybackTranscripts::lines).orEmpty()
 				transcript = selected
 				canGenerate = selected != null && ChapterPlanner.hasTimedSentences(lines)
@@ -121,7 +121,7 @@ class ChaptersViewModel @Inject constructor(
 					return@launch
 				}
 				val client = CloudAiClients.create(settings, key, UrlConnectionTransport(), settings.summaryModel)
-				val prompt = ChapterPlanner.prompt(sentences)
+				val prompt = ChapterPlanner.prompt(sentences).let { if (settings.redactPiiForCloud) com.eva.cloudtranscribe.model.PiiRedactor.redact(it) else it }
 				val outcome = withContext(Dispatchers.IO) { client.complete(prompt) }
 				when (outcome) {
 					is CallOutcome.Text -> {

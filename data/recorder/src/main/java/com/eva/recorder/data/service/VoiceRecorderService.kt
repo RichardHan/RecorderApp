@@ -82,6 +82,13 @@ internal class VoiceRecorderService : LifecycleService() {
     @Inject
     lateinit var slackSync: com.eva.cloudtranscribe.slack.SlackSyncCoordinator
 
+    /** Per-recording notes draft (#5): bound on save, dropped on cancel. */
+    @Inject
+    lateinit var notesDraft: com.eva.cloudtranscribe.notes.RecordingNotesDraft
+
+    @Inject
+    lateinit var statusTracker: com.eva.recorder.domain.RecorderStatusTracker
+
     private val binder = LocalBinder()
     private val _bookMarks = MutableStateFlow(emptySet<LocalTime>())
     private val _warnings = Channel<String>(Channel.BUFFERED)
@@ -159,6 +166,8 @@ internal class VoiceRecorderService : LifecycleService() {
             updateRecorderWidgetState()
             // opt-in slack sync: pause state + live key points
             observeForSlackSync()
+            // mirror state for the quick settings tile
+            publishRecorderStatus()
             // initiate transcript
             lifecycleScope.launch {
                 voiceRecorder.initTranscriptions()
@@ -239,6 +248,13 @@ internal class VoiceRecorderService : LifecycleService() {
             .launchIn(lifecycleScope)
     }
 
+    private fun publishRecorderStatus() {
+        voiceRecorder.recorderState.onEach { state ->
+            statusTracker.publish(state)
+            com.eva.recorder.data.tile.RecorderTileService.requestRefresh(applicationContext)
+        }.launchIn(lifecycleScope)
+    }
+
     private fun onStartRecording() {
         // set the foreground first before starting
         startVoiceRecorderService(
@@ -290,6 +306,8 @@ internal class VoiceRecorderService : LifecycleService() {
             sessionCoordinator.cancelRecording(
                 onCancelled = {
                     slackSync.onRecordingCancelled()
+                    // a cancelled recording's notes never carry over to the next one
+                    runCatching { notesDraft.discard() }
                     // clear bookmarks
                     clearBookMarks()
                     // update widget
@@ -313,6 +331,8 @@ internal class VoiceRecorderService : LifecycleService() {
                 onRecordingSaved = { recordingId, timeBeforeSave ->
                     clearAndSaveBookMarks(recordingId, timeBeforeSave)
                     recordingAutoUploader.enqueue(recordingId)
+                    // bind notes first so an (opt-in) automatic summary already sees them
+                    runCatching { notesDraft.bindTo(recordingId) }
                     // opt-in only (default off); never reached for cancelled recordings
                     cloudJobScheduler.onRecordingFinalized(recordingId)
                     // opt-in only (default off): one end message with the final key points
@@ -408,6 +428,9 @@ internal class VoiceRecorderService : LifecycleService() {
         // release transcript
         voiceRecorder.transcriptCleanUp()
         liveCloud.release()
+        // the service (and any session) is gone: the tile must not stay ACTIVE
+        statusTracker.publish(RecorderState.IDLE)
+        com.eva.recorder.data.tile.RecorderTileService.requestRefresh(applicationContext)
         Log.i(TAG, "RECORDER SERVICE DESTROYED")
         super.onDestroy()
     }

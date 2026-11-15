@@ -51,6 +51,8 @@ internal fun RecorderContent(
 	onToggleLiveTranscription: (Boolean) -> Unit = {},
 	slackStatus: com.eva.cloudtranscribe.slack.SlackSyncStatus = com.eva.cloudtranscribe.slack.SlackSyncStatus(),
 	onToggleSlackSync: (Boolean) -> Unit = {},
+	/** Off in previews/tests (needs Hilt). */
+	showNotes: Boolean = false,
 ) {
 	Box(modifier = modifier) {
 		// compact header (timer + waveform) so the multi-line live transcript gets most of the screen
@@ -80,6 +82,7 @@ internal fun RecorderContent(
 					onOpenSettings = onNavigateToSettings,
 					onToggleLiveTranscription = onToggleLiveTranscription,
 				)
+				if (showNotes) RecordingNotesChip()
 			}
 			SlackSyncIndicator(
 				status = slackStatus,

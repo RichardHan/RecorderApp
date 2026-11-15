@@ -326,6 +326,40 @@ class DBMigrationsTests {
 	}
 
 	@Test
+	fun migrate_13_to_14_creates_decisions_keeping_chapters() = runTest {
+		deleteTestDatabase()
+
+		val old = testHelper.createDatabase(13).apply {
+			execSQL("INSERT INTO recording_meta_data (RECORDING_ID, IS_FAVOURITE) VALUES (9, 0)")
+			execSQL(
+				"INSERT INTO recording_chapters (RECORDING_ID, TITLE, START_MS, SOURCE_SENTENCE_INDEX, CREATED_AT, TRANSCRIPT_REVISION) " +
+					"VALUES (9, '報價', 60000, 1, 2000, 't-1@2000')",
+			)
+		}
+		old.close()
+
+		val db = testHelper.runMigrationsAndValidate(14)
+
+		assertThat(db.countOf("recording_decisions")).isEqualTo(0L)
+		assertThat(db.countOf("recording_chapters")).isEqualTo(1L)
+
+		db.execSQL(
+			"INSERT INTO recording_decisions (RECORDING_ID, TEXT, START_MS, SOURCE_SENTENCE_INDEX, SOURCE, CREATED_AT, TRANSCRIPT_REVISION) " +
+				"VALUES (9, '採用 A 方案', 5000, 2, 'extracted', 3000, 't-1@2000')",
+		)
+		db.execSQL(
+			"INSERT INTO recording_decisions (RECORDING_ID, TEXT, SOURCE, CREATED_AT) VALUES (9, '手動決議', 'manual', 4000)",
+		)
+		assertThat(db.countOf("recording_decisions")).isEqualTo(2L)
+
+		db.execSQL("PRAGMA foreign_keys=ON")
+		db.execSQL("DELETE FROM recording_meta_data WHERE RECORDING_ID = 9")
+		assertThat(db.countOf("recording_decisions")).isEqualTo(0L)
+		assertThat(db.countOf("recording_chapters")).isEqualTo(0L)
+		db.close()
+	}
+
+	@Test
 	fun migrate_9_to_10_creates_drive_upload_status_table() = runTest {
 		deleteTestDatabase()
 
@@ -388,6 +422,33 @@ class DBMigrationsTests {
 			assertThat(newDateAdded).isEqualTo(2000 + offsetMs)
 			assertThat(newDateExpires).isEqualTo(5000 + offsetMs)
 		}
+		db.close()
+	}
+
+	@Test
+	fun migrate_12_to_13_creates_clips_keeping_chapters() = runTest {
+		deleteTestDatabase()
+
+		val old = testHelper.createDatabase(12).apply {
+			execSQL("INSERT INTO recording_meta_data (RECORDING_ID, IS_FAVOURITE) VALUES (5, 0)")
+			execSQL(
+				"INSERT INTO recording_chapters (RECORDING_ID, TITLE, START_MS, SOURCE_SENTENCE_INDEX, CREATED_AT, TRANSCRIPT_REVISION) " +
+					"VALUES (5, '開場', 0, 0, 1000, 'r1')",
+			)
+		}
+		old.close()
+
+		val db = testHelper.runMigrationsAndValidate(13)
+
+		assertThat(db.countOf("recording_clips")).isEqualTo(0L)
+		assertThat(db.countOf("recording_chapters")).isEqualTo(1L)
+		assertThat(db.countOf("recording_meta_data")).isEqualTo(1L)
+
+		db.execSQL(
+			"INSERT INTO recording_clips (SOURCE_AUDIO_ID, TITLE, START_MS, END_MS, FILE_PATH, MIME_TYPE, CREATED_AT) " +
+				"VALUES (5, '結論', 20000, 50000, '/clips/5/a.m4a', 'audio/mp4a-latm', 2000)",
+		)
+		assertThat(db.countOf("recording_clips")).isEqualTo(1L)
 		db.close()
 	}
 }
