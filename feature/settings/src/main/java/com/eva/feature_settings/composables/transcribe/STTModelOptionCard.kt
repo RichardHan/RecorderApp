@@ -182,12 +182,11 @@ internal fun STTModelOptionCard(
                             color = if (enabled) MaterialTheme.colorScheme.onBackground
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("模型：${sttModel.model.checkpointIdentifier()}", style = MaterialTheme.typography.bodyMedium)
-                        Text("版本：${sttModel.model.downloadedVersion}", style = MaterialTheme.typography.bodySmall)
-                        Text(sttModel.model.recognitionMode(), style = MaterialTheme.typography.bodySmall)
-                        Text("下載 $formattedSize · ${sttModel.model.license ?: "授權未知"}", style = MaterialTheme.typography.bodySmall)
-                        if (resourceText.isNotBlank()) Text(resourceText, style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "下載 $formattedSize · " + if (resourceText.isNotBlank()) resourceText else sttModel.model.recognitionMode(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
 
                     }
                     TooltipBox(
