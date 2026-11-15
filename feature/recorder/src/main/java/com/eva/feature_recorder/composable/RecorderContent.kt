@@ -74,6 +74,8 @@ internal fun RecorderContent(
 					onToggleLiveTranscription = onToggleLiveTranscription,
 				)
 				if (showNotes) RecordingNotesChip()
+				if (showNotes)
+					com.eva.feature_recorder.photos.RecordingPhotosButton(timeMs = { timer().toMillisecondOfDay().toLong() })
 				SlackSyncIndicator(
 					status = slackStatus,
 					isRecording = recorderState == RecorderState.RECORDING || recorderState == RecorderState.PAUSED,

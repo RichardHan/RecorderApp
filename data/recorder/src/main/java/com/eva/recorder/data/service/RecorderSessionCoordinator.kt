@@ -42,7 +42,7 @@ internal class RecorderSessionCoordinator(
 	val hasPendingStart: Boolean
 		get() = pendingStarts.get() > 0
 
-	suspend fun startRecording(): Boolean {
+	suspend fun startRecording(onStarted: suspend () -> Unit = {}): Boolean {
 		pendingStarts.incrementAndGet()
 		try {
 			return commandLock.withLock {
@@ -65,6 +65,7 @@ internal class RecorderSessionCoordinator(
 				if (!started && initializedSession) {
 					liveCloud.cancelActiveSession()
 				}
+				if (started) onStarted()
 				started
 			}
 		} finally {

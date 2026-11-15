@@ -9,4 +9,5 @@
     name="recording_clips"
     path="clips/" />
 
+  <cache-path name="photo_capture" path="photo_capture/" />
 </paths>

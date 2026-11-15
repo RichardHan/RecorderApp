@@ -169,6 +169,11 @@ internal fun SavedTranscriptPanel(
 	exportContext: () -> TranscriptExportContext = { TranscriptExportContext() },
 	viewModel: SavedTranscriptViewModel = hiltViewModel(key = "saved-transcripts-$recordingId"),
 ) {
+	val photoVm: com.eva.feature_player.photos.SavedPhotosViewModel = hiltViewModel()
+	LaunchedEffect(recordingId) { photoVm.photos.prepareRecording(recordingId) }
+	val photoFlow = remember(recordingId) { photoVm.photos.observe("recording:$recordingId") }
+	val photos by photoFlow.collectAsStateWithLifecycle(emptyList())
+	val photoItems = photos.map { com.eva.ui.photos.PhotoItem(it.id, it.startMs, it.path, it.caption) }
 	LaunchedEffect(recordingId, refreshKey) { viewModel.load(recordingId, force = refreshKey > 0) }
 	val records by viewModel.records.collectAsStateWithLifecycle()
 	val message by viewModel.message.collectAsStateWithLifecycle()
@@ -180,6 +185,8 @@ internal fun SavedTranscriptPanel(
 
 	Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.medium, modifier = modifier) {
 		Column(Modifier.fillMaxSize().padding(10.dp)) {
+			com.eva.ui.photos.PhotoAttachments("recording:$recordingId", { trackData().current.inWholeMilliseconds }, photoItems,
+				photoVm.photos::add, photoVm.photos::caption, photoVm.photos::delete, onSeekTo)
 			val list = records
 			when {
 				list == null -> Text("讀取逐字稿…", style = MaterialTheme.typography.labelMedium)
@@ -214,6 +221,7 @@ internal fun SavedTranscriptPanel(
 					val translation = TranslationRules.forRecord(translationVm.translations, entry.shown, lang)
 					TranscriptLines(entry.shown, trackData, onSeekTo, Modifier.weight(1f).fillMaxWidth().padding(top = 6.dp),
 						keyedLines = entry.lines, editor = editor,
+						photos = photoItems,
 						translation = translation,
 						view = if (translation == null) com.eva.cloudtranscribe.translate.TranslationView.ORIGINAL else view,
 					)
@@ -314,6 +322,7 @@ internal fun TranscriptLines(
 	onSeekTo: ((Long) -> Unit)?,
 	modifier: Modifier,
 	keyedLines: List<EditableLine>? = null,
+	photos: List<com.eva.ui.photos.PhotoItem> = emptyList(),
 	editor: TranscriptLineEditor? = null,
 	translation: com.eva.cloudtranscribe.translate.SavedTranslation? = null,
 	view: com.eva.cloudtranscribe.translate.TranslationView = com.eva.cloudtranscribe.translate.TranslationView.ORIGINAL,
@@ -376,6 +385,7 @@ internal fun TranscriptLines(
 		SelectionContainer(Modifier.weight(1f)) {
 			LazyColumn(state = listState, modifier = Modifier.testTag("transcript-search-lines"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
 				itemsIndexed(lines) { i, line ->
+					val linePhotos = photos.filter { com.eva.recordings.domain.models.PhotoRules.nearestLine(it.atMs, lines.map { l -> l.startMs }) == i }
 					val isActive = i == active
 					val highlight = SpanStyle(background = MaterialTheme.colorScheme.tertiaryContainer, color = MaterialTheme.colorScheme.onTertiaryContainer)
 					val click: Modifier = when {
@@ -407,6 +417,9 @@ internal fun TranscriptLines(
 							.then(click)
 							.padding(4.dp),
 					)
+					if (linePhotos.isNotEmpty()) Row(Modifier.horizontalScroll(rememberScrollState())) {
+						linePhotos.forEach { com.eva.ui.photos.PhotoThumbnail(it, onSeekTo) }
+					}
 				}
 			}
 		}

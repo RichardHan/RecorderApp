@@ -26,6 +26,7 @@ import kotlinx.coroutines.withContext
 internal class RecordingSecondaryDataProviderImpl(
 	private val context: Context,
 	private val recordingsDao: RecordingsMetadataDao,
+	private val photos: com.eva.recordings.domain.provider.RecordingPhotos? = null,
 ) : RecordingsSecondaryDataProvider {
 
 	override val providesRecordingMetaData: Flow<ExtraRecordingMetaDataList>
@@ -209,6 +210,7 @@ internal class RecordingSecondaryDataProviderImpl(
 			withContext(Dispatchers.IO) {
 				val entities = models.map(RecordedVoiceModel::toMetadataEntity)
 				recordingsDao.deleteRecordingsMetaDataBulk(entities)
+				photos?.pruneDeletedFiles()
 			}
 			Resource.Success(Unit)
 		} catch (e: SQLiteException) {

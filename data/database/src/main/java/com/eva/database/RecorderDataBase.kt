@@ -44,8 +44,10 @@ import kotlinx.coroutines.Dispatchers
 		RecordingChapterEntity::class,
 		RecordingDecisionEntity::class,
 		RecordingClipEntity::class,
+		com.eva.database.entity.RecordingPhotoEntity::class,
+		com.eva.database.entity.PhotoSessionEntity::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -65,6 +67,7 @@ import kotlinx.coroutines.Dispatchers
 		AutoMigration(from = 12, to = 13),
 		// new table only (decisions)
 		AutoMigration(from = 13, to = 14),
+		AutoMigration(from = 14, to = 15),
     ],
 )
 @ColumnTypeConverters(
@@ -95,6 +98,7 @@ abstract class RecorderDataBase : RoomDatabase() {
 	abstract fun recordingDecisionsDao(): RecordingDecisionsDao
 
 	abstract fun recordingClipsDao(): RecordingClipsDao
+	abstract fun recordingPhotosDao(): com.eva.database.dao.RecordingPhotosDao
 
     companion object {
 
