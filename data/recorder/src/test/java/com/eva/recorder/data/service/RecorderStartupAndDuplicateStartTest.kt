@@ -45,14 +45,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.LocalTime
 import org.junit.After
 import org.junit.Rule
@@ -339,12 +340,28 @@ class RecorderStartupAndDuplicateStartTest {
 		impl.releaseResources()
 	}
 
+	/**
+	 * Emits PCM through a cold flow and waits until the coordinator's collector has handed the frame to the live
+	 * session. The previous SharedFlow version returned before delivery, so a stop issued right after the emit could
+	 * cancel the collector and let `LiveCloudSession.finish()` drop the (now < 1 s) tail — deterministic on a fast
+	 * machine, flaky on a loaded CI runner.
+	 */
 	private class ReplayZeroAudioSource : AudioByteDataProvider {
-		private val _stream = MutableSharedFlow<Pair<ShortArray, Int>>(replay = 0, extraBufferCapacity = 32)
-		override val stream: Flow<Pair<ShortArray, Int>> = _stream.asSharedFlow()
+		private class Pending(val samples: ShortArray, val consumed: CompletableDeferred<Unit>)
+
+		private val queue = Channel<Pending>(Channel.UNLIMITED)
+		override val stream: Flow<Pair<ShortArray, Int>> = flow {
+			for (pending in queue) {
+				emit(pending.samples to pending.samples.size)
+				pending.consumed.complete(Unit)
+			}
+		}
 
 		suspend fun emitPcm(samples: ShortArray) {
-			_stream.emit(samples to samples.size)
+			val consumed = CompletableDeferred<Unit>()
+			queue.send(Pending(samples, consumed))
+			// Bounded so a test that emits while the collector is already cancelled fails on its own assertion.
+			withTimeoutOrNull(5_000L) { consumed.await() }
 		}
 	}
 
