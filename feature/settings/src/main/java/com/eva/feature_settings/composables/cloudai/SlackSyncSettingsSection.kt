@@ -12,11 +12,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -129,17 +127,16 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 	var consent by remember { mutableStateOf(false) }
 	var confirmTest by remember { mutableStateOf(false) }
 
-	Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-		HorizontalDivider()
-		Text("Slack 同步（選用，預設關閉）", style = MaterialTheme.typography.titleMedium)
-		Text(
-			"開啟後，錄音中會把本機產生的即時重點送到你用 Incoming Webhook 指定的 Slack 頻道。不會上傳音訊，也不會讀取 Slack。",
-			style = MaterialTheme.typography.bodySmall,
-		)
-		Text(
-			"Webhook 的限制：送出後不能編輯，也無法可靠地開討論串。所以「持續送」的做法是：開始一則、之後最多每 N 分鐘一則「新增的重點」、結束一則。",
-			style = MaterialTheme.typography.bodySmall,
-			color = MaterialTheme.colorScheme.onSurfaceVariant,
+	val status = when {
+		current.isActive -> "已開啟" + current.channelLabel.takeIf { it.isNotBlank() }?.let { "・$it" }.orEmpty()
+		hasWebhook -> "已設定 Webhook"
+		else -> "尚未設定"
+	}
+	SettingsCard("Slack 同步", status, "ai-slack") {
+		InfoLine(
+			"開啟後把即時重點送到指定頻道。不上傳音訊、不讀取 Slack。",
+			"開啟後，錄音中會把本機產生的即時重點送到你用 Incoming Webhook 指定的 Slack 頻道。不會上傳音訊，也不會讀取 Slack。" +
+				"Webhook 的限制：送出後不能編輯，也無法可靠地開討論串。所以「持續送」的做法是：開始一則、之後最多每 N 分鐘一則「新增的重點」、結束一則。",
 		)
 
 		Row(
@@ -189,16 +186,16 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 		)
 		if (label != current.channelLabel) TextButton(onClick = { viewModel.update { it.copy(channelLabel = label) } }) { Text("儲存名稱") }
 
-		SlackRow("開啟 Slack 同步", current.isActive) { on ->
+		SettingSwitch("開啟 Slack 同步", current.isActive) { on ->
 			if (on) consent = true else viewModel.disable()
 		}
 		if (!hasWebhook) Text("要先儲存 Webhook 才能開啟。", style = MaterialTheme.typography.bodySmall)
 
 		Text("要送的內容", style = MaterialTheme.typography.titleSmall)
-		SlackRow("錄音開始通知", current.sendStart) { v -> viewModel.update { it.copy(sendStart = v) } }
-		SlackRow("即時重點更新（只送新增的重點；需要已開啟即時雲端摘要）", current.sendKeyPoints) { v -> viewModel.update { it.copy(sendKeyPoints = v) } }
-		SlackRow("結束時的重點總結（沒有重點就不送）", current.sendEnd) { v -> viewModel.update { it.copy(sendEnd = v) } }
-		SlackRow("送出前遮蔽電子郵件與長數字", current.maskSensitive) { v -> viewModel.update { it.copy(maskSensitive = v) } }
+		SettingSwitch("錄音開始通知", current.sendStart) { v -> viewModel.update { it.copy(sendStart = v) } }
+		SettingSwitch("即時重點更新", current.sendKeyPoints, "只送新增的重點；需開啟即時雲端摘要") { v -> viewModel.update { it.copy(sendKeyPoints = v) } }
+		SettingSwitch("結束時的重點總結", current.sendEnd, "沒有重點就不送") { v -> viewModel.update { it.copy(sendEnd = v) } }
+		SettingSwitch("送出前遮蔽個資", current.maskSensitive, "電子郵件與長數字") { v -> viewModel.update { it.copy(maskSensitive = v) } }
 		Text("重點更新最短間隔：${current.normalizedIntervalMinutes} 分鐘", style = MaterialTheme.typography.bodyMedium)
 		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 			OutlinedButton(
@@ -216,7 +213,7 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 		}
 		viewModel.testResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 		lastError?.let { Text("最近一次同步：$it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-		Text("Slack 本身不按則收費；重點內容來自既有的即時雲端摘要，Slack 同步不會另外呼叫模型。", style = MaterialTheme.typography.bodySmall)
+		InfoLine("不會另外呼叫模型；重點來自既有的即時雲端摘要。")
 	}
 
 	if (consent) AlertDialog(
@@ -248,10 +245,3 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 	)
 }
 
-@Composable
-private fun SlackRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-	Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-		Text(label, Modifier.weight(1f))
-		Switch(checked, onChange)
-	}
-}

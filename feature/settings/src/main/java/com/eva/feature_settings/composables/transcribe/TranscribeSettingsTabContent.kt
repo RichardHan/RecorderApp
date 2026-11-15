@@ -73,7 +73,7 @@ internal fun TranscribeSettingsTabContent(
     LazyColumn(
         modifier = modifier,
         contentPadding = contentPadding,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item(key = "phone-resources") {
             TranscriptionResourcePanel(resourceSnapshot, onRefresh = { resourceRefresh++ })
@@ -116,7 +116,7 @@ internal fun TranscribeSettingsTabContent(
                 isSelected = model.model.modelId == selectedSTTModel?.model?.modelId,
                 onDownload = { pendingDownload = model.model },
                 downloadAllowed = resourceSnapshot.models[model.model.modelId]?.let { com.eva.transcribe.resources.ResourcePolicy.diskEnough(resourceSnapshot.diskFree, it.diskNeeded) != false } ?: true,
-                resourceText = resourceSnapshot.models[model.model.modelId]?.let { resourceDescription(resourceSnapshot, it) } ?: "資源需求讀取中／未知",
+                resourceText = resourceSnapshot.models[model.model.modelId]?.let { resourceDescription(resourceSnapshot, it) } ?: "",
                 onCancelDownload = { model.downloadId?.let(onCancelDownload) },
                 onDelete = { onDeleteSTTModel(model.model) },
                 onSelect = { onSelectSTTModel(model.model) },
