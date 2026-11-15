@@ -24,6 +24,7 @@ import com.eva.feature_widget.recorder.models.toModel
 import com.eva.feature_widget.recorder.repository.RecorderWidgetRepoImpl.Companion.FILE_LOCATION
 import com.eva.feature_widget.recorder.repository.RecorderWidgetRepoImpl.Companion.recorderWidgetData
 import com.eva.feature_widget.utils.RecorderAppWidgetTheme
+import com.eva.recorder.domain.widget.RecorderWidgetPolicy
 import com.eva.utils.IntentConstants
 import com.eva.utils.NavDeepLinks
 import java.io.File
@@ -50,21 +51,26 @@ class AppRecorderWidget : GlanceAppWidget() {
 		provideContent {
 
 			val protoState = currentState<RecorderWidgetDataProto>()
+			val model = protoState.toModel()
+			val tryStart = RecorderWidgetPolicy.shouldStartOnTap(model.state)
+			val destination = NavDeepLinks.RECORDER_DESTINATION_PATTERN.toUri()
+				.buildUpon()
+				.appendQueryParameter("src", if (tryStart) "widget-start" else "widget-open")
+				.build()
 
 			RecorderAppWidgetTheme {
 				RecorderWidgetContent(
-					model = protoState.toModel(),
+					model = model,
 					modifier = GlanceModifier
 						.clickable(
 							onClick = actionStartActivity(
-								Intent().apply {
+								Intent(Intent.ACTION_VIEW, destination).apply {
 									setClassName(
 										context.applicationContext,
 										IntentConstants.MAIN_ACTIVITY
 									)
-									action = Intent.ACTION_VIEW
-									data = NavDeepLinks.RECORDER_DESTINATION_PATTERN.toUri()
 									flags = Intent.FLAG_ACTIVITY_NEW_TASK
+									if (tryStart) putExtra(IntentConstants.EXTRAS_WIDGET_TRY_START, true)
 								}
 							),
 						)

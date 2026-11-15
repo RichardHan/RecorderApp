@@ -15,4 +15,7 @@ object IntentConstants {
 
 	/** Quick Settings tile asks the recorder screen to start once (value: unique Long request id). */
 	const val EXTRAS_TILE_START_REQUEST_ID = "$APPLICATION_NAME.extras_tile_start_request_id"
+
+	/** Home-screen widget asked to start; a unique request id is assigned on the recorder screen. */
+	const val EXTRAS_WIDGET_TRY_START = "$APPLICATION_NAME.extras_widget_try_start"
 }
