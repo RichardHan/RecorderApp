@@ -22,6 +22,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
@@ -64,6 +65,7 @@ class ChaptersViewModel @Inject constructor(
 		private set
 
 	private var recordingId = -1L
+	private var sourceJob: Job? = null
 	private var bound = false
 	private var job: Job? = null
 
@@ -71,25 +73,28 @@ class ChaptersViewModel @Inject constructor(
 		if (bound && recordingId == id) return
 		recordingId = id
 		bound = true
-		viewModelScope.launch {
-			withContext(Dispatchers.IO) {
-				val selected = PlaybackTranscripts.defaultSelection(store.transcriptsWithEdits(id))
-				val lines = selected?.let(PlaybackTranscripts::lines).orEmpty()
-				transcript = selected
-				canGenerate = selected != null && ChapterPlanner.hasTimedSentences(lines)
-				blockedReason = when {
-					selected == null -> "這段錄音還沒有可用的逐字稿"
-					!ChapterPlanner.hasTimedSentences(lines) -> "這份逐字稿沒有真實分句時間，無法產生章節"
-					else -> null
+		sourceJob?.cancel()
+		sourceJob = viewModelScope.launch {
+			store.editChanges.collectLatest {
+				withContext(Dispatchers.IO) {
+					val selected = PlaybackTranscripts.defaultSelection(store.transcriptsWithEdits(id))
+					val lines = selected?.let(PlaybackTranscripts::lines).orEmpty()
+					transcript = selected
+					canGenerate = selected != null && ChapterPlanner.hasTimedSentences(lines)
+					blockedReason = when {
+						selected == null -> "這段錄音還沒有可用的逐字稿"
+						!ChapterPlanner.hasTimedSentences(lines) -> "這份逐字稿沒有真實分句時間，無法產生章節"
+						else -> null
+					}
+					if (selected != null) {
+						val current = ChapterPlanner.revisionOf(selected.id, selected.updatedAtMillis)
+						possiblyStale = provider.chapters(id).let { list -> list.isNotEmpty() && list.any { it.transcriptRevision != current } }
+					}
 				}
-				if (selected != null) {
-					val current = ChapterPlanner.revisionOf(selected.id, selected.updatedAtMillis)
-					possiblyStale = provider.chapters(id).let { list -> list.isNotEmpty() && list.any { it.transcriptRevision != current } }
-				}
+				provider.chaptersAsFlow(id)
+					.catch { message = "無法讀取章節：${it.message ?: "未知錯誤"}"; emit(emptyList()) }
+					.collect { chapters = it }
 			}
-			provider.chaptersAsFlow(id)
-				.catch { message = "無法讀取章節：${it.message ?: "未知錯誤"}"; emit(emptyList()) }
-				.collect { chapters = it }
 		}
 	}
 
@@ -146,7 +151,7 @@ class ChaptersViewModel @Inject constructor(
 								)
 							},
 						)
-						possiblyStale = false
+						possiblyStale = this@ChaptersViewModel.transcript?.updatedAtMillis != transcript.updatedAtMillis
 						message = "已產生 ${drafts.size} 個章節"
 					}
 					is CallOutcome.Failure -> message = "產生章節失敗：${outcome.message}"

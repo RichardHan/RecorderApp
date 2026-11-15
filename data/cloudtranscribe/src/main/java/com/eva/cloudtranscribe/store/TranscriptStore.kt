@@ -25,6 +25,8 @@ class TranscriptStore(root: File) {
 	private val base = File(root, "v1")
 	private val json = Json { ignoreUnknownKeys = true; prettyPrint = false; encodeDefaults = true }
 	private val lock = Any()
+	private val _editChanges = kotlinx.coroutines.flow.MutableStateFlow(0L)
+	val editChanges: kotlinx.coroutines.flow.StateFlow<Long> = _editChanges
 
 	private fun recDir(recordingId: Long) = File(base, recordingId.toString())
 	private fun transcriptsDir(id: Long) = File(recDir(id), "transcripts")
@@ -45,13 +47,19 @@ class TranscriptStore(root: File) {
 		?.let { runCatching { json.decodeFromString(TranscriptEdits.serializer(), it) }.getOrNull() }
 		?.takeIf { it.transcriptId == transcriptId }
 
-	fun saveEdits(edits: TranscriptEdits) = write(File(editsDir(edits.recordingId), "${safe(edits.transcriptId)}.json"), json.encodeToString(TranscriptEdits.serializer(), edits))
+	fun saveEdits(edits: TranscriptEdits) { synchronized(lock) {
+		write(File(editsDir(edits.recordingId), "${safe(edits.transcriptId)}.json"), json.encodeToString(TranscriptEdits.serializer(), edits))
+		_editChanges.value += 1
+	} }
 
-	fun deleteEdits(recordingId: Long, transcriptId: String) { synchronized(lock) { File(editsDir(recordingId), "${safe(transcriptId)}.json").delete() } }
+	fun deleteEdits(recordingId: Long, transcriptId: String) { synchronized(lock) { File(editsDir(recordingId), "${safe(transcriptId)}.json").delete(); _editChanges.value += 1 } }
 
 	/** [transcripts] with the user's on-device corrections applied (originals with changed sources are returned as is). */
 	fun transcriptsWithEdits(recordingId: Long): List<TranscriptRecord> =
 		transcripts(recordingId).map { TranscriptEditing.apply(it, edits(recordingId, it.id)) }
+
+	fun transcriptWithEdits(recordingId: Long, id: String): TranscriptRecord? =
+		transcript(recordingId, id)?.let { TranscriptEditing.apply(it, edits(recordingId, id)) }
 
 	fun deleteTranscript(recordingId: Long, id: String) {
 		File(transcriptsDir(recordingId), "${safe(id)}.json").delete()

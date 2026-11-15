@@ -22,6 +22,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -51,20 +52,24 @@ class RecordingQaViewModel @Inject constructor(
 	private var transcript: TranscriptRecord? = null
 	private var context: QaContext? = null
 	private var recordingId = -1L
+	private var sourceJob: Job? = null
 	private var job: Job? = null
 
 	fun bind(id: Long) {
 		if (recordingId == id) return
 		recordingId = id
-		viewModelScope.launch {
-			withContext(Dispatchers.IO) {
-				val selected = runCatching { PlaybackTranscripts.defaultSelection(store.transcripts(id)) }.getOrNull()
-				val ctx = selected?.let { RecordingQa.context(RecordingQa.segments(PlaybackTranscripts.lines(it))) }
-				transcript = selected
-				context = ctx
-				blockedReason = QaRules.blockedReason(selected, ctx)
-				scope = if (selected != null && ctx != null) QaRules.scope(selected, ctx) else null
-				history = runCatching { store.qa(id) }.getOrDefault(emptyList())
+		sourceJob?.cancel()
+		sourceJob = viewModelScope.launch {
+			store.editChanges.collectLatest {
+				withContext(Dispatchers.IO) {
+					val selected = runCatching { PlaybackTranscripts.defaultSelection(store.transcriptsWithEdits(id)) }.getOrNull()
+					val ctx = selected?.let { RecordingQa.context(RecordingQa.segments(PlaybackTranscripts.lines(it))) }
+					transcript = selected
+					context = ctx
+					blockedReason = QaRules.blockedReason(selected, ctx)
+					scope = if (selected != null && ctx != null) QaRules.scope(selected, ctx) else null
+					history = runCatching { store.qa(id) }.getOrDefault(emptyList())
+				}
 			}
 		}
 	}
