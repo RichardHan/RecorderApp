@@ -101,4 +101,19 @@ class CleanupViewModelTest {
 		vm.bind(9, force = true)
 		waitUntil { vm.possiblyStale }
 	}
+	@Test fun editsRefreshOpenPanelAndMarkExistingCleanupStaleWithoutRebinding() {
+		val (vm, store, _) = vm({ CallOutcome.Text("""[{"id":0,"text":"我們開始。"},{"id":1,"text":"下週交付。"}]""") })
+		vm.bind(9)
+		waitUntil { vm.sentences.size == 2 }
+		vm.generate()
+		waitUntil { vm.cleanup != null && !vm.generating }
+		val edit = TranscriptEditing.withLine(record, null, "s1", "下月交付", 100)!!
+		store.saveEdits(edit)
+		waitUntil { vm.possiblyStale && vm.sentences.last().text == "下月交付" }
+		store.saveEdits(TranscriptEditing.undo(edit, 200)!!)
+		waitUntil { vm.sentences.last().text == "呃 下週交付" }
+		assertTrue(vm.possiblyStale)
+		assertEquals(record, store.transcript(9, "run"))
+	}
+
 }

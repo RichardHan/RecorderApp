@@ -24,6 +24,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -60,6 +61,7 @@ class DecisionsViewModel @Inject constructor(
 
 	private var transcript: TranscriptRecord? = null
 	private var recordingId = -1L
+	private var sourceJob: Job? = null
 	private var bound = false
 	private var job: Job? = null
 
@@ -67,21 +69,24 @@ class DecisionsViewModel @Inject constructor(
 		if (bound && recordingId == id) return
 		recordingId = id
 		bound = true
-		viewModelScope.launch {
-			withContext(Dispatchers.IO) {
-				val selected = runCatching { PlaybackTranscripts.defaultSelection(store.transcripts(id)) }.getOrNull()
-				transcript = selected
-				val reason = DecisionsRules.blockedReason(selected)
-				canExtract = reason == null
-				blockedReason = reason
-				if (selected != null) {
-					val current = DecisionPlanner.revisionOf(selected.id, selected.updatedAtMillis)
-					possiblyStale = DecisionsRules.isStale(runCatching { provider.decisions(id) }.getOrDefault(emptyList()), current)
+		sourceJob?.cancel()
+		sourceJob = viewModelScope.launch {
+			store.editChanges.collectLatest {
+				withContext(Dispatchers.IO) {
+					val selected = runCatching { PlaybackTranscripts.defaultSelection(store.transcriptsWithEdits(id)) }.getOrNull()
+					transcript = selected
+					val reason = DecisionsRules.blockedReason(selected)
+					canExtract = reason == null
+					blockedReason = reason
+					if (selected != null) {
+						val current = DecisionPlanner.revisionOf(selected.id, selected.updatedAtMillis)
+						possiblyStale = DecisionsRules.isStale(runCatching { provider.decisions(id) }.getOrDefault(emptyList()), current)
+					}
 				}
+				provider.decisionsAsFlow(id)
+					.catch { message = "無法讀取決議：${it.message ?: "未知錯誤"}"; emit(emptyList()) }
+					.collect { decisions = it }
 			}
-			provider.decisionsAsFlow(id)
-				.catch { message = "無法讀取決議：${it.message ?: "未知錯誤"}"; emit(emptyList()) }
-				.collect { decisions = it }
 		}
 	}
 
@@ -117,7 +122,7 @@ class DecisionsViewModel @Inject constructor(
 						}
 						val revision = DecisionPlanner.revisionOf(transcript.id, transcript.updatedAtMillis)
 						provider.replaceExtracted(recordingId, DecisionsRules.toModels(recordingId, drafts, revision, System.currentTimeMillis()))
-						possiblyStale = false
+						possiblyStale = this@DecisionsViewModel.transcript?.updatedAtMillis != transcript.updatedAtMillis
 						message = if (drafts.isEmpty()) "逐字稿裡沒有找到明確的決議" else "已抽出 ${drafts.size} 項決議"
 					}
 					is CallOutcome.Failure -> message = "抽出決議失敗：${outcome.message}"

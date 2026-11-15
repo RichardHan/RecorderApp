@@ -13,6 +13,27 @@ import org.junit.Test
 
 class TranscriptEditingTests {
 
+	@Test fun correctedFullTextAndUndoRevisionSurviveStoreRecreation() {
+		val dir = Files.createTempDirectory("corrected-source").toFile()
+		val store = TranscriptStore(dir)
+		val raw = timed()
+		store.saveTranscript(raw)
+		val edit = TranscriptEditing.withLine(raw, null, "s1", "確認新日期", 100)!!
+		store.saveEdits(edit)
+		val corrected = TranscriptStore(dir).transcriptWithEdits(7, "run")!!
+		assertTrue(corrected.text.contains("確認新日期"))
+		assertFalse(corrected.text.contains("Recoder"))
+		assertEquals(PlaybackTranscripts.lines(corrected).joinToString("\n") { it.text }, corrected.text)
+		val beforeUndo = store.editChanges.value
+		store.saveEdits(TranscriptEditing.undo(edit, 200)!!)
+		val undone = store.transcriptWithEdits(7, "run")!!
+		assertEquals(raw.text, undone.text)
+		assertEquals(200L, undone.updatedAtMillis)
+		assertTrue(store.editChanges.value > beforeUndo)
+		assertEquals(raw, store.transcript(7, "run"))
+	}
+
+
 	private fun seg(i: Int, text: String, parts: List<SegmentResult> = emptyList()) =
 		SegmentResult(i, i * 1000L, (i + 1) * 1000L, SegmentStatus.OK, text, parts = parts)
 
