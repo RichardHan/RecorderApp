@@ -228,6 +228,14 @@ fun CloudTranscriptsDialog(
 					)
 				}
 				item {
+					val newestSummary = state.summaries.firstOrNull { it.status == RunStatus.SUCCESS && it.text.isNotBlank() }
+					if (newestSummary != null) OutlineCard(
+						recordingId = recordingId,
+						summaryId = newestSummary?.id,
+						summaryText = newestSummary?.text,
+					)
+				}
+				item {
 					val accepted = state.summaries.firstOrNull { it.status == RunStatus.SUCCESS && it.text.isNotBlank() }
 					FollowUpDraftCard(
 						recordingId = recordingId,
