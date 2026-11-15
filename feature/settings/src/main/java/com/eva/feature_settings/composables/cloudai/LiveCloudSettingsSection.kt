@@ -7,11 +7,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -103,21 +101,21 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 	var msg by remember { mutableStateOf<String?>(null) }
 	var confirmTest by remember { mutableStateOf(false) }
 
-	Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-		HorizontalDivider()
-		Text("進階：錄音中即時雲端轉錄＋重點整理", style = MaterialTheme.typography.titleMedium)
-		Text("預設關閉。開啟後，錄音期間會定期把新錄到的音訊上傳到上方的轉錄服務，並把文字送到下方的摘要服務整理重點；會持續產生流量與 API 費用。原始錄音、離線字幕不受影響。",
-			style = MaterialTheme.typography.bodySmall)
-		Row2("啟用進階即時雲端模式", draft.enabled) { on ->
+	SettingsCard("即時雲端模式", if (current.enabled) "已開啟・${current.summaryModel.ifBlank { "未設定模型" }}" else "關閉", "ai-live") {
+		InfoLine(
+			"預設關閉。開啟後錄音期間會定期上傳新音訊並整理重點。",
+			"開啟後，錄音期間會定期把新錄到的音訊上傳到上方的轉錄服務，並把文字送到下方的摘要服務整理重點；會持續產生流量與 API 費用。原始錄音、離線字幕不受影響。",
+		)
+		SettingSwitch("啟用即時雲端模式", draft.enabled) { on ->
 			if (on) confirmEnable = true else draft = draft.copy(enabled = false)
 		}
 		NumberField("雲端轉錄間隔（秒，30–600，預設 60）", draft.transcribeIntervalSec) { draft = draft.copy(transcribeIntervalSec = it) }
 		NumberField("重點整理間隔（秒，15–600，預設 30）", draft.summaryIntervalSec) { draft = draft.copy(summaryIntervalSec = it) }
 		NumberField("首次整理不早於（秒，預設 90）", draft.firstSummaryDelaySec) { draft = draft.copy(firstSummaryDelaySec = it) }
-		Row2("首次整理需先完成一段雲端轉錄", draft.requireCloudBeforeFirstSummary) { draft = draft.copy(requireCloudBeforeFirstSummary = it) }
-		Row2("用最新離線字幕暫時補上（雲端稿回來後取代）", draft.offlineSupplement) { draft = draft.copy(offlineSupplement = it) }
+		SettingSwitch("首次整理需先完成一段雲端轉錄", draft.requireCloudBeforeFirstSummary) { draft = draft.copy(requireCloudBeforeFirstSummary = it) }
+		SettingSwitch("用離線字幕暫時補上", draft.offlineSupplement, "雲端稿回來後取代") { draft = draft.copy(offlineSupplement = it) }
 
-		Text("重點整理服務（獨立設定，OpenAI 相容）", style = MaterialTheme.typography.titleSmall)
+		Text("重點整理服務", style = MaterialTheme.typography.bodyLarge)
 		OutlinedTextField(draft.summaryBaseUrl, { draft = draft.copy(summaryBaseUrl = it.trim()) }, Modifier.fillMaxWidth(),
 			label = { Text("摘要 Endpoint（不含 /chat/completions）") }, singleLine = true,
 			keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
@@ -129,7 +127,7 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 		TextButton(onClick = { draft = draft.copy(summaryPrompt = LiveCloudSettings.DEFAULT_SUMMARY_PROMPT) }) { Text("還原預設 Prompt") }
 		MeetingNotesField(draft.meetingNotes) { draft = draft.copy(meetingNotes = it) }
 
-		Row2("摘要沿用轉錄 API Key（需明確選擇）", draft.summaryReuseTranscribeKey) { on ->
+		SettingSwitch("摘要沿用轉錄 API Key", draft.summaryReuseTranscribeKey, "需明確選擇；兩者需是同一服務") { on ->
 			if (on) confirmReuse = true else draft = draft.copy(summaryReuseTranscribeKey = false)
 		}
 		if (!draft.summaryReuseTranscribeKey) {
@@ -142,11 +140,13 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 				OutlinedButton(enabled = hasSummaryKey, onClick = { viewModel.removeKey() }) { Text("移除") }
 			}
 		}
-		Button(onClick = { viewModel.save(draft.normalized()); msg = "已儲存（下次開始錄音時生效）" }, modifier = Modifier.fillMaxWidth()) { Text("儲存進階設定") }
+		Button(onClick = { viewModel.save(draft.normalized()); msg = "已儲存（下次開始錄音時生效）" }, modifier = Modifier.fillMaxWidth()) { Text("儲存") }
 		msg?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
 		val dirty = draft.normalized() != current.normalized() || keyInput.isNotBlank()
-		if (dirty) Text("測試只使用已儲存的摘要設定（含 Prompt、Key 選擇）；請先儲存。", style = MaterialTheme.typography.bodySmall)
-		Text("測試會用內建短範例文字送出一次摘要請求（可能產生少量費用），不上傳錄音、不自動重試；進階模式未開啟也可測試。", style = MaterialTheme.typography.bodySmall)
+		InfoLine(
+			if (dirty) "測試只用已儲存設定，請先儲存。" else "送一次短範例文字，不上傳錄音。",
+			"測試會用內建短範例文字送出一次摘要請求（可能產生少量費用），不上傳錄音、不自動重試；此模式未開啟也可測試。",
+		)
 		Button(enabled = !dirty && !viewModel.testing, onClick = { confirmTest = true }) {
 			Text(if (viewModel.testing) "摘要測試中…" else "測試摘要設定")
 		}
@@ -212,15 +212,6 @@ internal fun MeetingNotesField(notes: String, onNotesChange: (String) -> Unit) {
 		}
 	}
 }
-
-@Composable
-private fun Row2(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-	Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-		Text(label, Modifier.weight(1f))
-		Switch(checked, onChange)
-	}
-}
-
 @Composable
 private fun NumberField(label: String, value: Int, onChange: (Int) -> Unit) {
 	var text by remember(value) { mutableStateOf(value.toString()) }

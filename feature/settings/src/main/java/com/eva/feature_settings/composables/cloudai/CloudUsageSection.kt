@@ -56,13 +56,11 @@ internal class CloudUsageViewModel @Inject constructor(private val store: Transc
 internal fun usageLine(u: MonthUsage): String =
 	"${u.month}：雲端轉錄 ${u.cloudTranscripts} 次・上傳約 ${CloudUsage.minutes(u.uploadedMs)} 分鐘・請求 ${u.requests} 次・摘要 ${u.summaries} 次"
 
-/** Collapsed by default; computes only when opened. Reads local records only. */
+/** Shown inside the collapsed-by-default 用量 card; computes only when the card is opened. Reads local records only. */
 @Composable
 internal fun CloudUsageSection(viewModel: CloudUsageViewModel = hiltViewModel()) {
-	var open by rememberSaveable { mutableStateOf(false) }
+	androidx.compose.runtime.LaunchedEffect(Unit) { viewModel.load() }
 	Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-		TextButton({ open = !open; if (open) viewModel.load() }) { Text(if (open) "收合雲端用量" else "雲端用量（本機紀錄）") }
-		if (!open) return@Column
 		val usage = viewModel.usage
 		when {
 			usage == null -> CircularProgressIndicator()
@@ -70,7 +68,7 @@ internal fun CloudUsageSection(viewModel: CloudUsageViewModel = hiltViewModel())
 			else -> usage.forEach { Text(usageLine(it), style = MaterialTheme.typography.bodySmall) }
 		}
 		Text(
-			"依手機上的紀錄估算，不是帳單；刪除的錄音不計入，章節、問答、翻譯、即時重點等功能也未計入。費用請以服務商後台為準。",
+			"估算，不是帳單；費用以服務商後台為準。",
 			style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
 		)
 	}

@@ -52,18 +52,16 @@ internal fun TranscriptionResourcePanel(snapshot: ResourceSnapshot, onRefresh: (
 }
 
 internal fun resourceDescription(snapshot: ResourceSnapshot, m: ModelResources): String = buildString {
-    if (m.installed) append("已安裝 · 新增下載空間 0 GiB。")
+    if (m.installed) append("已安裝")
     else {
         append("未安裝")
-        if (m.already > 0) append("；已保留 ${gib(m.already)}，尚需 ${gib(m.download - m.already)}")
-        append("；含暫存／保留空間，共需可用 ${gib(m.diskNeeded)}。")
-        append(when (ResourcePolicy.diskEnough(snapshot.diskFree, m.diskNeeded)) { true -> "儲存空間足夠。"; false -> "儲存空間不足，請先釋放空間。"; null -> "儲存空間未知，下載時會再次檢查。" })
+        if (m.already > 0) append(" · 尚需 ${gib(m.download - m.already)}")
+        append(" · 需可用 ${gib(m.diskNeeded)}")
+        if (ResourcePolicy.diskEnough(snapshot.diskFree, m.diskNeeded) == false) append(" · 儲存空間不足")
     }
-    append("\n模型估計 RAM 需求：${gib(m.ramNeeded)}")
-    if (m.ramNeeded == null) append("（此模型沒有可靠估計）")
-    else append(when (ResourcePolicy.ramEnough(snapshot.ramFree, snapshot.lowMemory, m.ramNeeded, snapshot.is64, m.weights)) {
-        true -> "；目前足夠（估計）。"
-        false -> if (!snapshot.is64 && (m.weights ?: 0) >= ResourcePolicy.LARGE_MODEL) "；不支援：需要 64 位元。" else "；目前 RAM 不足／系統低記憶體。"
-        null -> "；目前 RAM 狀態未知。"
-    })
+    m.ramNeeded?.let { need ->
+        append("\nRAM 需求 ${gib(need)}")
+        if (ResourcePolicy.ramEnough(snapshot.ramFree, snapshot.lowMemory, need, snapshot.is64, m.weights) == false)
+            append(if (!snapshot.is64 && (m.weights ?: 0) >= ResourcePolicy.LARGE_MODEL) " · 不支援：需要 64 位元" else " · 目前 RAM 不足")
+    }
 }
