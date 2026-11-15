@@ -12,6 +12,7 @@ android {
 }
 
 dependencies {
+	implementation(project(":data:recordings"))
 
 	//navigation
 	implementation(libs.androidx.navigation.compose)

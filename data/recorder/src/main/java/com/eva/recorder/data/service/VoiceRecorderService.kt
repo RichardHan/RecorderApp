@@ -80,6 +80,9 @@ internal class VoiceRecorderService : LifecycleService() {
 
     /** Opt-in Slack sync (default OFF); only consumes lifecycle events and local key points. */
     @Inject
+    lateinit var photos: com.eva.recordings.domain.provider.RecordingPhotos
+
+    @Inject
     lateinit var slackSync: com.eva.cloudtranscribe.slack.SlackSyncCoordinator
 
     /** Per-recording notes draft (#5): bound on save, dropped on cancel. */
@@ -263,7 +266,7 @@ internal class VoiceRecorderService : LifecycleService() {
         )
         // start the recorder
         lifecycleScope.launch {
-            val started = sessionCoordinator.startRecording()
+            val started = sessionCoordinator.startRecording { runCatching { photos.beginSession() } }
             if (started) {
                 runCatching { slackSync.onRecordingStarted() }
                 startVoiceRecorderService(
@@ -305,6 +308,7 @@ internal class VoiceRecorderService : LifecycleService() {
         lifecycleScope.launch {
             sessionCoordinator.cancelRecording(
                 onCancelled = {
+                    runCatching { photos.cancelSession() }
                     slackSync.onRecordingCancelled()
                     // a cancelled recording's notes never carry over to the next one
                     runCatching { notesDraft.discard() }
@@ -329,6 +333,7 @@ internal class VoiceRecorderService : LifecycleService() {
         lifecycleScope.launch {
             sessionCoordinator.stopRecording(
                 onRecordingSaved = { recordingId, timeBeforeSave ->
+                    runCatching { photos.finishSession(recordingId) }
                     clearAndSaveBookMarks(recordingId, timeBeforeSave)
                     recordingAutoUploader.enqueue(recordingId)
                     // bind notes first so an (opt-in) automatic summary already sees them
