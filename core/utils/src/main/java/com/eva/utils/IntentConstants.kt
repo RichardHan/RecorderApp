@@ -13,4 +13,6 @@ object IntentConstants {
 	const val EXTRAS_RECORDER_TIME = "$APPLICATION_NAME.extras_recorder_time"
 	const val EXTRAS_RECORDER_STATE = "$APPLICATION_NAME.extras_recorder_state"
 
+	/** Quick Settings tile asks the recorder screen to start once (value: unique Long request id). */
+	const val EXTRAS_TILE_START_REQUEST_ID = "$APPLICATION_NAME.extras_tile_start_request_id"
 }
