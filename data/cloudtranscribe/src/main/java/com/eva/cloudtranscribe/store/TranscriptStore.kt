@@ -3,6 +3,8 @@ package com.eva.cloudtranscribe.store
 import com.eva.cloudtranscribe.engine.ChunkCheckpoints
 import com.eva.cloudtranscribe.model.SegmentResult
 import com.eva.cloudtranscribe.model.SummaryRecord
+import com.eva.cloudtranscribe.model.TranscriptEditing
+import com.eva.cloudtranscribe.model.TranscriptEdits
 import com.eva.cloudtranscribe.model.TranscriptRecord
 import java.io.File
 import kotlinx.serialization.json.Json
@@ -12,6 +14,7 @@ import kotlinx.serialization.json.Json
  * `<root>/v1/<recordingId>/transcripts/<id>.json`  — offline OR cloud transcripts (never overwritten by the other source)
  * `<root>/v1/<recordingId>/summaries/<id>.json`     — summaries, each pointing at its source transcript id
  * `<root>/v1/<recordingId>/checkpoints/<runId>/NNN.json` — per-chunk cloud checkpoints, removed only after success or explicit cleanup
+ * `<root>/v1/<recordingId>/edits/<transcriptId>.json` — on-device user corrections, an overlay; the transcript file itself is never rewritten
  * The raw recording is never touched.
  */
 class TranscriptStore(root: File) {
@@ -22,6 +25,7 @@ class TranscriptStore(root: File) {
 	private fun recDir(recordingId: Long) = File(base, recordingId.toString())
 	private fun transcriptsDir(id: Long) = File(recDir(id), "transcripts")
 	private fun summariesDir(id: Long) = File(recDir(id), "summaries")
+	private fun editsDir(id: Long) = File(recDir(id), "edits")
 	fun checkpointDir(recordingId: Long, runId: String) = File(File(recDir(recordingId), "checkpoints"), safe(runId))
 
 	fun saveTranscript(record: TranscriptRecord) = write(File(transcriptsDir(record.recordingId), "${safe(record.id)}.json"), json.encodeToString(TranscriptRecord.serializer(), record))
@@ -33,8 +37,21 @@ class TranscriptStore(root: File) {
 	fun transcripts(recordingId: Long): List<TranscriptRecord> = list(transcriptsDir(recordingId)) { json.decodeFromString(TranscriptRecord.serializer(), it) }.sortedByDescending { it.createdAtMillis }
 	fun summaries(recordingId: Long): List<SummaryRecord> = list(summariesDir(recordingId)) { json.decodeFromString(SummaryRecord.serializer(), it) }.sortedByDescending { it.createdAtMillis }
 
+	fun edits(recordingId: Long, transcriptId: String): TranscriptEdits? = read(File(editsDir(recordingId), "${safe(transcriptId)}.json"))
+		?.let { runCatching { json.decodeFromString(TranscriptEdits.serializer(), it) }.getOrNull() }
+		?.takeIf { it.transcriptId == transcriptId }
+
+	fun saveEdits(edits: TranscriptEdits) = write(File(editsDir(edits.recordingId), "${safe(edits.transcriptId)}.json"), json.encodeToString(TranscriptEdits.serializer(), edits))
+
+	fun deleteEdits(recordingId: Long, transcriptId: String) { synchronized(lock) { File(editsDir(recordingId), "${safe(transcriptId)}.json").delete() } }
+
+	/** [transcripts] with the user's on-device corrections applied (originals with changed sources are returned as is). */
+	fun transcriptsWithEdits(recordingId: Long): List<TranscriptRecord> =
+		transcripts(recordingId).map { TranscriptEditing.apply(it, edits(recordingId, it.id)) }
+
 	fun deleteTranscript(recordingId: Long, id: String) {
 		File(transcriptsDir(recordingId), "${safe(id)}.json").delete()
+		deleteEdits(recordingId, id)
 		clearCheckpoints(recordingId, id)
 	}
 
@@ -64,9 +81,9 @@ class TranscriptStore(root: File) {
 	fun recordingIds(): List<Long> = base.listFiles { f -> f.isDirectory && f.name.toLongOrNull() != null }
 		.orEmpty().sortedByDescending { it.lastModified() }.mapNotNull { it.name.toLongOrNull() }
 
-	/** Newest mtime among this recording's transcript files; 0 when it has none (cheap cache-invalidation key). */
-	fun transcriptsSignature(recordingId: Long): Long =
-		transcriptsDir(recordingId).listFiles { f -> f.extension == "json" }?.maxOfOrNull { it.lastModified() } ?: 0L
+	/** Newest mtime among this recording's transcript and correction files; 0 when it has none (cheap cache-invalidation key). */
+	fun transcriptsSignature(recordingId: Long): Long = listOf(transcriptsDir(recordingId), editsDir(recordingId))
+		.flatMap { it.listFiles { f -> f.extension == "json" }.orEmpty().toList() }.maxOfOrNull { it.lastModified() } ?: 0L
 
 	private fun safe(id: String) = id.replace(Regex("[^A-Za-z0-9_.-]"), "_")
 }
