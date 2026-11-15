@@ -98,8 +98,9 @@ internal class VisualCacheImpl(
 
     private suspend fun pruneToBudget(keep: Path) {
 
-        // we sort the files via last modified so the file which was last access
-        // so least recently used file is removed first
+        // Oldest writes go first. Access time is not a usable signal on Android (relatime/noatime means a
+        // read often leaves atime untouched, and it can match the write time of every entry), which made
+        // eviction order depend on file names. The write time is what the cache itself controls.
         val entries = try {
             fs.list(cachePath)
                 .mapNotNull { path ->
@@ -109,10 +110,10 @@ internal class VisualCacheImpl(
                     CacheFile(
                         path = path,
                         size = metadata.size ?: 0L,
-                        lastModified = metadata.lastAccessedAtMillis ?: 0L,
+                        writtenAtMillis = metadata.lastModifiedAtMillis ?: 0L,
                     )
                 }
-                .sortedWith(compareBy<CacheFile> { it.lastModified }.thenBy { it.path.name })
+                .sortedWith(compareBy<CacheFile> { it.writtenAtMillis }.thenBy { it.path.name })
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -169,7 +170,7 @@ internal class VisualCacheImpl(
     private data class CacheFile(
         val path: Path,
         val size: Long,
-        val lastModified: Long,
+        val writtenAtMillis: Long,
     )
 
     private companion object {
