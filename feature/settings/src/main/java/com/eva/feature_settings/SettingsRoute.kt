@@ -43,6 +43,7 @@ fun NavGraphBuilder.settingsRoute(controller: NavController) = composable<NavRou
 
     CompositionLocalProvider(LocalSharedTransitionVisibilityScopeProvider provides this) {
         AudioSettingsScreen(
+            bulkExport = { com.eva.feature_settings.composables.files.BulkTextExportItem() },
             audioSettings = audioSettings,
             fileSettings = fileSettings,
             storageModel = storageData,
