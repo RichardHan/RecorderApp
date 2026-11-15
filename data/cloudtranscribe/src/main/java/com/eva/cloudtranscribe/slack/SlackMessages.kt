@@ -99,6 +99,7 @@ object SlackMessages {
 /** Result of one webhook POST, classified per Slack's documented errors. */
 sealed interface SlackSendResult {
 	data object Sent : SlackSendResult
+	data object Suppressed : SlackSendResult
 	data class RetryAfter(val seconds: Long) : SlackSendResult
 	data class Retry(val reason: String) : SlackSendResult
 	/** Do not retry as-is (bad payload, revoked webhook, archived channel, ...); the user must fix the setup. */
@@ -132,6 +133,7 @@ object SlackSendPolicy {
 	/** User-facing text for a result; never includes the webhook URL. */
 	fun describe(result: SlackSendResult): String = when (result) {
 		SlackSendResult.Sent -> "已送出"
+		SlackSendResult.Suppressed -> "已停止傳送"
 		is SlackSendResult.RetryAfter -> "Slack 要求稍候（${result.seconds} 秒後重試）"
 		is SlackSendResult.Retry -> "暫時失敗，稍後重試（${result.reason}）"
 		is SlackSendResult.Permanent -> "Slack 拒絕（${result.reason}），請檢查 Webhook 設定"
