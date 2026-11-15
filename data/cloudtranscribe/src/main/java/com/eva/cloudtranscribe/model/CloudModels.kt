@@ -28,6 +28,8 @@ data class CloudSettings(
 	val summaryFormat: SummaryFormat = SummaryFormat.CONCISE,
 	/** Used only when [summaryFormat] is [SummaryFormat.CUSTOM]; blank falls back to the concise format. */
 	val customSummaryInstructions: String = "",
+	/** Opt-in: mask phone / email / ID / card numbers in text sent for summary & chapters. Off by default. */
+	val redactPiiForCloud: Boolean = false,
 	/** Opt-in: one extra summary request (text only) after each SUCCESSFUL cloud transcription. Off by default. */
 	val autoSummaryAfterTranscript: Boolean = false,
 	/** Local notification when background cloud transcription / summary finishes. Off by default. */
