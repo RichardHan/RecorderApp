@@ -32,6 +32,9 @@ internal object AskAcross {
 		return sources.map { if (it.text.length > share) it.text.take(share) + TRUNCATED else it.text }
 	}
 
+	fun truncatedSources(sources: List<AskSource>): List<AskSource> =
+		if (sources.isEmpty()) emptyList() else sources.filter { it.text.length > MAX_CHARS / sources.size }
+
 	fun sentChars(sources: List<AskSource>): Int = budgeted(sources).sumOf { it.length }
 
 	fun prompt(question: String, sources: List<AskSource>): String = buildString {
