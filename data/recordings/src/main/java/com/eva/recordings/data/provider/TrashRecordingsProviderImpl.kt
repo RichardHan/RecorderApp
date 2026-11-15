@@ -41,6 +41,7 @@ private const val LOGGER_TAG = "TRASHED_RECORDINGS_PROVIDER"
 internal class TrashRecordingsProviderImpl(
 	private val context: Context,
 	private val recordingsDao: RecordingsMetadataDao,
+	private val photos: com.eva.recordings.domain.provider.RecordingPhotos? = null,
 	private val clipsProvider: com.eva.recordings.domain.provider.RecordingClipsProvider? = null,
 ) : RecordingsContentResolverWrapper(context), TrashRecordingsProvider {
 
@@ -184,9 +185,10 @@ internal class TrashRecordingsProviderImpl(
 					emit(result)
 
 					// now delete the associated entries
-					val ids = recordings.map { it.id }
+					val ids = ownedRecordings.map { it.id }
 					// now remove secondary data from the table
 					recordingsDao.deleteRecordingMetaDataFromIds(ids)
+					photos?.pruneDeletedFiles()
 					// clips belong to the recording: remove their files and rows with it
 					try {
 						clipsProvider?.deleteAllFor(ids)

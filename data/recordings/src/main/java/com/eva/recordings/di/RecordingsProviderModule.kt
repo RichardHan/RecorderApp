@@ -69,13 +69,15 @@ object RecordingsProviderModule {
 		trashMetaData: TrashFileDao,
 		metadataDao: RecordingsMetadataDao,
 		clipsProvider: RecordingClipsProvider,
+		photos: com.eva.recordings.domain.provider.RecordingPhotos,
 	): TrashRecordingsProvider = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
-		TrashRecordingsProviderImpl(context = context, recordingsDao = metadataDao, clipsProvider = clipsProvider)
+		TrashRecordingsProviderImpl(context = context, recordingsDao = metadataDao, clipsProvider = clipsProvider, photos = photos)
 	else TrashRecordingsProviderApi29Impl(
 		context = context,
 		trashMediaDao = trashMetaData,
 		recordingsDao = metadataDao,
 		clipsProvider = clipsProvider,
+		photos = photos,
 	)
 
 	@Provides
@@ -83,8 +85,9 @@ object RecordingsProviderModule {
 	fun providesSecondaryProvider(
 		@ApplicationContext context: Context,
 		recordingsMetadataDao: RecordingsMetadataDao,
+		photos: com.eva.recordings.domain.provider.RecordingPhotos,
 	): RecordingsSecondaryDataProvider =
-		RecordingSecondaryDataProviderImpl(context = context, recordingsDao = recordingsMetadataDao)
+		RecordingSecondaryDataProviderImpl(context = context, recordingsDao = recordingsMetadataDao, photos = photos)
 
 	@Provides
 	@Singleton

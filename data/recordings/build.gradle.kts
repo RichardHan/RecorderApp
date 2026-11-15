@@ -16,6 +16,7 @@ android {
 }
 
 dependencies {
+	androidTestImplementation(libs.androidx.room.runtime)
 	// activity
 	implementation(libs.androidx.activity.compose)
 	// audio tagger to set metadata

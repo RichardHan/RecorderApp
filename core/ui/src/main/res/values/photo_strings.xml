@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+ <string name="photo_image">錄音照片附件</string>
+ <string name="photo_loading">讀取照片…</string>
+ <string name="photo_button">照片 (%1$d/30)</string>
+ <string name="photo_title">照片時間附件</string>
+ <string name="photo_local_hint">只存本機，不送雲端或 Drive。最多 30 張，長邊 1600px；時間以按下拍照／選圖時為準。錄音進垃圾桶時，照片也會刪除，無法復原。</string>
+ <string name="photo_failed">無法加入或更新照片：請確認錄音仍存在、未滿 30 張、儲存空間足夠，並允許相機／選圖。錄音不會因此停止。</string>
+ <string name="photo_camera">拍照</string>
+ <string name="photo_pick">選圖</string>
+ <string name="photo_caption">編輯說明</string>
+ <string name="photo_caption_hint">說明（最多 80 字）</string>
+ <string name="photo_delete">刪除照片</string>
+ <string name="photo_delete_confirm">刪除這張附件？原始相簿照片不受影響。</string>
+ <string name="photo_close">關閉</string>
+ <string name="photo_save">儲存</string>
+ <string name="photo_added">照片已附到按下當時的錄音；錄音結束後可在播放頁查看。</string>
+</resources>

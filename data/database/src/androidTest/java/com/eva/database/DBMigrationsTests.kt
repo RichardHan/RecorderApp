@@ -451,4 +451,22 @@ class DBMigrationsTests {
 		assertThat(db.countOf("recording_clips")).isEqualTo(1L)
 		db.close()
 	}
+	@Test fun migrate_14_to_15_preserves_metadata_and_cascades_photos() = runTest {
+		deleteTestDatabase()
+		testHelper.createDatabase(14).apply {
+			execSQL("INSERT INTO recording_meta_data (RECORDING_ID, IS_FAVOURITE) VALUES (7, 1)")
+			close()
+		}
+		val db = testHelper.runMigrationsAndValidate(15)
+		db.execSQL("PRAGMA foreign_keys=ON")
+		assertThat(db.countOf("recording_meta_data")).isEqualTo(1L)
+		db.execSQL("INSERT INTO photo_sessions (owner, recordingId) VALUES ('session', 7)")
+		db.execSQL("INSERT INTO recording_photos VALUES ('photo', 'session', 7, 1234, 'photo.jpg', '白板', 100)")
+		assertThat(db.countOf("recording_photos")).isEqualTo(1L)
+		db.execSQL("DELETE FROM recording_meta_data WHERE RECORDING_ID=7")
+		assertThat(db.countOf("recording_photos")).isEqualTo(0L)
+		assertThat(db.countOf("photo_sessions")).isEqualTo(0L)
+		db.close()
+	}
+
 }
