@@ -141,6 +141,7 @@ private fun RunStatus.zh() = when (this) {
 fun CloudTranscriptsDialog(
 	recordingId: Long,
 	onDismiss: () -> Unit,
+	onSeekTo: ((Long) -> Unit)? = null,
 	viewModel: CloudTranscriptsViewModel = hiltViewModel(),
 ) {
 	LaunchedEffect(recordingId) { viewModel.bind(recordingId) }
@@ -227,6 +228,7 @@ fun CloudTranscriptsDialog(
 						latestSummaryAtMillis = newestSummary?.createdAtMillis,
 					)
 				}
+				item { RecordingQaCard(recordingId = recordingId, onSeekTo = onSeekTo) }
 				item {
 					val newestSummary = state.summaries.firstOrNull { it.status == RunStatus.SUCCESS && it.text.isNotBlank() }
 					if (newestSummary != null) OutlineCard(
