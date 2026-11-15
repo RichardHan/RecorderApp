@@ -229,6 +229,22 @@ fun CloudTranscriptsDialog(
 					)
 				}
 				item { RecordingQaCard(recordingId = recordingId, onSeekTo = onSeekTo) }
+				item {
+					val newestSummary = state.summaries.firstOrNull { it.status == RunStatus.SUCCESS && it.text.isNotBlank() }
+					if (newestSummary != null) OutlineCard(
+						recordingId = recordingId,
+						summaryId = newestSummary?.id,
+						summaryText = newestSummary?.text,
+					)
+				}
+				item {
+					val accepted = state.summaries.firstOrNull { it.status == RunStatus.SUCCESS && it.text.isNotBlank() }
+					FollowUpDraftCard(
+						recordingId = recordingId,
+						acceptedSummaryId = accepted?.id,
+						acceptedSummaryText = accepted?.text,
+					)
+				}
 				items(state.summaries, key = { it.id }) { s ->
 					Card {
 						Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
