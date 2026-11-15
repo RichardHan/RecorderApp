@@ -127,11 +127,14 @@ fun NavGraphBuilder.audioPlayerRoute(controller: NavHostController) =
 
         var showCloud by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
         var transcriptRefresh by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
-        if (showCloud) com.eva.feature_player.cloud.CloudTranscriptsDialog(recordingId = route.audioId, onDismiss = { showCloud = false; transcriptRefresh++ },
+        if (showCloud) com.eva.feature_player.cloud.CloudTranscriptsDialog(
+            recordingId = route.audioId,
+            onDismiss = { showCloud = false; transcriptRefresh++ },
             onSeekTo = { ms ->
                 playerViewModel.onPlayerEvents(com.eva.feature_player.state.PlayerEvents.OnSeekingPlayer(with(kotlin.time.Duration) { ms.milliseconds }))
                 playerViewModel.onPlayerEvents(com.eva.feature_player.state.PlayerEvents.OnSeekEndPlayer)
-            })
+            },
+        )
 
         val lifeCycleState by backStackEntry.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
 
@@ -167,6 +170,19 @@ fun NavGraphBuilder.audioPlayerRoute(controller: NavHostController) =
                                 recordingId = route.audioId,
                                 trackData = { trackData },
                                 refreshKey = transcriptRefresh,
+                                exportContext = {
+                                    val file = (contentState as? com.eva.player_shared.state.ContentLoadState.Content)?.data
+                                    com.eva.feature_player.cloud.TranscriptExportContext(
+                                        title = file?.title,
+                                        recordedAt = file?.lastModified,
+                                        bookmarks = bookMarks.map { mark ->
+                                            com.eva.cloudtranscribe.model.ExportBookmark(
+                                                atMs = mark.timeStamp.toMillisecondOfDay().toLong(),
+                                                text = mark.text,
+                                            )
+                                        },
+                                    )
+                                },
                                 onSeekTo = { ms ->
                                     playerViewModel.onPlayerEvents(com.eva.feature_player.state.PlayerEvents.OnSeekingPlayer(with(kotlin.time.Duration) { ms.milliseconds }))
                                     playerViewModel.onPlayerEvents(com.eva.feature_player.state.PlayerEvents.OnSeekEndPlayer)
@@ -179,6 +195,9 @@ fun NavGraphBuilder.audioPlayerRoute(controller: NavHostController) =
                             playerViewModel.onPlayerEvents(com.eva.feature_player.state.PlayerEvents.OnSeekEndPlayer)
                         },
                         modifier = panelModifier,
+                        positionMs = { trackData.current.inWholeMilliseconds },
+                        totalMs = { trackData.total.inWholeMilliseconds },
+                        bookmarkTimesMs = bookMarks.map { it.timeStamp.toMillisecondOfDay().toLong() },
                     )
                 },
                 onNavigateToRecordings = {
