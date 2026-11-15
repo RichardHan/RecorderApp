@@ -41,6 +41,7 @@ private const val LOGGER_TAG = "TRASHED_RECORDINGS_PROVIDER"
 internal class TrashRecordingsProviderImpl(
 	private val context: Context,
 	private val recordingsDao: RecordingsMetadataDao,
+	private val clipsProvider: com.eva.recordings.domain.provider.RecordingClipsProvider? = null,
 ) : RecordingsContentResolverWrapper(context), TrashRecordingsProvider {
 
 	override val trashedRecordingsFlow: Flow<ResourcedTrashRecordingModels>
@@ -186,6 +187,13 @@ internal class TrashRecordingsProviderImpl(
 					val ids = recordings.map { it.id }
 					// now remove secondary data from the table
 					recordingsDao.deleteRecordingMetaDataFromIds(ids)
+					// clips belong to the recording: remove their files and rows with it
+					try {
+						clipsProvider?.deleteAllFor(ids)
+					} catch (e: Exception) {
+						if (e is kotlinx.coroutines.CancellationException) throw e
+						e.printStackTrace()
+					}
 				} catch (e: Exception) {
 					e.printStackTrace()
 					val message = context.getString(R.string.recording_trash_request_failed)

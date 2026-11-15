@@ -32,6 +32,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -40,6 +41,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.eva.cloudtranscribe.model.CloudSettings
+import com.eva.cloudtranscribe.model.CustomVocabulary
+import com.eva.cloudtranscribe.model.VocabularyKind
 import com.eva.cloudtranscribe.model.ProviderType
 import com.eva.cloudtranscribe.model.ReasoningEffort
 import com.eva.cloudtranscribe.model.SummaryFormat
@@ -122,7 +125,11 @@ internal fun CloudAiSettingsContent(
 	var keyInput by remember { mutableStateOf("") }
 	var confirmTest by remember { mutableStateOf(false) }
 	var confirmAuto by remember { mutableStateOf(false) }
+	var confirmAutoSummary by remember { mutableStateOf(false) }
 	var savedMsg by remember { mutableStateOf<String?>(null) }
+	var peopleText by remember(current) { mutableStateOf(CustomVocabulary.format(current.customVocabulary, VocabularyKind.PERSON)) }
+	var termsText by remember(current) { mutableStateOf(CustomVocabulary.format(current.customVocabulary, VocabularyKind.OTHER)) }
+	val vocabulary = CustomVocabulary.normalize(CustomVocabulary.parse(peopleText, VocabularyKind.PERSON) + CustomVocabulary.parse(termsText, VocabularyKind.OTHER))
 
 	Column(
 		modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -161,6 +168,14 @@ internal fun CloudAiSettingsContent(
 				supportingText = { Text("只描述排版與取捨；仍會遵守「沒說的不寫、沒有就省略、沒有重點時回目前無重點」。") },
 			)
 		}
+		SwitchRow("摘要附來源時間（只限雲端逐字稿；prompt 與回覆變長，會多用 token，預設關）", draft.summaryCitations) { draft = draft.copy(summaryCitations = it) }
+		CustomVocabularySection(
+			peopleText = peopleText,
+			termsText = termsText,
+			kept = vocabulary.size,
+			onPeople = { peopleText = it },
+			onTerms = { termsText = it },
+		)
 		Text("reasoning_effort（名稱含 transcribe / flash-lite 的模型一律不送）", style = MaterialTheme.typography.titleSmall)
 		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 			ReasoningEffort.entries.forEach { e -> FilterChip(draft.reasoningEffort == e, { draft = draft.copy(reasoningEffort = e) }, { Text(e.wire ?: "off") }) }
@@ -175,8 +190,10 @@ internal fun CloudAiSettingsContent(
 		if (draft.redactPiiForCloud) Text("只在本機替換送出的文字，原始逐字稿不變；雲端音訊轉錄無法遮蔽。格式比對無法保證找出所有個資，人名不遮蔽。", style = MaterialTheme.typography.bodySmall)
 		SwitchRow("錄音完成後自動雲端轉錄（預設關閉）", draft.autoAfterRecording) { if (it) confirmAuto = true else draft = draft.copy(autoAfterRecording = false) }
 		if (draft.autoAfterRecording) SwitchRow("自動轉錄只在 Wi‑Fi／不計量網路", draft.autoWifiOnly) { draft = draft.copy(autoWifiOnly = it) }
+		SwitchRow("雲端轉錄成功後自動產生摘要（預設關閉）", draft.autoSummaryAfterTranscript) { if (it) confirmAutoSummary = true else draft = draft.copy(autoSummaryAfterTranscript = false) }
+		SwitchRow("背景雲端轉錄／摘要完成時通知（預設關；鎖定畫面不顯示內容）", draft.notifyWhenDone) { draft = draft.copy(notifyWhenDone = it) }
 		Button(onClick = {
-			viewModel.save(draft.copy(chunkSeconds = draft.normalizedChunkSeconds, workers = draft.normalizedWorkers))
+			viewModel.save(draft.copy(chunkSeconds = draft.normalizedChunkSeconds, workers = draft.normalizedWorkers, customVocabulary = vocabulary))
 			savedMsg = "已儲存"
 		}, modifier = Modifier.fillMaxWidth()) { Text("儲存設定") }
 		savedMsg?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
@@ -201,6 +218,7 @@ internal fun CloudAiSettingsContent(
 		Text("僅文字連線測試，不代表支援音訊；沒有上傳錄音。", style = MaterialTheme.typography.bodySmall)
 		draft.validate(hasKey)?.let { Text("尚未可用：$it", color = MaterialTheme.colorScheme.error) }
 		LiveCloudSettingsSection()
+		CloudUsageSection()
 	}
 
 	if (confirmTest) AlertDialog(
@@ -209,6 +227,14 @@ internal fun CloudAiSettingsContent(
 		text = { Text("會使用已儲存的供應商、Endpoint、API Key 與轉錄模型，送出一次『回覆 OK』的文字請求。可能產生少量 API 費用；沒有任何錄音上傳，不自動重試。") },
 		confirmButton = { TextButton(onClick = { confirmTest = false; viewModel.testSavedSettings() }) { Text("同意費用，測試一次") } },
 		dismissButton = { TextButton(onClick = { confirmTest = false }) { Text("取消") } },
+	)
+
+	if (confirmAutoSummary) AlertDialog(
+		onDismissRequest = { confirmAutoSummary = false },
+		title = { Text("開啟自動摘要？") },
+		text = { Text("每次雲端轉錄成功後（手動或自動轉錄都算），會再送出 1 次摘要請求：只送逐字稿文字、不上傳音訊，使用你設定的摘要模型，可能產生 API 費用。部分完成、失敗或取消的轉錄不會送；同一份逐字稿已有摘要時不會重複送。") },
+		confirmButton = { TextButton({ draft = draft.copy(autoSummaryAfterTranscript = true); confirmAutoSummary = false }) { Text("我了解，開啟") } },
+		dismissButton = { TextButton({ confirmAutoSummary = false }) { Text("取消") } },
 	)
 
 	if (confirmAuto) AlertDialog(
@@ -226,6 +252,26 @@ internal fun summaryFormatLabel(format: SummaryFormat): String = when (format) {
 	SummaryFormat.DECISIONS_AND_ACTIONS -> "決議與待辦"
 	SummaryFormat.BULLETS_AND_OPEN_QUESTIONS -> "條列＋未解問題"
 	SummaryFormat.CUSTOM -> "自訂"
+}
+
+/** Spelling hints for cloud transcription; one term per line. Offline recognition is unaffected. */
+@Composable
+internal fun CustomVocabularySection(
+	peopleText: String,
+	termsText: String,
+	kept: Int,
+	onPeople: (String) -> Unit,
+	onTerms: (String) -> Unit,
+) {
+	Text("自訂詞彙（只影響雲端轉錄）", style = MaterialTheme.typography.titleSmall)
+	Text(
+		"每行一個，最多 ${CustomVocabulary.MAX_TERMS} 個、每個 ${CustomVocabulary.MAX_LENGTH} 字內。只在雲端轉錄執行時隨音訊一起送到上方設定的服務，" +
+			"每次請求的 token 會略增；只當拼寫參考，不會自動取代已存的逐字稿，離線字幕不受影響。錄音中修改的話，下一次錄音才套用。",
+		style = MaterialTheme.typography.bodySmall,
+	)
+	OutlinedTextField(peopleText, onPeople, Modifier.fillMaxWidth().testTag("vocabulary-people"), label = { Text("人名") }, minLines = 2, maxLines = 6)
+	OutlinedTextField(termsText, onTerms, Modifier.fillMaxWidth().testTag("vocabulary-terms"), label = { Text("專有名詞、縮寫") }, minLines = 2, maxLines = 6)
+	Text("儲存後會保留 $kept 個詞（自動去掉重複、空白與換行符號）", style = MaterialTheme.typography.labelSmall)
 }
 
 @Composable
