@@ -20,5 +20,10 @@ object CloudModule {
 
 	@Provides
 	@Singleton
+	fun followUpDrafts(@ApplicationContext context: Context): com.eva.cloudtranscribe.store.FollowUpDraftStore =
+		com.eva.cloudtranscribe.store.FollowUpDraftStore(File(context.filesDir, "follow_up_drafts"))
+
+	@Provides
+	@Singleton
 	fun cleanupStore(@ApplicationContext context: Context): TranscriptCleanupStore = TranscriptCleanupStore(File(context.filesDir, "ai_transcripts"))
 }
