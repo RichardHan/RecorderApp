@@ -54,16 +54,21 @@ object TranscriptEditing {
 	 * original changed since the edits were saved, the original is returned unchanged (the caller asks the user).
 	 */
 	fun apply(record: TranscriptRecord, edits: TranscriptEdits?): TranscriptRecord {
-		if (edits == null || edits.lines.isEmpty() || !matches(record, edits)) return record
+		if (edits == null || !matches(record, edits)) return record
 		val changed = record.copy(updatedAtMillis = maxOf(record.updatedAtMillis, edits.updatedAtMillis))
+		if (edits.lines.isEmpty()) return changed
 		return if (PlaybackTranscripts.timedLines(record) != null) {
-			changed.copy(segments = record.segments.map { s ->
+			val corrected = changed.copy(segments = record.segments.map { s ->
 				if (s.parts.isEmpty()) edits.lines[segmentKey(s)]?.let { s.copy(text = it) } ?: s
 				else {
 					val sortedParts = s.parts.sortedBy { it.startMs }
 					s.copy(parts = sortedParts.mapIndexed { i, p -> edits.lines[partKey(s, i)]?.let { p.copy(text = it) } ?: p })
 				}
 			})
+			// Rebuilding from the timed lines is only lossless when they already cover the aggregate text; a
+			// record with a failed segment (or older untimed text) would silently lose that text in exports and
+			// summaries, so keep its aggregate text and correct only the segments.
+			corrected.copy(text = if (linesCoverText(record)) PlaybackTranscripts.lines(corrected).joinToString("\n") { it.text } else record.text)
 		} else {
 			changed.copy(text = untimedKeyed(record).map { (key, text) -> edits.lines[key] ?: text }.filter { it.isNotBlank() }.joinToString("\n"))
 		}
@@ -127,4 +132,10 @@ object TranscriptEditing {
 
 	private fun untimedKeyed(record: TranscriptRecord): List<Pair<String, String>> =
 		record.text.lines().filter { it.isNotBlank() }.mapIndexed { i, t -> "l$i" to t }
+
+	/** True when rebuilding [record.text] from [PlaybackTranscripts.lines] cannot drop content (whitespace ignored). */
+	private fun linesCoverText(record: TranscriptRecord): Boolean {
+		val joined = PlaybackTranscripts.lines(record).joinToString("\n") { it.text }
+		return joined.filterNot { it.isWhitespace() } == record.text.filterNot { it.isWhitespace() }
+	}
 }

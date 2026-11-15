@@ -13,12 +13,47 @@ import org.junit.Test
 
 class TranscriptEditingTests {
 
+	@Test fun correctedFullTextAndUndoRevisionSurviveStoreRecreation() {
+		val dir = Files.createTempDirectory("corrected-source").toFile()
+		val store = TranscriptStore(dir)
+		val raw = timed()
+		store.saveTranscript(raw)
+		val edit = TranscriptEditing.withLine(raw, null, "s1", "確認新日期", 100)!!
+		store.saveEdits(edit)
+		val corrected = TranscriptStore(dir).transcriptWithEdits(7, "run")!!
+		assertTrue(corrected.text.contains("確認新日期"))
+		assertFalse(corrected.text.contains("Recoder"))
+		assertEquals(PlaybackTranscripts.lines(corrected).joinToString("\n") { it.text }, corrected.text)
+		val beforeUndo = store.editChanges.value
+		store.saveEdits(TranscriptEditing.undo(edit, 200)!!)
+		val undone = store.transcriptWithEdits(7, "run")!!
+		assertEquals(raw.text, undone.text)
+		assertEquals(200L, undone.updatedAtMillis)
+		assertTrue(store.editChanges.value > beforeUndo)
+		assertEquals(raw, store.transcript(7, "run"))
+	}
+
+	@Test fun editingKeepsAggregateTextThatTimedLinesDoNotCover() {
+		// A failed segment (no usable timestamps) is excluded from the timed lines, so its text only exists in text.
+		val record = timed().copy(
+			text = "今天開會\n討論 Recoder 進度\n下週交付\n（這句聽不清）",
+			segments = listOf(seg(0, "今天開會"), seg(1, "討論 Recoder 進度"), seg(2, "下週交付"),
+				SegmentResult(3, 3000L, 3000L, SegmentStatus.FAILED, "（這句聽不清）")),
+		)
+		val edits = TranscriptEditing.withLine(record, null, "s1", "討論 RecorderApp 進度", 100)!!
+		val shown = TranscriptEditing.apply(record, edits)
+		assertEquals("討論 RecorderApp 進度", shown.segments[1].text)
+		assertEquals(record.text, shown.text)
+		assertTrue(shown.text.contains("（這句聽不清）"))
+	}
+
+
 	private fun seg(i: Int, text: String, parts: List<SegmentResult> = emptyList()) =
 		SegmentResult(i, i * 1000L, (i + 1) * 1000L, SegmentStatus.OK, text, parts = parts)
 
 	private fun timed(updated: Long = 10L, status: RunStatus = RunStatus.SUCCESS) = TranscriptRecord(
 		id = "run", recordingId = 7, source = TranscriptSource.OFFLINE, provenance = Provenance("offline", model = "m"),
-		createdAtMillis = 1, updatedAtMillis = updated, status = status, text = "全文",
+		createdAtMillis = 1, updatedAtMillis = updated, status = status, text = "今天開會\n討論 Recoder 進度\n下週交付",
 		segments = listOf(seg(0, "今天開會"), seg(1, "討論 Recoder 進度"), seg(2, "下週交付")),
 	)
 
