@@ -45,6 +45,7 @@ internal class RecorderViewModel @Inject constructor(
     private val handler: RecorderActionHandler,
     private val recorderService: RecorderServiceBinder,
     private val transcriptionSettings: TranscriptionSettingsRepo,
+    private val slackSync: com.eva.cloudtranscribe.slack.SlackSyncCoordinator,
     private val statusTracker: RecorderStatusTracker,
     private val savedStateHandle: SavedStateHandle,
 ) : AppViewModel() {
@@ -70,6 +71,12 @@ internal class RecorderViewModel @Inject constructor(
         if (!tileStartGate.consume(requestId)) return
         savedStateHandle[KEY_HANDLED_TILE_STARTS] = tileStartGate.handledIds.toLongArray()
     }
+
+    /** Opt-in Slack sync status for the indicator on this screen. */
+    val slackStatus: StateFlow<com.eva.cloudtranscribe.slack.SlackSyncStatus> = slackSync.status
+
+    /** Turns Slack sync off/on for the current recording only (never enables it without the global opt-in). */
+    fun setSlackSyncForThisRecording(enabled: Boolean) = slackSync.setSyncForThisRecording(enabled)
 
     /** Live on-device captions on/off; only this preference changes (cloud settings are independent). */
     fun setLiveTranscription(enabled: Boolean) {

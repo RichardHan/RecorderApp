@@ -44,6 +44,8 @@ internal fun VoiceRecorderScreen(
 	transcriptionSettings: TranscriptionSettings = TranscriptionSettings(),
 	navigation: @Composable () -> Unit = {},
 	onToggleLiveTranscription: (Boolean) -> Unit = {},
+	slackStatus: com.eva.cloudtranscribe.slack.SlackSyncStatus = com.eva.cloudtranscribe.slack.SlackSyncStatus(),
+	onToggleSlackSync: (Boolean) -> Unit = {},
 	showNotes: Boolean = false,
 ) {
 
@@ -92,6 +94,8 @@ internal fun VoiceRecorderScreen(
 				isStartRecordingEnabled = isRecorderReady,
 				transcriptions = transcriptions,
 				liveCloud = liveCloud,
+				slackStatus = slackStatus,
+				onToggleSlackSync = onToggleSlackSync,
 				transcriptionSettings = transcriptionSettings,
 				onNavigateToSettings = onNavigateToSettings,
 				onToggleLiveTranscription = onToggleLiveTranscription,
