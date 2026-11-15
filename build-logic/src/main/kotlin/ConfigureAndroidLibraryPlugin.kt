@@ -86,6 +86,13 @@ class ConfigureAndroidLibraryPlugin : Plugin<Project> {
             sourceCompatibility = JavaVersion.VERSION_17
             targetCompatibility = JavaVersion.VERSION_17
         }
+        packaging {
+            resources {
+                // Google auth / httpclient jars ship the same META-INF entries, which breaks the
+                // androidTest APK merge; same exclusion list as :app.
+                excludes += "/META-INF/{AL2.0,LGPL2.1,INDEX.LIST,DEPENDENCIES}"
+            }
+        }
     }
 
     private fun Project.configureCompileOptions() {
