@@ -14,6 +14,7 @@ import com.eva.database.dao.RecordingsBookmarkDao
 import com.eva.database.dao.DriveUploadDao
 import com.eva.database.dao.RecordingActionItemsDao
 import com.eva.database.dao.RecordingChaptersDao
+import com.eva.database.dao.RecordingClipsDao
 import com.eva.database.dao.RecordingsMetadataDao
 import com.eva.database.dao.STTModelsDao
 import com.eva.database.dao.TrashFileDao
@@ -22,6 +23,7 @@ import com.eva.database.entity.RecordingCategoryEntity
 import com.eva.database.entity.DriveUploadEntity
 import com.eva.database.entity.RecordingActionItemEntity
 import com.eva.database.entity.RecordingChapterEntity
+import com.eva.database.entity.RecordingClipEntity
 import com.eva.database.entity.RecordingsMetaDataEntity
 import com.eva.database.entity.STTModelEntity
 import com.eva.database.entity.TrashFileEntity
@@ -38,8 +40,9 @@ import kotlinx.coroutines.Dispatchers
 		DriveUploadEntity::class,
 		RecordingActionItemEntity::class,
 		RecordingChapterEntity::class,
+		RecordingClipEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -55,6 +58,8 @@ import kotlinx.coroutines.Dispatchers
 		AutoMigration(from = 10, to = 11),
 		// new table only
 		AutoMigration(from = 11, to = 12),
+		// new table only (short audio clips)
+		AutoMigration(from = 12, to = 13),
     ],
 )
 @ColumnTypeConverters(
@@ -81,6 +86,8 @@ abstract class RecorderDataBase : RoomDatabase() {
 	abstract fun recordingActionItemsDao(): RecordingActionItemsDao
 
 	abstract fun recordingChaptersDao(): RecordingChaptersDao
+
+	abstract fun recordingClipsDao(): RecordingClipsDao
 
     companion object {
 
