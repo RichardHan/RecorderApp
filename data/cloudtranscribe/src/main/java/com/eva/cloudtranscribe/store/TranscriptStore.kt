@@ -35,6 +35,17 @@ class TranscriptStore(root: File) {
 	fun saveTranscript(record: TranscriptRecord) = write(File(transcriptsDir(record.recordingId), "${safe(record.id)}.json"), json.encodeToString(TranscriptRecord.serializer(), record))
 	fun saveSummary(record: SummaryRecord) = write(File(summariesDir(record.recordingId), "${safe(record.id)}.json"), json.encodeToString(SummaryRecord.serializer(), record))
 
+	/** Atomically reserve a summary before enqueueing. Manual retries of finished jobs remain possible. */
+	fun claimSummary(candidate: SummaryRecord, automatic: Boolean): SummaryRecord = synchronized(lock) {
+		val existing = summaries(candidate.recordingId).firstOrNull {
+			it.sourceTranscriptId == candidate.sourceTranscriptId &&
+				if (automatic) it.status != com.eva.cloudtranscribe.model.RunStatus.CANCELLED
+				else it.status in listOf(com.eva.cloudtranscribe.model.RunStatus.QUEUED, com.eva.cloudtranscribe.model.RunStatus.RUNNING) &&
+					it.provenance == candidate.provenance
+		}
+		existing ?: candidate.also { saveSummary(it) }
+	}
+
 	fun transcript(recordingId: Long, id: String): TranscriptRecord? = read(File(transcriptsDir(recordingId), "${safe(id)}.json"))?.let { json.decodeFromString(TranscriptRecord.serializer(), it) }
 	fun summary(recordingId: Long, id: String): SummaryRecord? = read(File(summariesDir(recordingId), "${safe(id)}.json"))?.let { json.decodeFromString(SummaryRecord.serializer(), it) }
 

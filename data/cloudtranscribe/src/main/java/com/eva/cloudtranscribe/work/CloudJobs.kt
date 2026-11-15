@@ -98,18 +98,25 @@ class CloudJobScheduler @Inject constructor(
 	}
 
 	/**
-	 * Creates a NEW summary for [transcriptId]; an existing summary is never overwritten. [format] lets the dialog ask
+	 * Creates a summary for [transcriptId], reusing an identical pending job; finished summaries are never overwritten. [format] lets the dialog ask
 	 * for another shape than the saved default for this one run.
 	 */
 	suspend fun startSummary(
 		recordingId: Long,
 		transcriptId: String,
 		format: SummaryFormat? = null,
+		automatic: Boolean = false,
 	): Result<String> {
 		val s = settings.current()
 		s.validate(keys.hasKey.value)?.let { return Result.failure(IllegalStateException(it)) }
-		val id = "summary-${System.currentTimeMillis()}"
-		store.saveSummary(
+		if (automatic) {
+			val source = store.transcript(recordingId, transcriptId)
+				?: return Result.failure(IllegalStateException("來源逐字稿不存在"))
+			if (!AutoSummaryPolicy.shouldStart(s, source.status, source.text, transcriptId, emptyList()))
+				return Result.failure(IllegalStateException("自動摘要條件不符"))
+		}
+		val id = "summary-${UUID.randomUUID()}"
+		val claimed = store.claimSummary(
 			newSummaryRecord(
 				id = id,
 				recordingId = recordingId,
@@ -118,12 +125,21 @@ class CloudJobScheduler @Inject constructor(
 				format = (format ?: s.effectiveSummaryFormat).let { if (it == SummaryFormat.CUSTOM && s.customSummaryInstructions.isBlank()) SummaryFormat.CONCISE else it },
 				now = System.currentTimeMillis(),
 			),
+			automatic = automatic,
 		)
+		if (claimed.id != id) return Result.success(claimed.id)
 		val request = OneTimeWorkRequestBuilder<CloudSummaryWorker>()
 			.setInputData(workDataOf(KEY_RECORDING to recordingId, KEY_RUN to id))
 			.setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
 			.addTag(TAG).addTag(tagFor(recordingId)).build()
-		wm.enqueueUniqueWork(uniqueName(id), ExistingWorkPolicy.KEEP, request)
+		try {
+			withContext(Dispatchers.IO) { wm.enqueueUniqueWork(uniqueName(id), ExistingWorkPolicy.KEEP, request).result.get() }
+		} catch (e: CancellationException) {
+			throw e
+		} catch (e: Exception) {
+			store.saveSummary(claimed.copy(status = RunStatus.FAILED, error = "無法排程摘要"))
+			return Result.failure(e)
+		}
 		return Result.success(id)
 	}
 
@@ -212,11 +228,11 @@ class CloudTranscribeWorker @AssistedInject constructor(
 		}
 	}
 
-	/** Opt-in, at most once per transcript; never fails the transcription. */
+	/** Opt-in automatic scheduling; the atomic store claim also checks manual jobs. Never fails transcription. */
 	private suspend fun maybeAutoSummary(recordingId: Long, runId: String, status: RunStatus, text: String) {
 		try {
 			if (!AutoSummaryPolicy.shouldStart(settingsRepo.current(), status, text, runId, store.summaries(recordingId))) return
-			scheduler.startSummary(recordingId, runId).onFailure { Log.w(CloudJobScheduler.TAG, "auto summary skipped: ${it.message}") }
+			scheduler.startSummary(recordingId, runId, automatic = true).onFailure { Log.w(CloudJobScheduler.TAG, "auto summary skipped: ${it.message}") }
 		} catch (e: CancellationException) { throw e } catch (e: Exception) {
 			Log.w(CloudJobScheduler.TAG, "auto summary not scheduled", e)
 		}
