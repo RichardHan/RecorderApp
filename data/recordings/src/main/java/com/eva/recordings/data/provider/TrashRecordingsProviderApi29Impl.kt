@@ -52,6 +52,7 @@ internal class TrashRecordingsProviderApi29Impl(
 	private val context: Context,
 	private val trashMediaDao: TrashFileDao,
 	private val recordingsDao: RecordingsMetadataDao,
+	private val photos: com.eva.recordings.domain.provider.RecordingPhotos? = null,
 	private val clipsProvider: com.eva.recordings.domain.provider.RecordingClipsProvider? = null,
 	private val audioVolumeUriProvider: () -> android.net.Uri = { RecordingsConstants.AUDIO_VOLUME_URI },
 ) : RecordingsContentResolverWrapper(context), TrashRecordingsProvider {
@@ -149,8 +150,9 @@ internal class TrashRecordingsProviderApi29Impl(
 					operations.awaitAll()
 				}
 				// now remove secondary data
-				val ids = recordings.map { it.id }
+				val ids = ownerRecordings.map { it.id }
 				recordingsDao.deleteRecordingMetaDataFromIds(ids)
+					photos?.pruneDeletedFiles()
 					// clips belong to the recording: remove their files and rows with it
 					try {
 						clipsProvider?.deleteAllFor(ids)
