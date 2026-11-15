@@ -33,18 +33,15 @@ import com.eva.recorder.domain.recorder.LiveTranscriptState
 internal fun cloudStatusText(s: LiveCloudState): String = buildString {
 	append(
 		when (s.phase) {
-			LiveCloudPhase.OFF -> "進階雲端模式未啟用"
-			LiveCloudPhase.WAITING_FIRST_CHUNK -> "累積第一段音訊中（預設 60 秒後送出）"
+			LiveCloudPhase.OFF -> "雲端模式未啟用"
+			LiveCloudPhase.WAITING_FIRST_CHUNK, LiveCloudPhase.IDLE -> "聆聽中…"
 			LiveCloudPhase.TRANSCRIBING -> "雲端轉錄中…"
-			LiveCloudPhase.IDLE -> "等待下一段"
 			LiveCloudPhase.SUMMARIZING -> "整理重點中…"
-			LiveCloudPhase.FINISHING -> "停止中：送出最後一段並整理最終重點…"
+			LiveCloudPhase.FINISHING -> "整理最終重點…"
 			LiveCloudPhase.DONE -> "已結束"
 		}
 	)
-	if (s.pendingChunks > 0) append("・待送 ${s.pendingChunks} 段")
-	s.transcribeModel?.let { append("・轉錄 $it") }
-	if (s.skippedMs > 0) append("\n⚠ 雲端跟不上，約 ${s.skippedMs / 1000} 秒未上傳（錄音完整保存）")
+	if (s.skippedMs > 0) append("\n⚠ 約 ${s.skippedMs / 1000} 秒未上傳雲端（錄音完整保存）")
 	s.transcribeError?.let { append("\n⚠ 轉錄：$it") }
 }
 
@@ -62,7 +59,7 @@ internal fun LiveTranscriptPanes(
 	fontFamily: FontFamily = FontFamily.Default,
 ) {
 	Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-		SectionTitle("逐字稿（離線即時＋雲端校正）")
+		SectionTitle("逐字稿")
 		MergedTranscriptPane(offline, cloud, isActive, showOffline, Modifier.fillMaxWidth().weight(1.4f), fontFamily)
 		SectionTitle("重點")
 		KeyPointsPane(cloud, Modifier.fillMaxWidth().weight(1f))
@@ -85,24 +82,19 @@ private fun MergedTranscriptPane(
 	val total = merged.size + if (offline.partial.isNotBlank()) 1 else 0
 	val atBottom by remember { derivedStateOf { val i = listState.layoutInfo; (i.visibleItemsInfo.lastOrNull()?.index ?: -1) >= i.totalItemsCount - 2 } }
 	LaunchedEffect(total) { if (total > 0 && atBottom) listState.animateScrollToItem(total - 1) }
-	// short "cloud updated" note when a new cloud chunk lands
-	val latestEnd = com.eva.cloudtranscribe.live.LiveMerge.latestCloudEndMs(cloud.cloudSpans)
-	var flash by remember { mutableStateOf(false) }
-	LaunchedEffect(latestEnd) { if (latestEnd != null) { flash = true; kotlinx.coroutines.delay(5_000); flash = false } }
-
 	Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.medium, modifier = modifier) {
 		Column(Modifier.fillMaxSize().padding(10.dp)) {
 			Text(
 				buildString {
-					append(if (showOffline) liveStatusText(offline, isActive) else "離線即時字幕已關閉")
-					append("・").append(cloudStatusText(cloud).lineSequence().first())
-					latestEnd?.let { append("\n☁ 雲端已校正至 %d:%02d".format(it / 60_000, it / 1000 % 60)) }
+					append(if (showOffline) liveStatusText(offline, isActive) else "即時字幕已關閉")
+					val cloudLine = cloudStatusText(cloud).lineSequence().first()
+					if (cloudLine.isNotBlank() && cloudLine != "聆聽中…") append("・").append(cloudLine)
 					if (cloud.skippedMs > 0) append("\n⚠ 約 ${cloud.skippedMs / 1000} 秒未上傳雲端（錄音完整保存）")
 					cloud.transcribeError?.let { append("\n⚠ 雲端：$it") }
 					offline.message?.let { append("\n⚠ 離線：$it") }
 				},
 				style = MaterialTheme.typography.labelMedium,
-				color = if (flash) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+				color = MaterialTheme.colorScheme.onSurfaceVariant,
 			)
 			LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.weight(1f).padding(top = 6.dp)) {
 				items(merged) { raw ->
@@ -164,18 +156,16 @@ private fun CloudTranscriptPane(cloud: LiveCloudState, modifier: Modifier, fontF
 private fun KeyPointsPane(cloud: LiveCloudState, modifier: Modifier) {
 	Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.medium, modifier = modifier) {
 		Column(Modifier.fillMaxSize().padding(12.dp)) {
-			Text(
-				buildString {
-					append(cloud.summaryModel?.let { "重點整理：$it" } ?: "重點整理")
-					cloud.keyPointsAtMs?.let { append("・更新於錄音 %d:%02d".format(it / 60_000, it / 1000 % 60)) }
-					if (cloud.keyPoints.isBlank()) append("\n首次整理約在錄音 1:30，且需先完成一段雲端轉錄")
-					cloud.summaryError?.let { append("\n⚠ 最近一次整理失敗，保留上次結果：$it") }
-				},
-				style = MaterialTheme.typography.labelMedium,
-				color = if (cloud.summaryError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-			)
+			cloud.summaryError?.let {
+				Text("⚠ $it", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
+			}
 			SelectionContainer(Modifier.weight(1f).padding(top = 8.dp)) {
-				Text(cloud.keyPoints, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.verticalScroll(rememberScrollState()))
+				Text(
+					cloud.keyPoints.ifBlank { "目前無重點" },
+					style = MaterialTheme.typography.bodyLarge,
+					color = if (cloud.keyPoints.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+					modifier = Modifier.verticalScroll(rememberScrollState()),
+				)
 			}
 		}
 	}

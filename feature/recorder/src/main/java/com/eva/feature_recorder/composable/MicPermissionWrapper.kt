@@ -4,6 +4,7 @@ import android.Manifest
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,7 +40,7 @@ internal fun MicPermissionWrapper(
 		if (hasPerms) onPermissionGranted()
 		else {
 			Box(
-				modifier = Modifier.fillMaxSize(),
+				modifier = Modifier.fillMaxSize().navigationBarsPadding(),
 				contentAlignment = Alignment.Center
 			) {
 				NoRecordPermissionBox(
