@@ -28,6 +28,8 @@ data class CloudSettings(
 	val summaryFormat: SummaryFormat = SummaryFormat.CONCISE,
 	/** Used only when [summaryFormat] is [SummaryFormat.CUSTOM]; blank falls back to the concise format. */
 	val customSummaryInstructions: String = "",
+	/** Local notification when background cloud transcription / summary finishes. Off by default. */
+	val notifyWhenDone: Boolean = false,
 	/** Ask NEW summaries to cite cloud segments (longer prompt and reply → more tokens). Off by default. */
 	val summaryCitations: Boolean = false,
 	/** Optional style for follow-up drafts; blank uses the built-in default. Never contains keys or URLs. */
