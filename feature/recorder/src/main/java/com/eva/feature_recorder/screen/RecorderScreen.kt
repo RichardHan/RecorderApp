@@ -44,6 +44,7 @@ internal fun VoiceRecorderScreen(
 	transcriptionSettings: TranscriptionSettings = TranscriptionSettings(),
 	navigation: @Composable () -> Unit = {},
 	onToggleLiveTranscription: (Boolean) -> Unit = {},
+	showNotes: Boolean = false,
 ) {
 
 	val snackBarHostState = LocalSnackBarProvider.current
@@ -94,6 +95,7 @@ internal fun VoiceRecorderScreen(
 				transcriptionSettings = transcriptionSettings,
 				onNavigateToSettings = onNavigateToSettings,
 				onToggleLiveTranscription = onToggleLiveTranscription,
+				showNotes = showNotes,
 				modifier = Modifier.fillMaxSize()
 			)
 		}

@@ -23,6 +23,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.eva.cloudtranscribe.api.CallOutcome
+import com.eva.cloudtranscribe.citations.SummaryCitations
 import com.eva.cloudtranscribe.api.CloudAiClients
 import com.eva.cloudtranscribe.api.Redactor
 import com.eva.cloudtranscribe.api.UrlConnectionTransport
@@ -181,6 +182,8 @@ class CloudTranscribeWorker @AssistedInject constructor(
 				workers = p.workers ?: s.normalizedWorkers,
 				hallucinationWarning = s.hallucinationWarning,
 				skipSilentChunks = s.skipSilentChunks,
+				prompt = Prompts.withVocabulary(Prompts.TRANSCRIBE, s.customVocabulary),
+				alternatePrompt = Prompts.withVocabulary(Prompts.TRANSCRIBE_ALT, s.customVocabulary),
 			))
 			val result = engine.run(PcmFileSource(pcm)) { done, total ->
 				setProgress(workDataOf(CloudJobScheduler.PROGRESS_DONE to done, CloudJobScheduler.PROGRESS_TOTAL to total))
@@ -251,14 +254,27 @@ class CloudSummaryWorker @AssistedInject constructor(
 			?: s.effectiveSummaryFormat
 		store.saveSummary(record.copy(status = RunStatus.RUNNING))
 		val client = CloudAiClients.create(s, apiKey, UrlConnectionTransport(), record.provenance.model)
-		val prompt = Prompts.summary(transcript.text, format, s.customSummaryInstructions)
+		// Citations only when the run asked for them AND the source has real cloud segment timing.
+		val citeSegments = if (record.provenance.citations == true) SummaryCitations.segmentsOf(transcript) else null
+		val basePrompt = if (citeSegments != null)
+			SummaryCitations.withInstruction(Prompts.summary(SummaryCitations.numberedTranscript(citeSegments), format, s.customSummaryInstructions))
+		else Prompts.summary(transcript.text, format, s.customSummaryInstructions)
+		// per-recording notes (#5) are reference-only; without notes the prompt is unchanged
+		val prompt = com.eva.cloudtranscribe.notes.RecordingNotes.withNotes(
+			basePrompt,
+			runCatching { store.notes(recordingId)?.text }.getOrNull(),
+		)
 		val last = boundedRetry(
 			attempts = CloudSettings.MAX_ATTEMPTS,
 			request = { withContext(Dispatchers.IO) { client.complete(prompt) } },
 			shouldRetry = { it is CallOutcome.Failure && it.retryable },
 			pause = { kotlinx.coroutines.delay(it) },
 		)
-		if (last is CallOutcome.Text) return done(record.copy(status = RunStatus.SUCCESS, text = last.text))
+		if (last is CallOutcome.Text) {
+			if (citeSegments == null) return done(record.copy(status = RunStatus.SUCCESS, text = last.text))
+			val cited = SummaryCitations.parse(last.text, citeSegments)
+			return done(record.copy(status = RunStatus.SUCCESS, text = cited.text, citations = cited.citations))
+		}
 		val msg = when (val o = last) {
 			is CallOutcome.Failure -> o.message
 			CallOutcome.ContentFiltered -> "內容過濾"
@@ -322,6 +338,7 @@ internal fun newSummaryRecord(
 		model = settings.summaryModel,
 		reasoningEffort = settings.reasoningEffort.wire,
 		summaryFormat = format.name,
+		citations = settings.summaryCitations.takeIf { it },
 	),
 	createdAtMillis = now,
 	status = RunStatus.QUEUED,
