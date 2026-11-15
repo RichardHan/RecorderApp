@@ -121,7 +121,7 @@ object SlackSendPolicy {
 		return when {
 			code in 200..299 -> SlackSendResult.Sent
 			code == 429 -> SlackSendResult.RetryAfter(
-				retryAfterHeader?.trim()?.toLongOrNull()?.coerceIn(1L, 3_600L) ?: DEFAULT_RETRY_AFTER_SECONDS,
+				retryAfterHeader?.trim()?.toLongOrNull()?.coerceAtLeast(1L) ?: DEFAULT_RETRY_AFTER_SECONDS,
 			)
 			error in PERMANENT_ERRORS -> SlackSendResult.Permanent(error)
 			code in setOf(400, 403, 404, 410) -> SlackSendResult.Permanent(error.ifEmpty { "HTTP $code" })
