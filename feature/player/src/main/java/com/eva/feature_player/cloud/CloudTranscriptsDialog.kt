@@ -228,6 +228,7 @@ fun CloudTranscriptsDialog(
 						latestSummaryAtMillis = newestSummary?.createdAtMillis,
 					)
 				}
+				item { RecordingNotesCard(recordingId = recordingId) }
 				item { RecordingQaCard(recordingId = recordingId, onSeekTo = onSeekTo) }
 				item {
 					val newestSummary = state.summaries.firstOrNull { it.status == RunStatus.SUCCESS && it.text.isNotBlank() }

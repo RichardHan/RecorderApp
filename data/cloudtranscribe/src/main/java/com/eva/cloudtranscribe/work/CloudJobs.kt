@@ -246,9 +246,14 @@ class CloudSummaryWorker @AssistedInject constructor(
 		val client = CloudAiClients.create(s, apiKey, UrlConnectionTransport(), record.provenance.model)
 		// Citations only when the run asked for them AND the source has real cloud segment timing.
 		val citeSegments = if (record.provenance.citations == true) SummaryCitations.segmentsOf(transcript) else null
-		val prompt = if (citeSegments != null)
+		val basePrompt = if (citeSegments != null)
 			SummaryCitations.withInstruction(Prompts.summary(SummaryCitations.numberedTranscript(citeSegments), format, s.customSummaryInstructions))
 		else Prompts.summary(transcript.text, format, s.customSummaryInstructions)
+		// per-recording notes (#5) are reference-only; without notes the prompt is unchanged
+		val prompt = com.eva.cloudtranscribe.notes.RecordingNotes.withNotes(
+			basePrompt,
+			runCatching { store.notes(recordingId)?.text }.getOrNull(),
+		)
 		val last = boundedRetry(
 			attempts = CloudSettings.MAX_ATTEMPTS,
 			request = { withContext(Dispatchers.IO) { client.complete(prompt) } },
