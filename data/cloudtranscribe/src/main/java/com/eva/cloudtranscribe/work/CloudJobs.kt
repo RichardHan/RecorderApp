@@ -23,6 +23,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.eva.cloudtranscribe.api.CallOutcome
+import com.eva.cloudtranscribe.citations.SummaryCitations
 import com.eva.cloudtranscribe.api.CloudAiClients
 import com.eva.cloudtranscribe.api.Redactor
 import com.eva.cloudtranscribe.api.UrlConnectionTransport
@@ -183,6 +184,8 @@ class CloudTranscribeWorker @AssistedInject constructor(
 				workers = p.workers ?: s.normalizedWorkers,
 				hallucinationWarning = s.hallucinationWarning,
 				skipSilentChunks = s.skipSilentChunks,
+				prompt = Prompts.withVocabulary(Prompts.TRANSCRIBE, s.customVocabulary),
+				alternatePrompt = Prompts.withVocabulary(Prompts.TRANSCRIBE_ALT, s.customVocabulary),
 			))
 			val result = engine.run(PcmFileSource(pcm)) { done, total ->
 				setProgress(workDataOf(CloudJobScheduler.PROGRESS_DONE to done, CloudJobScheduler.PROGRESS_TOTAL to total))
@@ -196,6 +199,7 @@ class CloudTranscribeWorker @AssistedInject constructor(
 			if (result.status == RunStatus.SUCCESS) store.clearCheckpoints(recordingId, runId)
 			pcm.delete()
 			maybeAutoSummary(recordingId, runId, result.status, result.text)
+			notifyDone(recordingId, result.status)
 			return Result.success()
 		} catch (e: CancellationException) {
 			store.transcript(recordingId, runId)?.let { store.saveTranscript(it.copy(status = RunStatus.CANCELLED, updatedAtMillis = System.currentTimeMillis())) }
@@ -217,9 +221,17 @@ class CloudTranscribeWorker @AssistedInject constructor(
 		}
 	}
 
-	private fun fail(record: TranscriptRecord, message: String): Result {
+	private suspend fun fail(record: TranscriptRecord, message: String): Result {
 		store.saveTranscript(record.copy(status = RunStatus.FAILED, error = message, updatedAtMillis = System.currentTimeMillis()))
+		notifyDone(record.recordingId, RunStatus.FAILED)
 		return Result.failure()
+	}
+
+	/** Opt-in only; never throws. Cancelled runs never reach here. */
+	private suspend fun notifyDone(recordingId: Long, status: RunStatus) = runCatching {
+		if (!settingsRepo.current().notifyWhenDone) return@runCatching
+		val title = recordingTitle(recordings, recordingId)
+		CloudDoneMessages.transcription(status, title)?.let { CloudDoneNotifier.post(applicationContext, recordingId, "transcript", it) }
 	}
 
 	private suspend fun recordingUri(id: Long): Uri = withContext(Dispatchers.IO) {
@@ -240,6 +252,7 @@ class CloudSummaryWorker @AssistedInject constructor(
 	private val store: TranscriptStore,
 	private val settingsRepo: CloudSettingsRepository,
 	private val keys: ApiKeyStore,
+	private val recordings: VoiceRecordingsProvider,
 ) : CoroutineWorker(context, params) {
 	override suspend fun doWork(): Result {
 		val recordingId = inputData.getLong(CloudJobScheduler.KEY_RECORDING, -1)
@@ -254,14 +267,27 @@ class CloudSummaryWorker @AssistedInject constructor(
 			?: s.effectiveSummaryFormat
 		store.saveSummary(record.copy(status = RunStatus.RUNNING))
 		val client = CloudAiClients.create(s, apiKey, UrlConnectionTransport(), record.provenance.model)
-		val prompt = Prompts.summary(transcript.text, format, s.customSummaryInstructions)
+		// Citations only when the run asked for them AND the source has real cloud segment timing.
+		val citeSegments = if (record.provenance.citations == true) SummaryCitations.segmentsOf(transcript) else null
+		val basePrompt = if (citeSegments != null)
+			SummaryCitations.withInstruction(Prompts.summary(SummaryCitations.numberedTranscript(citeSegments), format, s.customSummaryInstructions))
+		else Prompts.summary(transcript.text, format, s.customSummaryInstructions)
+		// per-recording notes (#5) are reference-only; without notes the prompt is unchanged
+		val prompt = com.eva.cloudtranscribe.notes.RecordingNotes.withNotes(
+			basePrompt,
+			runCatching { store.notes(recordingId)?.text }.getOrNull(),
+		)
 		val last = boundedRetry(
 			attempts = CloudSettings.MAX_ATTEMPTS,
 			request = { withContext(Dispatchers.IO) { client.complete(prompt) } },
 			shouldRetry = { it is CallOutcome.Failure && it.retryable },
 			pause = { kotlinx.coroutines.delay(it) },
 		)
-		if (last is CallOutcome.Text) return done(record.copy(status = RunStatus.SUCCESS, text = last.text))
+		if (last is CallOutcome.Text) {
+			if (citeSegments == null) return done(record.copy(status = RunStatus.SUCCESS, text = last.text))
+			val cited = SummaryCitations.parse(last.text, citeSegments)
+			return done(record.copy(status = RunStatus.SUCCESS, text = cited.text, citations = cited.citations))
+		}
 		val msg = when (val o = last) {
 			is CallOutcome.Failure -> o.message
 			CallOutcome.ContentFiltered -> "內容過濾"
@@ -271,7 +297,18 @@ class CloudSummaryWorker @AssistedInject constructor(
 		return done(record.copy(status = RunStatus.FAILED, error = msg))
 	}
 
-	private fun done(r: SummaryRecord): Result { store.saveSummary(r); return if (r.status == RunStatus.SUCCESS) Result.success() else Result.failure() }
+	private suspend fun done(r: SummaryRecord): Result {
+		store.saveSummary(r)
+		runCatching {
+			if (settingsRepo.current().notifyWhenDone) CloudDoneMessages.summary(r.status, recordingTitle(recordings, r.recordingId), r.text)
+				?.let { CloudDoneNotifier.post(applicationContext, r.recordingId, "summary", it) }
+		}
+		return if (r.status == RunStatus.SUCCESS) Result.success() else Result.failure()
+	}
+}
+
+private suspend fun recordingTitle(recordings: VoiceRecordingsProvider, id: Long): String? = withContext(Dispatchers.IO) {
+	(recordings.getVoiceRecordingAsResourceFromId(id) as? Resource.Success)?.data?.let { it.title.ifBlank { it.displayName } }
 }
 
 internal fun foregroundInfoFor(context: Context, id: Int, text: String) = buildForeground(context, id, text)
@@ -314,6 +351,7 @@ internal fun newSummaryRecord(
 		model = settings.summaryModel,
 		reasoningEffort = settings.reasoningEffort.wire,
 		summaryFormat = format.name,
+		citations = settings.summaryCitations.takeIf { it },
 	),
 	createdAtMillis = now,
 	status = RunStatus.QUEUED,
