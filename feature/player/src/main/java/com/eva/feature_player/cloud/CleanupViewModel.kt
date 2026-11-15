@@ -78,12 +78,14 @@ class CleanupViewModel internal constructor(
 
 	private var transcript: TranscriptRecord? = null
 	private var recordingId = -1L
+	private var sourceJob: Job? = null
 	private var job: Job? = null
 
 	fun bind(id: Long, force: Boolean = false) {
 		if (!force && recordingId == id) return
 		recordingId = id
-		viewModelScope.launch { reload() }
+		sourceJob?.cancel()
+		sourceJob = viewModelScope.launch { store.editChanges.collect { reload() } }
 	}
 
 	fun selectIntensity(value: CleanupIntensity) {
@@ -96,7 +98,7 @@ class CleanupViewModel internal constructor(
 		val id = recordingId
 		val level = intensity
 		withContext(Dispatchers.IO) {
-			val selected = PlaybackTranscripts.defaultSelection(store.transcripts(id))
+			val selected = PlaybackTranscripts.defaultSelection(store.transcriptsWithEdits(id))
 			transcript = selected
 			sentences = selected?.let { TranscriptCleanup.sentences(PlaybackTranscripts.lines(it)) }.orEmpty()
 			val stored = cleanups.cleanup(id, level)
@@ -148,7 +150,7 @@ class CleanupViewModel internal constructor(
 					intensity = level, model = settings.summaryModel, createdAtMillis = System.currentTimeMillis(), sentences = cleaned,
 				)
 				withContext(Dispatchers.IO) { cleanups.save(record) }
-				if (recordingId == id && intensity == level) { cleanup = record; possiblyStale = false }
+				if (recordingId == id && intensity == level) { cleanup = record; possiblyStale = transcript?.updatedAtMillis != source.updatedAtMillis }
 				message = "清稿完成（原逐字稿未變更）"
 			} catch (e: CancellationException) {
 				throw e

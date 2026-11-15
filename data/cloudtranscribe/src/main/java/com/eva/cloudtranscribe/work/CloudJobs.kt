@@ -260,7 +260,7 @@ class CloudSummaryWorker @AssistedInject constructor(
 		val id = inputData.getString(CloudJobScheduler.KEY_RUN) ?: return Result.failure()
 		val record = store.summary(recordingId, id) ?: return Result.failure()
 		val apiKey = keys.read() ?: return done(record.copy(status = RunStatus.FAILED, error = "找不到 API Key"))
-		val transcript = store.transcript(recordingId, record.sourceTranscriptId)
+		val transcript = store.transcriptWithEdits(recordingId, record.sourceTranscriptId)
 			?: return done(record.copy(status = RunStatus.FAILED, error = "來源逐字稿不存在"))
 		val s = settingsRepo.current().let { it.copy(providerType = record.provenance.providerType ?: it.providerType) }
 		val format = record.provenance.summaryFormat
