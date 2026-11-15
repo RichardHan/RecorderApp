@@ -1,10 +1,15 @@
 package com.eva.feature_settings.composables.cloudai
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
@@ -21,8 +26,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -40,8 +45,10 @@ import com.eva.cloudtranscribe.slack.SlackWebhookStore
 import com.eva.cloudtranscribe.slack.UrlConnectionSlackTransport
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -56,21 +63,28 @@ internal class SlackSyncSettingsViewModel @Inject constructor(
 	val hasWebhook: StateFlow<Boolean> = webhookStore.hasKey
 	val lastError: StateFlow<String?> = deliveryState.lastError
 
+	private val _savedWebhookUrl = MutableStateFlow(webhookStore.read())
+	/** Decrypted webhook URL for the settings screen only; never logged. */
+	val savedWebhookUrl: StateFlow<String?> = _savedWebhookUrl.asStateFlow()
+
 	var testing by mutableStateOf(false)
 		private set
 	var testResult by mutableStateOf<String?>(null)
 		private set
 
-	/** Saves the pasted URL only when it is a Slack incoming webhook; the URL is never shown again or logged. */
+	/** Saves the pasted URL only when it is a Slack incoming webhook. Shown in settings so it can be verified; never logged. */
 	fun saveWebhook(url: String): Boolean {
 		if (!SlackMessages.isValidWebhookUrl(url)) return false
-		webhookStore.save(url.trim())
+		val trimmed = url.trim()
+		webhookStore.save(trimmed)
+		_savedWebhookUrl.value = webhookStore.read() ?: trimmed
 		return true
 	}
 
 	/** Clearing the webhook also turns sync off (and drops consent). */
 	fun clearWebhook() {
 		webhookStore.clear()
+		_savedWebhookUrl.value = null
 		viewModelScope.launch { repo.update { it.copy(enabled = false) } }
 	}
 
@@ -105,9 +119,11 @@ internal class SlackSyncSettingsViewModel @Inject constructor(
 internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hiltViewModel()) {
 	val saved by viewModel.settings.collectAsStateWithLifecycle()
 	val hasWebhook by viewModel.hasWebhook.collectAsStateWithLifecycle()
+	val savedWebhookUrl by viewModel.savedWebhookUrl.collectAsStateWithLifecycle()
 	val lastError by viewModel.lastError.collectAsStateWithLifecycle()
 	val current = saved ?: return
-	var urlInput by remember { mutableStateOf("") }
+	val context = LocalContext.current
+	var urlInput by remember(savedWebhookUrl) { mutableStateOf(savedWebhookUrl.orEmpty()) }
 	var urlError by remember { mutableStateOf<String?>(null) }
 	var label by remember(current.channelLabel) { mutableStateOf(current.channelLabel) }
 	var consent by remember { mutableStateOf(false) }
@@ -126,23 +142,44 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 			color = MaterialTheme.colorScheme.onSurfaceVariant,
 		)
 
-		Text(if (hasWebhook) "Webhook：已儲存（不顯示網址）" else "Webhook：尚未設定", style = MaterialTheme.typography.bodyMedium)
+		Row(
+			modifier = Modifier.fillMaxWidth(),
+			verticalAlignment = Alignment.Top,
+			horizontalArrangement = Arrangement.spacedBy(4.dp),
+		) {
+			SelectionContainer(Modifier.weight(1f)) {
+				Text(
+					if (savedWebhookUrl != null) "Webhook：$savedWebhookUrl" else "Webhook：尚未設定",
+					style = MaterialTheme.typography.bodyMedium,
+				)
+			}
+			if (savedWebhookUrl != null) TextButton(onClick = {
+				val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+				clipboard.setPrimaryClip(ClipData.newPlainText("Slack Webhook", savedWebhookUrl))
+				Toast.makeText(context, "已複製", Toast.LENGTH_SHORT).show()
+			}) { Text("複製") }
+		}
 		OutlinedTextField(
 			value = urlInput,
 			onValueChange = { urlInput = it; urlError = null },
-			label = { Text(if (hasWebhook) "更換 Webhook URL" else "貼上 Webhook URL") },
+			label = { Text(if (hasWebhook) "Webhook URL" else "貼上 Webhook URL") },
 			singleLine = true,
-			visualTransformation = PasswordVisualTransformation(),
-			keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+			keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
 			modifier = Modifier.fillMaxWidth(),
 		)
 		urlError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 			Button(enabled = urlInput.isNotBlank(), onClick = {
-				if (viewModel.saveWebhook(urlInput)) urlInput = "" else urlError = "需要 https://hooks.slack.com/services/… 開頭的 Incoming Webhook URL"
+				if (!viewModel.saveWebhook(urlInput)) {
+					urlError = "需要 https://hooks.slack.com/services/… 開頭的 Incoming Webhook URL"
+				}
 			}) { Text("儲存 Webhook") }
 			if (hasWebhook) OutlinedButton(onClick = viewModel::clearWebhook) { Text("清除") }
 		}
+		Text(
+			if (current.channelLabel.isNotBlank()) "頻道顯示名稱：${current.channelLabel}" else "頻道顯示名稱：尚未設定",
+			style = MaterialTheme.typography.bodyMedium,
+		)
 		OutlinedTextField(
 			value = label,
 			onValueChange = { label = it.take(SlackSyncSettings.MAX_LABEL) },
