@@ -11,9 +11,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.SuggestionChip
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,15 +31,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.eva.datastore.domain.models.TranscriptionSettings
-import com.eva.recorder.domain.models.RecorderState
 import com.eva.ui.R
 
 @Composable
 internal fun AssociatedRecorderActions(
-	onAddBookMark: () -> Unit,
 	onOpenSettings: () -> Unit,
 	modifier: Modifier = Modifier,
-	recorderState: RecorderState = RecorderState.RECORDING,
 	transcriptionSettings: TranscriptionSettings = TranscriptionSettings(),
 	onToggleLiveTranscription: (Boolean) -> Unit = {},
 ) {
@@ -83,25 +77,6 @@ internal fun AssociatedRecorderActions(
 			},
 			label = { Text(liveToggleLabel(transcriptionSettings)) },
 			shape = MaterialTheme.shapes.extraLarge,
-		)
-		SuggestionChip(
-			onClick = onAddBookMark,
-			icon = {
-				Icon(
-					painter = painterResource(R.drawable.ic_boomark_add),
-					contentDescription = null,
-					modifier = Modifier.size(20.dp),
-				)
-			},
-			border = null,
-			label = { Text(stringResource(R.string.add_recording_bookmark)) },
-			enabled = recorderState == RecorderState.RECORDING,
-			shape = MaterialTheme.shapes.extraLarge,
-			colors = SuggestionChipDefaults.suggestionChipColors(
-				containerColor = MaterialTheme.colorScheme.secondary,
-				labelColor = MaterialTheme.colorScheme.onSecondary,
-				iconContentColor = MaterialTheme.colorScheme.onSecondary
-			)
 		)
 	}
 }
