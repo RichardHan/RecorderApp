@@ -38,7 +38,7 @@
       android:layout_height="wrap_content"
       android:layout_gravity="center_horizontal"
       android:layout_marginBottom="4dp"
-      android:text="@string/widget_recordings_preview_duration"
+      android:text="@string/widget_recorder_widget"
       android:textColor="@color/on_surface"
       android:textFontWeight="500"
       android:textSize="18sp" />
@@ -47,7 +47,7 @@
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
       android:layout_gravity="center_horizontal"
-      android:text="@string/recorder_state_recording"
+      android:text="@string/widget_recorder_tap_hint"
       android:textColor="@color/on_primary_container"
       android:textFontWeight="400"
       android:textSize="12sp" />

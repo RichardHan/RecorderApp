@@ -9,10 +9,11 @@
   <string name="widget_recordings_preview_name" translatable="false">Recording_001</string>
   <string name="widget_recordings_preview_duration" translatable="false">00:00</string>
   <string name="recordings_load_failed" translatable="false">Cannot load recordings</string>
-  <string name="widget_recorder_description" translatable="false">Start recording with a button click</string>
-  <string name="recorder_state_recording" translatable="false">Recording</string>
-  <string name="recorder_state_paused" translatable="false">Paused</string>
-  <string name="widget_recorder_widget" translatable="false">Recorder Widget</string>
+  <string name="widget_recorder_description" translatable="false">點一下開始錄音。錄音中會顯示狀態，再點則開啟錄音畫面，不會停止錄音。</string>
+  <string name="recorder_state_recording" translatable="false">錄音中</string>
+  <string name="recorder_state_paused" translatable="false">已暫停</string>
+  <string name="widget_recorder_widget" translatable="false">一鍵錄音</string>
   <string name="widget_recordings_title" translatable="false">Recordings</string>
+  <string name="widget_recorder_tap_hint" translatable="false">點一下開始</string>
   <string name="widget_no_recordings" translatable="false">No Recordings</string>
 </resources>

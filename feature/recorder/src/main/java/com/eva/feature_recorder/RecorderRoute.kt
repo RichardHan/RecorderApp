@@ -41,8 +41,8 @@ fun NavGraphBuilder.recorderRoute(navController: NavHostController) =
 
 		val viewModel = hiltViewModel<RecorderViewModel>()
 
-		// Quick Settings tile start: the tile cannot start a microphone foreground service itself,
-		// so it opens this screen with a one-time request id; start only once resumed and permitted.
+		// Quick Settings tile or 一鍵錄音 widget start: neither can start a microphone foreground
+		// service itself, so they open this screen with a one-time request; start only once resumed and permitted.
 		val tileStartRequestId = remember(it) { it.tileStartRequestId() }
 		val context = LocalContext.current
 		val lifecycleOwner = LocalLifecycleOwner.current
@@ -96,6 +96,12 @@ private fun NavBackStackEntry.tileStartRequestId(): Long? {
 	val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
 		args.getParcelable(NavController.KEY_DEEP_LINK_INTENT, Intent::class.java)
 	else @Suppress("DEPRECATION") args.getParcelable(NavController.KEY_DEEP_LINK_INTENT)
-	val id = intent?.getLongExtra(IntentConstants.EXTRAS_TILE_START_REQUEST_ID, -1L) ?: -1L
-	return id.takeIf { it > 0L }
+	if (intent == null) return null
+	val existing = intent.getLongExtra(IntentConstants.EXTRAS_TILE_START_REQUEST_ID, -1L).takeIf { it > 0L }
+	if (existing != null) return existing
+	// Widget start: assign a unique id once onto the same intent so rotation does not start twice.
+	if (!intent.getBooleanExtra(IntentConstants.EXTRAS_WIDGET_TRY_START, false)) return null
+	val id = System.currentTimeMillis()
+	intent.putExtra(IntentConstants.EXTRAS_TILE_START_REQUEST_ID, id)
+	return id
 }
