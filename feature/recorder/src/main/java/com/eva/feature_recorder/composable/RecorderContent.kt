@@ -49,6 +49,8 @@ internal fun RecorderContent(
 	transcriptionSettings: TranscriptionSettings = TranscriptionSettings(),
 	onNavigateToSettings: () -> Unit = {},
 	onToggleLiveTranscription: (Boolean) -> Unit = {},
+	slackStatus: com.eva.cloudtranscribe.slack.SlackSyncStatus = com.eva.cloudtranscribe.slack.SlackSyncStatus(),
+	onToggleSlackSync: (Boolean) -> Unit = {},
 	/** Off in previews/tests (needs Hilt). */
 	showNotes: Boolean = false,
 ) {
@@ -82,6 +84,11 @@ internal fun RecorderContent(
 				)
 				if (showNotes) RecordingNotesChip()
 			}
+			SlackSyncIndicator(
+				status = slackStatus,
+				isRecording = recorderState == RecorderState.RECORDING || recorderState == RecorderState.PAUSED,
+				onToggle = onToggleSlackSync,
+			)
 			RecorderAmplitudeGraph(
 				recoderPointsCallback = recordingPointsCallback,
 				bookMarksDeferred = bookMarksDeferred,

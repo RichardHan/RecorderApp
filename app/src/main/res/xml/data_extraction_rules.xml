@@ -2,8 +2,10 @@
 <data-extraction-rules>
   <cloud-backup>
     <exclude domain="sharedpref" path="cloud_ai_secure.xml" />
+    <exclude domain="sharedpref" path="slack_webhook_secure.xml" />
   </cloud-backup>
   <device-transfer>
     <exclude domain="sharedpref" path="cloud_ai_secure.xml" />
+    <exclude domain="sharedpref" path="slack_webhook_secure.xml" />
   </device-transfer>
 </data-extraction-rules>

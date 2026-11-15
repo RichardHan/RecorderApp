@@ -78,6 +78,10 @@ internal class VoiceRecorderService : LifecycleService() {
     @Inject
     lateinit var cloudJobScheduler: com.eva.cloudtranscribe.work.CloudJobScheduler
 
+    /** Opt-in Slack sync (default OFF); only consumes lifecycle events and local key points. */
+    @Inject
+    lateinit var slackSync: com.eva.cloudtranscribe.slack.SlackSyncCoordinator
+
     /** Per-recording notes draft (#5): bound on save, dropped on cancel. */
     @Inject
     lateinit var notesDraft: com.eva.cloudtranscribe.notes.RecordingNotesDraft
@@ -160,6 +164,8 @@ internal class VoiceRecorderService : LifecycleService() {
             readTimerAndUpdateNotification()
             // update widget state
             updateRecorderWidgetState()
+            // opt-in slack sync: pause state + live key points
+            observeForSlackSync()
             // mirror state for the quick settings tile
             publishRecorderStatus()
             // initiate transcript
@@ -226,6 +232,22 @@ internal class VoiceRecorderService : LifecycleService() {
         }.launchIn(lifecycleScope)
     }
 
+    private fun observeForSlackSync() {
+        var wasPaused = false
+        voiceRecorder.recorderState.onEach { state ->
+            when (state) {
+                RecorderState.PAUSED -> { wasPaused = true; slackSync.onPaused() }
+                RecorderState.RECORDING -> if (wasPaused) { wasPaused = false; slackSync.onResumed() }
+                else -> wasPaused = false
+            }
+        }.launchIn(lifecycleScope)
+        liveCloud.state
+            .mapLatest { it.keyPoints }
+            .distinctUntilChanged()
+            .onEach { slackSync.onKeyPoints(it) }
+            .launchIn(lifecycleScope)
+    }
+
     private fun publishRecorderStatus() {
         voiceRecorder.recorderState.onEach { state ->
             statusTracker.publish(state)
@@ -243,6 +265,7 @@ internal class VoiceRecorderService : LifecycleService() {
         lifecycleScope.launch {
             val started = sessionCoordinator.startRecording()
             if (started) {
+                runCatching { slackSync.onRecordingStarted() }
                 startVoiceRecorderService(
                     NotificationConstants.RECORDER_NOTIFICATION_ID,
                     notificationHelper.timerNotification,
@@ -282,6 +305,7 @@ internal class VoiceRecorderService : LifecycleService() {
         lifecycleScope.launch {
             sessionCoordinator.cancelRecording(
                 onCancelled = {
+                    slackSync.onRecordingCancelled()
                     // a cancelled recording's notes never carry over to the next one
                     runCatching { notesDraft.discard() }
                     // clear bookmarks
@@ -311,6 +335,8 @@ internal class VoiceRecorderService : LifecycleService() {
                     runCatching { notesDraft.bindTo(recordingId) }
                     // opt-in only (default off); never reached for cancelled recordings
                     cloudJobScheduler.onRecordingFinalized(recordingId)
+                    // opt-in only (default off): one end message with the final key points
+                    slackSync.onRecordingSaved()
                     // again show the notification
                     notificationHelper.showCompletedNotificationWithIntent(recordingId)
                 },
