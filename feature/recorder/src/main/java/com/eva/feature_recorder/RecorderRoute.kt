@@ -59,7 +59,6 @@ fun NavGraphBuilder.recorderRoute(navController: NavHostController) =
 		val isRecorderReady by viewModel.isServiceReady.collectAsStateWithLifecycle()
 		val recorderState by viewModel.recorderState.collectAsStateWithLifecycle()
 		val recorderTimer by viewModel.recorderTime.collectAsStateWithLifecycle()
-		val bookMarksSet by viewModel.bookMarksSet.collectAsStateWithLifecycle()
 		val recordingPoints by viewModel.recordingPoints.collectAsStateWithLifecycle()
 		val transcriptionsResult by viewModel.transcriptionsResult.collectAsStateWithLifecycle()
 		val transcriptionSettings by viewModel.transcribeSettings.collectAsStateWithLifecycle()
@@ -80,7 +79,6 @@ fun NavGraphBuilder.recorderRoute(navController: NavHostController) =
 				onToggleSlackSync = viewModel::setSlackSyncForThisRecording,
 				transcriptionSettings = transcriptionSettings,
 				recorderTimer = { recorderTimer },
-				bookMarksSetDeferred = { bookMarksSet },
 				deferredRecordingPoints = { recordingPoints },
 				onRecorderAction = viewModel::onAction,
 				onScreenEvent = viewModel::onEvent,
