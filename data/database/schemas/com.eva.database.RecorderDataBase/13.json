@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 13,
-    "identityHash": "0df559793520978081644ed08a52fe9d",
+    "identityHash": "0bbee7d7bebfdbde64dbf86564164f49",
     "entities": [
       {
         "tableName": "trash_files_data_table",
@@ -515,39 +515,47 @@
         ]
       },
       {
-        "tableName": "recording_decisions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`DECISION_ID` INTEGER PRIMARY KEY AUTOINCREMENT, `RECORDING_ID` INTEGER NOT NULL, `TEXT` TEXT NOT NULL, `START_MS` INTEGER, `SOURCE_SENTENCE_INDEX` INTEGER, `SOURCE` TEXT NOT NULL, `CREATED_AT` INTEGER NOT NULL, `TRANSCRIPT_REVISION` TEXT, FOREIGN KEY(`RECORDING_ID`) REFERENCES `recording_meta_data`(`RECORDING_ID`) ON UPDATE CASCADE ON DELETE CASCADE )",
+        "tableName": "recording_clips",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`CLIP_ID` INTEGER PRIMARY KEY AUTOINCREMENT, `SOURCE_AUDIO_ID` INTEGER NOT NULL, `TITLE` TEXT NOT NULL, `START_MS` INTEGER NOT NULL, `END_MS` INTEGER NOT NULL, `FILE_PATH` TEXT NOT NULL, `MIME_TYPE` TEXT NOT NULL, `CREATED_AT` INTEGER NOT NULL)",
         "fields": [
           {
-            "fieldPath": "decisionId",
-            "columnName": "DECISION_ID",
+            "fieldPath": "clipId",
+            "columnName": "CLIP_ID",
             "affinity": "INTEGER"
           },
           {
-            "fieldPath": "recordingId",
-            "columnName": "RECORDING_ID",
+            "fieldPath": "sourceAudioId",
+            "columnName": "SOURCE_AUDIO_ID",
             "affinity": "INTEGER",
             "notNull": true
           },
           {
-            "fieldPath": "text",
-            "columnName": "TEXT",
+            "fieldPath": "title",
+            "columnName": "TITLE",
             "affinity": "TEXT",
             "notNull": true
           },
           {
             "fieldPath": "startMs",
             "columnName": "START_MS",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
-            "fieldPath": "sourceSentenceIndex",
-            "columnName": "SOURCE_SENTENCE_INDEX",
-            "affinity": "INTEGER"
+            "fieldPath": "endMs",
+            "columnName": "END_MS",
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
-            "fieldPath": "source",
-            "columnName": "SOURCE",
+            "fieldPath": "filePath",
+            "columnName": "FILE_PATH",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mimeType",
+            "columnName": "MIME_TYPE",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -556,48 +564,30 @@
             "columnName": "CREATED_AT",
             "affinity": "INTEGER",
             "notNull": true
-          },
-          {
-            "fieldPath": "transcriptRevision",
-            "columnName": "TRANSCRIPT_REVISION",
-            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
           "autoGenerate": true,
           "columnNames": [
-            "DECISION_ID"
+            "CLIP_ID"
           ]
         },
         "indices": [
           {
-            "name": "index_recording_decisions_RECORDING_ID",
+            "name": "index_recording_clips_SOURCE_AUDIO_ID",
             "unique": false,
             "columnNames": [
-              "RECORDING_ID"
+              "SOURCE_AUDIO_ID"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_recording_decisions_RECORDING_ID` ON `${TABLE_NAME}` (`RECORDING_ID`)"
-          }
-        ],
-        "foreignKeys": [
-          {
-            "table": "recording_meta_data",
-            "onDelete": "CASCADE",
-            "onUpdate": "CASCADE",
-            "columns": [
-              "RECORDING_ID"
-            ],
-            "referencedColumns": [
-              "RECORDING_ID"
-            ]
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_recording_clips_SOURCE_AUDIO_ID` ON `${TABLE_NAME}` (`SOURCE_AUDIO_ID`)"
           }
         ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0df559793520978081644ed08a52fe9d')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0bbee7d7bebfdbde64dbf86564164f49')"
     ]
   }
 }

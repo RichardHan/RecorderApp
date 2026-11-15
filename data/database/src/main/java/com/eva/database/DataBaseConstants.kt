@@ -14,4 +14,5 @@ object DataBaseConstants {
 	const val RECORDING_ACTION_ITEMS_TABLE = "recording_action_items"
 	const val RECORDING_CHAPTERS_TABLE = "recording_chapters"
 	const val RECORDING_DECISIONS_TABLE = "recording_decisions"
+	const val RECORDING_CLIPS_TABLE = "recording_clips"
 }

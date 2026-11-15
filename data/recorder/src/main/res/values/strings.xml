@@ -13,4 +13,15 @@
     <string name="toast_incoming_call">Incoming call</string>
     <string name="bookmarks_saved">Bookmarks Added</string>
     <string name="bookmarks_too_fast_warning">Bookmarks need be 1 second apart</string>
+    <string name="recorder_tile_label" translatable="false">錄音</string>
+    <string name="recorder_tile_label_recording" translatable="false">錄音中</string>
+    <string name="recorder_tile_label_paused" translatable="false">已暫停</string>
+    <string name="recorder_tile_label_preparing" translatable="false">準備中</string>
+    <string name="recorder_tile_subtitle_start" translatable="false">點一下開始</string>
+    <string name="recorder_tile_subtitle_pause" translatable="false">點一下暫停</string>
+    <string name="recorder_tile_subtitle_resume" translatable="false">點一下繼續</string>
+    <string name="recorder_tile_subtitle_preparing" translatable="false">請稍候</string>
+    <string name="recorder_tile_cd_start" translatable="false">開始錄音</string>
+    <string name="recorder_tile_cd_pause" translatable="false">暫停錄音</string>
+    <string name="recorder_tile_cd_resume" translatable="false">繼續錄音</string>
 </resources>
