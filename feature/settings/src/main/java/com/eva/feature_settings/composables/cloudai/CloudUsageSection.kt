@@ -52,9 +52,9 @@ internal class CloudUsageViewModel @Inject constructor(private val store: Transc
 	}
 }
 
-/** Pure line for tests. */
-internal fun usageLine(u: MonthUsage): String =
-	"${u.month}：雲端轉錄 ${u.cloudTranscripts} 次・上傳約 ${CloudUsage.minutes(u.uploadedMs)} 分鐘・請求 ${u.requests} 次・摘要 ${u.summaries} 次"
+/** Argument order of `cloud_usage_month`; pure so the counters stay unit-tested without Android resources. */
+internal fun usageArgs(u: MonthUsage): List<Any> =
+	listOf(u.month.toString(), u.cloudTranscripts, CloudUsage.minutes(u.uploadedMs), u.requests, u.summaries)
 
 /** Shown inside the collapsed-by-default 用量 card; computes only when the card is opened. Reads local records only. */
 @Composable
@@ -65,10 +65,13 @@ internal fun CloudUsageSection(viewModel: CloudUsageViewModel = hiltViewModel())
 		when {
 			usage == null -> CircularProgressIndicator()
 			usage.all { it.cloudTranscripts == 0 && it.summaries == 0 } -> Text("最近 ${CloudUsage.MONTHS} 個月還沒有雲端轉錄紀錄", style = MaterialTheme.typography.bodySmall)
-			else -> usage.forEach { Text(usageLine(it), style = MaterialTheme.typography.bodySmall) }
+			else -> usage.forEach {
+				val args = usageArgs(it)
+				Text(androidx.compose.ui.res.stringResource(com.eva.feature_settings.R.string.cloud_usage_month, args[0], args[1], args[2], args[3], args[4]), style = MaterialTheme.typography.bodySmall)
+			}
 		}
 		Text(
-			"估算，不是帳單；費用以服務商後台為準。",
+			androidx.compose.ui.res.stringResource(com.eva.feature_settings.R.string.cloud_usage_scope),
 			style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
 		)
 	}

@@ -1,17 +1,18 @@
 package com.eva.feature_settings.cloudai
 
 import com.eva.cloudtranscribe.model.MonthUsage
-import com.eva.feature_settings.composables.cloudai.usageLine
+import com.eva.feature_settings.composables.cloudai.usageArgs
 import java.time.YearMonth
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class CloudUsageSectionTest {
 	@Test
-	fun line_shows_all_counters() {
+	fun usage_args_follow_the_string_placeholder_order() {
+		// cloud_usage_month = "%1$s：… %2$d 筆・…約 %3$s 分鐘・… %4$d 次・… %5$d 筆"
 		assertEquals(
-			"2026-11：雲端轉錄 2 次・上傳約 12.5 分鐘・請求 5 次・摘要 1 次",
-			usageLine(MonthUsage(YearMonth.of(2026, 11), 2, 750_000, 5, 1)),
+			listOf("2026-11", 2, "12.5", 5, 1),
+			usageArgs(MonthUsage(YearMonth.of(2026, 11), cloudTranscripts = 2, uploadedMs = 750_000, requests = 5, summaries = 1)),
 		)
 	}
 }

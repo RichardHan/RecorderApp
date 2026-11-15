@@ -62,6 +62,11 @@ private fun AskAcrossDialog(viewModel: AskAcrossViewModel, onDismiss: () -> Unit
 				viewModel.message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 				if (plan != null) {
 					Text("來源（${plan.sources.size} 段）：" + plan.sources.joinToString("、") { it.name }, style = MaterialTheme.typography.bodySmall)
+					val truncated = AskAcross.truncatedSources(plan.sources)
+					if (truncated.isNotEmpty()) Text(
+						androidx.compose.ui.res.stringResource(com.eva.feature_recordings.R.string.ask_across_truncated_sources, truncated.joinToString("、") { it.name }),
+						style = MaterialTheme.typography.bodySmall,
+					)
 					if (answer == null) {
 						OutlinedTextField(question, { question = it }, Modifier.fillMaxWidth(), label = { Text("問題") }, maxLines = 4, enabled = !viewModel.busy)
 						Text(
@@ -81,7 +86,7 @@ private fun AskAcrossDialog(viewModel: AskAcrossViewModel, onDismiss: () -> Unit
 								}
 							}
 						}
-						Text("回答由 AI 根據逐字稿產生，請點來源核對。", style = MaterialTheme.typography.bodySmall)
+						Text(androidx.compose.ui.res.stringResource(com.eva.feature_recordings.R.string.ask_across_citation_limit), style = MaterialTheme.typography.bodySmall)
 					}
 				}
 			}

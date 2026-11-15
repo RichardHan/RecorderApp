@@ -39,4 +39,12 @@ class AskAcrossTests {
 		assertEquals(listOf(0, 2), AskAcross.cited("見 [R1, R3] 與 [R1、3]", 3))
 		assertEquals(emptyList<Int>(), AskAcross.cited(AskAcross.NOT_FOUND, 3))
 	}
+	@org.junit.Test fun truncationDisclosureMatchesEachSourceBudget() {
+		val short = AskSource(1, "short", "a")
+		val exact = AskSource(2, "exact", "b".repeat(16_000))
+		val long = AskSource(3, "long", "c".repeat(16_001))
+		org.junit.Assert.assertEquals(listOf(long), AskAcross.truncatedSources(listOf(short, exact, long)))
+		org.junit.Assert.assertTrue(AskAcross.truncatedSources(emptyList()).isEmpty())
+	}
+
 }
