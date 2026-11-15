@@ -47,18 +47,28 @@ fun PhotoThumbnail(photo: PhotoItem, onSeek: ((Long) -> Unit)? = null) {
 
 private fun photoTime(ms: Long) = "%02d:%02d".format(ms / 60_000, ms / 1000 % 60)
 
+private sealed interface PhotoImageState {
+	data object Loading : PhotoImageState
+	data object Unavailable : PhotoImageState
+	data class Loaded(val bitmap: ImageBitmap) : PhotoImageState
+}
+
 @Composable
 private fun PhotoImage(photo: PhotoItem, full: Boolean, modifier: Modifier) {
-	val bitmap by produceState<ImageBitmap?>(null, photo.path, full) {
+	// A missing or undecodable file must not look like it is still loading.
+	val state by produceState<PhotoImageState>(PhotoImageState.Loading, photo.path, full) {
 		value = withContext(Dispatchers.IO) { runCatching {
 			ImageDecoder.decodeBitmap(ImageDecoder.createSource(File(photo.path))) { d, info, _ ->
 				val scale = minOf(1.0, (if (full) 1600.0 else 240.0) / maxOf(info.size.width, info.size.height))
 				d.setTargetSize(maxOf(1, (info.size.width * scale).toInt()), maxOf(1, (info.size.height * scale).toInt()))
 			}.asImageBitmap()
-		}.getOrNull() }
+		}.getOrNull()?.let { PhotoImageState.Loaded(it) } ?: PhotoImageState.Unavailable }
 	}
-	bitmap?.let { Image(it, photo.caption.ifBlank { stringResource(R.string.photo_image) }, modifier, contentScale = ContentScale.Fit) }
-		?: Text(stringResource(R.string.photo_loading), modifier)
+	when (val s = state) {
+		PhotoImageState.Loading -> Text(stringResource(R.string.photo_loading), modifier)
+		PhotoImageState.Unavailable -> Text(stringResource(R.string.photo_unavailable), modifier)
+		is PhotoImageState.Loaded -> Image(s.bitmap, photo.caption.ifBlank { stringResource(R.string.photo_image) }, modifier, contentScale = ContentScale.Fit)
+	}
 }
 
 @Composable
