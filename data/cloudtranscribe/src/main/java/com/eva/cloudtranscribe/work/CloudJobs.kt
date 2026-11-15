@@ -32,6 +32,7 @@ import com.eva.cloudtranscribe.audio.PcmFileSource
 import com.eva.cloudtranscribe.engine.CloudTranscriptionEngine
 import com.eva.cloudtranscribe.engine.EngineConfig
 import com.eva.cloudtranscribe.engine.Prompts
+import com.eva.cloudtranscribe.model.PiiRedactor
 import com.eva.cloudtranscribe.model.AutoSummaryPolicy
 import com.eva.cloudtranscribe.model.CloudSettings
 import com.eva.cloudtranscribe.model.Provenance
@@ -267,15 +268,17 @@ class CloudSummaryWorker @AssistedInject constructor(
 			?: s.effectiveSummaryFormat
 		store.saveSummary(record.copy(status = RunStatus.RUNNING))
 		val client = CloudAiClients.create(s, apiKey, UrlConnectionTransport(), record.provenance.model)
+		// optional on-device PII masking (#81) of everything taken from the recording
+		val redact: (String) -> String = { if (s.redactPiiForCloud) PiiRedactor.redact(it) else it }
 		// Citations only when the run asked for them AND the source has real cloud segment timing.
 		val citeSegments = if (record.provenance.citations == true) SummaryCitations.segmentsOf(transcript) else null
 		val basePrompt = if (citeSegments != null)
-			SummaryCitations.withInstruction(Prompts.summary(SummaryCitations.numberedTranscript(citeSegments), format, s.customSummaryInstructions))
-		else Prompts.summary(transcript.text, format, s.customSummaryInstructions)
+			SummaryCitations.withInstruction(Prompts.summary(redact(SummaryCitations.numberedTranscript(citeSegments)), format, s.customSummaryInstructions))
+		else Prompts.summary(redact(transcript.text), format, s.customSummaryInstructions)
 		// per-recording notes (#5) are reference-only; without notes the prompt is unchanged
 		val prompt = com.eva.cloudtranscribe.notes.RecordingNotes.withNotes(
 			basePrompt,
-			runCatching { store.notes(recordingId)?.text }.getOrNull(),
+			runCatching { store.notes(recordingId)?.text?.let(redact) }.getOrNull(),
 		)
 		val last = boundedRetry(
 			attempts = CloudSettings.MAX_ATTEMPTS,
