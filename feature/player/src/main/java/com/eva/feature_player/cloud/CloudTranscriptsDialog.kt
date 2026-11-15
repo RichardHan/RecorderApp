@@ -141,6 +141,7 @@ private fun RunStatus.zh() = when (this) {
 fun CloudTranscriptsDialog(
 	recordingId: Long,
 	onDismiss: () -> Unit,
+	onSeekTo: ((Long) -> Unit)? = null,
 	viewModel: CloudTranscriptsViewModel = hiltViewModel(),
 ) {
 	LaunchedEffect(recordingId) { viewModel.bind(recordingId) }
@@ -227,6 +228,24 @@ fun CloudTranscriptsDialog(
 						latestSummaryAtMillis = newestSummary?.createdAtMillis,
 					)
 				}
+				item { RecordingQaCard(recordingId = recordingId, onSeekTo = onSeekTo) }
+				item {
+					val newestSummary = state.summaries.firstOrNull { it.status == RunStatus.SUCCESS && it.text.isNotBlank() }
+					if (newestSummary != null) OutlineCard(
+						recordingId = recordingId,
+						summaryId = newestSummary?.id,
+						summaryText = newestSummary?.text,
+					)
+				}
+				item {
+					val accepted = state.summaries.firstOrNull { it.status == RunStatus.SUCCESS && it.text.isNotBlank() }
+					FollowUpDraftCard(
+						recordingId = recordingId,
+						acceptedSummaryId = accepted?.id,
+						acceptedSummaryText = accepted?.text,
+					)
+				}
+				item { SpeechPaceCard(state.transcripts, onSeekTo = { ms -> onSeekTo?.invoke(ms); onDismiss() }) }
 				items(state.summaries, key = { it.id }) { s ->
 					Card {
 						Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -235,7 +254,14 @@ fun CloudTranscriptsDialog(
 								?.let { name -> SummaryFormat.entries.firstOrNull { it.name == name } }
 							Text("${s.provenance.model}・${s.status.zh()}・${storedFormat?.let { "${it.zh()}・" } ?: ""}來源：${src?.label() ?: s.sourceTranscriptId}", style = MaterialTheme.typography.labelMedium)
 							s.error?.let { Text("錯誤：$it", color = MaterialTheme.colorScheme.error) }
-							if (s.text.isNotBlank()) SelectionContainer { Text(s.text, style = MaterialTheme.typography.bodySmall) }
+							if (s.text.isNotBlank()) {
+								if (s.citations.isEmpty()) SelectionContainer { Text(s.text, style = MaterialTheme.typography.bodySmall) }
+								else CitedSummaryText(s.text, s.citations, onSeekTo = { ms -> onSeekTo?.invoke(ms); onDismiss() })
+							}
+							if (s.provenance.citations == true && s.status == RunStatus.SUCCESS) Text(
+								if (s.citations.isEmpty()) "無可驗證的引用（只支援雲端分段逐字稿）" else "時間標籤只代表該段有出現相同的詞，不保證意思完全出自該段。",
+								style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+							)
 							Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
 								OutlinedButton({ regenerateFor = s.sourceTranscriptId }) { Text("用其他格式重新整理") }
 								TextButton({ confirmDelete = "s:" + s.id }) { Text("刪除摘要") }
