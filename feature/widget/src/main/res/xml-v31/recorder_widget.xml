@@ -7,8 +7,9 @@
   android:minWidth="@dimen/recorder_widget_min_width"
   android:minHeight="@dimen/recorder_widget_min_height"
   android:previewLayout="@layout/recorder_widget_preview_layout"
-  android:targetCellWidth="2"
+  android:targetCellWidth="1"
   android:targetCellHeight="1"
+  android:resizeMode="horizontal|vertical"
   android:updatePeriodMillis="0"
   android:widgetCategory="home_screen" />
 
