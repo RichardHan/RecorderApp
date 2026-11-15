@@ -58,7 +58,7 @@ internal class BulkTextExportViewModel @Inject constructor(
 							title = r.title.ifBlank { r.displayName },
 							recordedAt = r.recordedAt.toString(),
 							durationMs = r.duration.inWholeMilliseconds,
-							transcript = runCatching { BulkTextExport.transcriptText(store.transcripts(r.id)) }.getOrNull(),
+							transcript = runCatching { BulkTextExport.transcriptText(store.transcriptsWithEdits(r.id)) }.getOrNull(),
 							summary = runCatching { BulkTextExport.summaryText(store.summaries(r.id)) }.getOrNull(),
 						)
 					}

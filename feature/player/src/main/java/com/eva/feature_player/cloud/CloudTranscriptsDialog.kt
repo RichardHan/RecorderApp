@@ -94,7 +94,7 @@ class CloudTranscriptsViewModel @Inject constructor(
 	}
 
 	private suspend fun refresh() = withContext(Dispatchers.IO) {
-		_state.value = CloudUiState(store.transcripts(recordingId), store.summaries(recordingId))
+		_state.value = CloudUiState(store.transcriptsWithEdits(recordingId), store.summaries(recordingId))
 	}
 
 	fun start(resume: String? = null) = viewModelScope.launch {
