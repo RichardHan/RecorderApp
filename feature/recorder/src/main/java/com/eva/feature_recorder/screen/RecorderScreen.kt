@@ -46,6 +46,7 @@ internal fun VoiceRecorderScreen(
 	onToggleLiveTranscription: (Boolean) -> Unit = {},
 	slackStatus: com.eva.cloudtranscribe.slack.SlackSyncStatus = com.eva.cloudtranscribe.slack.SlackSyncStatus(),
 	onToggleSlackSync: (Boolean) -> Unit = {},
+	showNotes: Boolean = false,
 ) {
 
 	val snackBarHostState = LocalSnackBarProvider.current
@@ -98,6 +99,7 @@ internal fun VoiceRecorderScreen(
 				transcriptionSettings = transcriptionSettings,
 				onNavigateToSettings = onNavigateToSettings,
 				onToggleLiveTranscription = onToggleLiveTranscription,
+				showNotes = showNotes,
 				modifier = Modifier.fillMaxSize()
 			)
 		}
