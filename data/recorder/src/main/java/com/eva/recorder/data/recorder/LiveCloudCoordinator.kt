@@ -138,6 +138,8 @@ internal class LiveCloudCoordinator(
 			val summaryProblem = live.validateSummary(explicitSummaryKey != null, asrKey != null)
 			val transport = transportFactory()
 			val asrClient = CloudAiClients.create(cloud, asrKey!!, transport, cloud.transcribeModel)
+			// snapshot per session: vocabulary edits apply from the next recording, never mid-session
+			val transcribePrompt = Prompts.withVocabulary(Prompts.TRANSCRIBE, cloud.customVocabulary)
 			val summaryClient = if (summaryProblem == null && summaryKey != null)
 				OpenAiCompatibleClient(live.summaryBaseUrl, summaryKey, live.summaryModel, ReasoningEffort.OFF, transport)
 			else null
@@ -148,7 +150,7 @@ internal class LiveCloudCoordinator(
 				sessionId = UUID.randomUUID().toString(),
 				transcribe = { samples, _, _ ->
 					val mp3 = audioEncoder(samples)
-					asrClient.transcribe(Prompts.TRANSCRIBE, AudioPayload(mp3, "mp3"))
+					asrClient.transcribe(transcribePrompt, AudioPayload(mp3, "mp3"))
 				},
 				summarize = { prompt ->
 					summaryClient?.complete(prompt) ?: CallOutcome.Failure("重點整理未啟動：${summaryProblem ?: "缺少摘要 Key"}", retryable = false)

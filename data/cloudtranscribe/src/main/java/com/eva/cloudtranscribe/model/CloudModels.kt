@@ -30,6 +30,8 @@ data class CloudSettings(
 	val customSummaryInstructions: String = "",
 	/** Optional style for follow-up drafts; blank uses the built-in default. Never contains keys or URLs. */
 	val followUpInstructions: String = "",
+	/** Spelling hints for CLOUD transcription only (empty = prompt unchanged). Sent with audio only when cloud transcription runs. */
+	val customVocabulary: List<VocabularyTerm> = emptyList(),
 ) {
 	val normalizedChunkSeconds: Int get() = chunkSeconds.coerceIn(MIN_CHUNK_SECONDS, MAX_CHUNK_SECONDS)
 
