@@ -1,6 +1,18 @@
 package com.eva.feature_recorder
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.withResumed
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavController
+import com.eva.utils.IntentConstants
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -28,6 +40,21 @@ fun NavGraphBuilder.recorderRoute(navController: NavHostController) =
 	) {
 
 		val viewModel = hiltViewModel<RecorderViewModel>()
+
+		// Quick Settings tile start: the tile cannot start a microphone foreground service itself,
+		// so it opens this screen with a one-time request id; start only once resumed and permitted.
+		val tileStartRequestId = remember(it) { it.tileStartRequestId() }
+		val context = LocalContext.current
+		val lifecycleOwner = LocalLifecycleOwner.current
+		LaunchedEffect(tileStartRequestId) {
+			if (tileStartRequestId == null) return@LaunchedEffect
+			lifecycleOwner.lifecycle.withResumed { }
+			val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+					PackageManager.PERMISSION_GRANTED
+			if (granted) viewModel.onTileStartRequest(tileStartRequestId)
+			// no permission: the screen already shows its permission prompt; the user starts manually
+			else viewModel.discardTileStartRequest(tileStartRequestId)
+		}
 
 		val isRecorderReady by viewModel.isServiceReady.collectAsStateWithLifecycle()
 		val recorderState by viewModel.recorderState.collectAsStateWithLifecycle()
@@ -61,3 +88,12 @@ fun NavGraphBuilder.recorderRoute(navController: NavHostController) =
 			)
 		}
 	}
+
+private fun NavBackStackEntry.tileStartRequestId(): Long? {
+	val args = arguments ?: return null
+	val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+		args.getParcelable(NavController.KEY_DEEP_LINK_INTENT, Intent::class.java)
+	else @Suppress("DEPRECATION") args.getParcelable(NavController.KEY_DEEP_LINK_INTENT)
+	val id = intent?.getLongExtra(IntentConstants.EXTRAS_TILE_START_REQUEST_ID, -1L) ?: -1L
+	return id.takeIf { it > 0L }
+}

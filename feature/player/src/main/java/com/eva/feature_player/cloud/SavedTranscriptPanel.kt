@@ -1,5 +1,6 @@
 package com.eva.feature_player.cloud
 
+import kotlinx.datetime.toJavaLocalDateTime
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import com.eva.feature_player.R
+import androidx.compose.runtime.produceState
+import com.eva.cloudtranscribe.model.TranscriptKeywords
 import com.eva.cloudtranscribe.model.TranscriptSearch
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -80,13 +83,21 @@ class SavedTranscriptViewModel @Inject constructor(private val store: Transcript
 	val records = _records.asStateFlow()
 	private val _message = MutableStateFlow<String?>(null)
 	val message = _message.asStateFlow()
+	private val _summaries = MutableStateFlow<List<com.eva.cloudtranscribe.model.SummaryRecord>>(emptyList())
+	/** Saved summaries (read-only), only used to optionally include them in an export. */
+	val summaries = _summaries.asStateFlow()
 	private var loadedFor: Long? = null
 	private val writes = Mutex()
 
 	fun load(recordingId: Long, force: Boolean = false) {
 		if (!force && loadedFor == recordingId) return
 		loadedFor = recordingId
-		viewModelScope.launch { _records.value = read(recordingId) }
+		viewModelScope.launch {
+			_records.value = read(recordingId)
+			_summaries.value = withContext(Dispatchers.IO) {
+				runCatching { store.summaries(recordingId) }.getOrDefault(emptyList())
+			}
+		}
 	}
 
 	private suspend fun read(recordingId: Long): List<SavedTranscriptEntry> = withContext(Dispatchers.IO) {
@@ -155,11 +166,13 @@ internal fun SavedTranscriptPanel(
 	modifier: Modifier = Modifier,
 	refreshKey: Int = 0,
 	onSeekTo: ((Long) -> Unit)? = null,
+	exportContext: () -> TranscriptExportContext = { TranscriptExportContext() },
 	viewModel: SavedTranscriptViewModel = hiltViewModel(key = "saved-transcripts-$recordingId"),
 ) {
 	LaunchedEffect(recordingId, refreshKey) { viewModel.load(recordingId, force = refreshKey > 0) }
 	val records by viewModel.records.collectAsStateWithLifecycle()
 	val message by viewModel.message.collectAsStateWithLifecycle()
+	val summaries by viewModel.summaries.collectAsStateWithLifecycle()
 	var selectedId by rememberSaveable(recordingId) { mutableStateOf<String?>(null) }
 	var editMode by rememberSaveable(recordingId) { mutableStateOf(false) }
 	var editingKey by rememberSaveable(recordingId) { mutableStateOf<String?>(null) }
@@ -180,7 +193,7 @@ internal fun SavedTranscriptPanel(
 					val selectedRaw = raws.firstOrNull { it.id == selectedId } ?: PlaybackTranscripts.defaultSelection(raws) ?: raws.first()
 					val entry = list.first { it.raw.id == selectedRaw.id }
 					SourcePicker(raws, selectedRaw) { selectedId = it; editMode = false }
-					TranscriptExportButton(entry.shown)
+					TranscriptExportButton(entry.shown, extras = { exportContext().toExtras(entry.shown, summaries) })
 					TranscriptEditBar(entry, editMode, onToggle = { editMode = !editMode }, onUndo = { viewModel.undo(entry) },
 						onResolve = { keep -> viewModel.resolveConflict(entry, keep) })
 					message?.let { m ->
@@ -322,7 +335,12 @@ internal fun TranscriptLines(
 		matches.getOrNull(matchIndex)?.let { listState.animateScrollToItem(it) }
 	}
 
+	val keywords by produceState(emptyList<String>(), lines) {
+		value = withContext(Dispatchers.Default) { TranscriptKeywords.extract(lines.map { it.text }) }
+	}
+
 	Column(modifier) {
+		TranscriptKeywordChips(keywords, query, onPick = { query = it })
 		OutlinedTextField(query, { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("transcript-search-input"),
 			label = { Text(stringResource(R.string.transcript_search_label)) })
 		if (searching) {
@@ -404,4 +422,26 @@ private fun SourcePicker(list: List<TranscriptRecord>, selected: TranscriptRecor
 			}
 		}
 	}
+}
+
+/** What the player screen knows about the recording, for export headers. */
+data class TranscriptExportContext(
+	val title: String? = null,
+	val recordedAt: kotlinx.datetime.LocalDateTime? = null,
+	val bookmarks: List<com.eva.cloudtranscribe.model.ExportBookmark> = emptyList(),
+)
+
+internal fun TranscriptExportContext.toExtras(
+	record: TranscriptRecord,
+	summaries: List<com.eva.cloudtranscribe.model.SummaryRecord>,
+): com.eva.cloudtranscribe.model.TranscriptExportExtras {
+	val usable = summaries.filter { it.status == com.eva.cloudtranscribe.model.RunStatus.SUCCESS && it.text.isNotBlank() }
+	val summary = usable.firstOrNull { it.sourceTranscriptId == record.id } ?: usable.firstOrNull()
+	return com.eva.cloudtranscribe.model.TranscriptExportExtras(
+		title = title,
+		recordedAt = recordedAt?.toJavaLocalDateTime(),
+		summary = summary?.text,
+		summaryModel = summary?.provenance?.model,
+		bookmarks = bookmarks,
+	)
 }
