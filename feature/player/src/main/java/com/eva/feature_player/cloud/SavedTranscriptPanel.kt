@@ -207,8 +207,16 @@ internal fun SavedTranscriptPanel(
 						onEditLine = { editingKey = it.key },
 						onReplaceInLine = { line, query -> replacing = line to query },
 					) else null
+					val translationVm: TranslationViewModel = hiltViewModel(key = "translations-$recordingId")
+					var lang by rememberSaveable(selectedRaw.id) { mutableStateOf<String?>(null) }
+					var view by rememberSaveable(selectedRaw.id) { mutableStateOf(com.eva.cloudtranscribe.translate.TranslationView.ORIGINAL) }
+					TranslationBar(entry.shown, translationVm, lang, { lang = it }, view, { view = it })
+					val translation = TranslationRules.forRecord(translationVm.translations, entry.shown, lang)
 					TranscriptLines(entry.shown, trackData, onSeekTo, Modifier.weight(1f).fillMaxWidth().padding(top = 6.dp),
-						keyedLines = entry.lines, editor = editor)
+						keyedLines = entry.lines, editor = editor,
+						translation = translation,
+						view = if (translation == null) com.eva.cloudtranscribe.translate.TranslationView.ORIGINAL else view,
+					)
 					val editing = editingKey?.let { key -> TranscriptEditing.editableLines(entry.raw).firstOrNull { it.key == key } }
 					if (editing != null) {
 						val shownText = entry.lines.firstOrNull { it.key == editing.key }?.line?.text ?: ""
@@ -307,10 +315,13 @@ internal fun TranscriptLines(
 	modifier: Modifier,
 	keyedLines: List<EditableLine>? = null,
 	editor: TranscriptLineEditor? = null,
+	translation: com.eva.cloudtranscribe.translate.SavedTranslation? = null,
+	view: com.eva.cloudtranscribe.translate.TranslationView = com.eva.cloudtranscribe.translate.TranslationView.ORIGINAL,
 ) {
 	val keyed = remember(record.id, record.updatedAtMillis, keyedLines) { keyedLines ?: TranscriptEditing.displayLines(record, null) }
 	val lines = remember(keyed) { keyed.map { it.line } }
 	val editMode = editor?.editMode == true
+	val translated = remember(lines, translation) { com.eva.cloudtranscribe.translate.TranscriptTranslation.aligned(lines.size, translation) }
 	var query by rememberSaveable(record.id) { mutableStateOf("") }
 	val searching = query.isNotBlank()
 	val matches = remember(lines, query) { TranscriptSearch.matchingLines(lines, query) }
@@ -372,12 +383,20 @@ internal fun TranscriptLines(
 						line.startMs != null && onSeekTo != null -> Modifier.clickable { onSeekTo(line.startMs!!) }
 						else -> Modifier
 					}
+					val (shown, secondary) = com.eva.cloudtranscribe.translate.TranscriptTranslation.display(line.text, translated?.getOrNull(i), view)
 					Text(
 						text = buildAnnotatedString {
 							val prefix = (if (editMode) "✎ " else "") + (line.startMs?.let { fmt(it) + "  " } ?: "")
-							append(prefix); append(line.text)
-							TranscriptSearch.ranges(line.text, query).forEach { range ->
+							append(prefix); append(shown)
+							// search always matches the original text, so highlight only when the original is shown
+							if (shown == line.text) TranscriptSearch.ranges(line.text, query).forEach { range ->
 								addStyle(highlight, prefix.length + range.first, prefix.length + range.last + 1)
+							}
+							if (secondary != null) {
+								append("\n")
+								val start = length
+								append(secondary)
+								addStyle(SpanStyle(color = MaterialTheme.colorScheme.secondary), start, length)
 							}
 						},
 						style = MaterialTheme.typography.bodyMedium,

@@ -13,6 +13,7 @@ import kotlinx.serialization.json.Json
  * File-backed per-recording store (versioned JSON, no Room migration needed):
  * `<root>/v1/<recordingId>/transcripts/<id>.json`  — offline OR cloud transcripts (never overwritten by the other source)
  * `<root>/v1/<recordingId>/summaries/<id>.json`     — summaries, each pointing at its source transcript id
+ * `<root>/v1/<recordingId>/translations/<lang>.json` — latest translation per target language (#37)
  * `<root>/v1/<recordingId>/qa/<id>.json`            — single-recording questions and answers (#7)
  * `<root>/v1/<recordingId>/outline.json`             — optional AI outline of a summary (#38)
  * `<root>/v1/<recordingId>/checkpoints/<runId>/NNN.json` — per-chunk cloud checkpoints, removed only after success or explicit cleanup
@@ -56,6 +57,13 @@ class TranscriptStore(root: File) {
 		deleteEdits(recordingId, id)
 		clearCheckpoints(recordingId, id)
 	}
+
+	private fun translationsDir(id: Long) = File(recDir(id), "translations")
+	fun saveTranslation(t: com.eva.cloudtranscribe.translate.SavedTranslation) =
+		write(File(translationsDir(t.recordingId), "${safe(t.targetLang)}.json"), json.encodeToString(com.eva.cloudtranscribe.translate.SavedTranslation.serializer(), t))
+	fun translations(recordingId: Long): List<com.eva.cloudtranscribe.translate.SavedTranslation> =
+		list(translationsDir(recordingId)) { json.decodeFromString(com.eva.cloudtranscribe.translate.SavedTranslation.serializer(), it) }.sortedByDescending { it.createdAtMillis }
+	fun deleteTranslation(recordingId: Long, targetLang: String) { synchronized(lock) { File(translationsDir(recordingId), "${safe(targetLang)}.json").delete() } }
 
 	private fun qaDir(id: Long) = File(recDir(id), "qa")
 	fun saveQa(record: com.eva.cloudtranscribe.qa.QaRecord) =
