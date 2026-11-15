@@ -182,7 +182,6 @@ internal class TrashRecordingsProviderImpl(
 							emptyList(),
 							context.getString(R.string.recording_trash_request_success)
 						)
-					emit(result)
 
 					// now delete the associated entries
 					val ids = ownedRecordings.map { it.id }
@@ -196,6 +195,8 @@ internal class TrashRecordingsProviderImpl(
 						if (e is kotlinx.coroutines.CancellationException) throw e
 						e.printStackTrace()
 					}
+					// Complete metadata/file cleanup before a collector can stop after the success value.
+					emit(result)
 				} catch (e: Exception) {
 					e.printStackTrace()
 					val message = context.getString(R.string.recording_trash_request_failed)
