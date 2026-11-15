@@ -36,7 +36,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.ui.res.stringResource
+import com.eva.feature_settings.R
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -73,6 +75,8 @@ internal class CloudAiSettingsViewModel @Inject constructor(
 ) : ViewModel() {
 	val settings: StateFlow<CloudSettings?> = repo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 	val hasKey: StateFlow<Boolean> = keys.hasKey
+	var savedKey by mutableStateOf(keys.read())
+		private set
 
 	var testing by mutableStateOf(false)
 		private set
@@ -111,8 +115,12 @@ internal class CloudAiSettingsViewModel @Inject constructor(
 	override fun onCleared() { probeTransport?.cancel(); super.onCleared() }
 
 	fun save(s: CloudSettings) = viewModelScope.launch { repo.update { s } }
-	fun saveKey(key: String) { if (key.isNotBlank()) keys.save(key) }
-	fun removeKey() = keys.clear()
+	fun saveKey(key: String) {
+		if (key.isBlank()) return
+		keys.save(key)
+		savedKey = keys.read()
+	}
+	fun removeKey() { keys.clear(); savedKey = null }
 }
 
 @Composable
@@ -161,9 +169,15 @@ internal fun CloudAiSettingsContent(
 			OutlinedTextField(draft.transcribeModel, { draft = draft.copy(transcribeModel = it.trim()) }, Modifier.fillMaxWidth(), label = { Text("轉錄模型") }, singleLine = true)
 			OutlinedTextField(draft.summaryModel, { draft = draft.copy(summaryModel = it.trim()) }, Modifier.fillMaxWidth(), label = { Text("摘要模型") }, singleLine = true)
 			Text("API Key", style = MaterialTheme.typography.bodyLarge)
-			Text(if (hasKey) "已設定（Android Keystore 加密，不顯示明文）" else "尚未設定", style = MaterialTheme.typography.bodySmall)
+			Text(stringResource(if (hasKey) R.string.cloud_api_key_saved else R.string.cloud_api_key_missing), style = MaterialTheme.typography.bodySmall)
+			viewModel.savedKey?.let { key ->
+				SelectionContainer {
+					OutlinedTextField(key, {}, Modifier.fillMaxWidth().testTag("saved-api-key"),
+						readOnly = true, label = { Text(stringResource(R.string.cloud_api_key_saved_label)) })
+				}
+			}
 			OutlinedTextField(keyInput, { keyInput = it }, Modifier.fillMaxWidth(), label = { Text(if (hasKey) "輸入新 Key 以取代" else "貼上 API Key") },
-				singleLine = true, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false))
+				singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false))
 			Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 				Button(enabled = keyInput.isNotBlank(), onClick = { viewModel.saveKey(keyInput); keyInput = "" }) { Text("儲存 Key") }
 				OutlinedButton(enabled = hasKey, onClick = { viewModel.removeKey() }) { Text("移除 Key") }
