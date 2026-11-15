@@ -65,6 +65,8 @@ internal fun RecordingCard(
 	isSelectable: Boolean = false,
 	isSelected: Boolean = false,
 	shape: Shape = MaterialTheme.shapes.large,
+	/** Local status labels (逐字稿／摘要／待辦 N); empty shows nothing extra. */
+	badges: List<String> = emptyList(),
 ) {
 	val context = LocalContext.current
 	val isInspectionMode = LocalInspectionMode.current
@@ -138,6 +140,11 @@ internal fun RecordingCard(
 					text = music.durationAsLocaltime.format(LocalTimeFormats.NOTIFICATION_TIMER_TIME_FORMAT),
 					style = MaterialTheme.typography.bodyMedium,
 					color = MaterialTheme.colorScheme.onBackground,
+				)
+				if (badges.isNotEmpty()) Text(
+					text = badges.joinToString("・"),
+					style = MaterialTheme.typography.labelSmall,
+					color = MaterialTheme.colorScheme.secondary,
 				)
 				AnimatedVisibility(
 					visible = isSelectable && otherAppText != null,
