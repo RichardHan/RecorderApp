@@ -13,4 +13,5 @@ object DataBaseConstants {
 	const val DRIVE_UPLOAD_TABLE = "google_drive_uploads"
 	const val RECORDING_ACTION_ITEMS_TABLE = "recording_action_items"
 	const val RECORDING_CHAPTERS_TABLE = "recording_chapters"
+	const val RECORDING_CLIPS_TABLE = "recording_clips"
 }

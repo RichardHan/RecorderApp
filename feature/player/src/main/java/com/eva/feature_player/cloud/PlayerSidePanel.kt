@@ -27,13 +27,18 @@ fun PlayerSidePanel(
 	transcriptPanel: @Composable (Modifier) -> Unit,
 	onSeekTo: (Long) -> Unit,
 	modifier: Modifier = Modifier,
+	positionMs: () -> Long = { 0L },
+	totalMs: () -> Long = { 0L },
+	bookmarkTimesMs: List<Long> = emptyList(),
 ) {
+	// 0 = transcript, 1 = chapters, 2 = clips, 3 = cleaned transcript
 	var tab by rememberSaveable(recordingId) { mutableStateOf(0) }
 	Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
 		Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
 			FilterChip(selected = tab == 0, onClick = { tab = 0 }, label = { Text("逐字稿") })
 			FilterChip(selected = tab == 1, onClick = { tab = 1 }, label = { Text("章節") })
-			FilterChip(selected = tab == 2, onClick = { tab = 2 }, label = { Text(stringResource(R.string.cleanup_tab)) })
+			FilterChip(selected = tab == 2, onClick = { tab = 2 }, label = { Text("片段") })
+			FilterChip(selected = tab == 3, onClick = { tab = 3 }, label = { Text(stringResource(R.string.cleanup_tab)) })
 		}
 		when (tab) {
 			1 -> ChaptersPanel(
@@ -41,7 +46,17 @@ fun PlayerSidePanel(
 				onSeekTo = onSeekTo,
 				modifier = Modifier.fillMaxWidth().weight(1f),
 			)
-			2 -> CleanupPanel(
+
+			2 -> com.eva.feature_player.clips.ClipsPanel(
+				recordingId = recordingId,
+				positionMs = positionMs,
+				totalMs = totalMs,
+				bookmarkTimesMs = bookmarkTimesMs,
+				onSeekTo = onSeekTo,
+				modifier = Modifier.fillMaxWidth().weight(1f),
+			)
+
+			3 -> CleanupPanel(
 				recordingId = recordingId,
 				onSeekTo = onSeekTo,
 				modifier = Modifier.fillMaxWidth().weight(1f),
