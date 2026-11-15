@@ -163,6 +163,19 @@ fun NavGraphBuilder.audioPlayerRoute(controller: NavHostController) =
                                 recordingId = route.audioId,
                                 trackData = { trackData },
                                 refreshKey = transcriptRefresh,
+                                exportContext = {
+                                    val file = (contentState as? com.eva.player_shared.state.ContentLoadState.Content)?.data
+                                    com.eva.feature_player.cloud.TranscriptExportContext(
+                                        title = file?.title,
+                                        recordedAt = file?.lastModified,
+                                        bookmarks = bookMarks.map { mark ->
+                                            com.eva.cloudtranscribe.model.ExportBookmark(
+                                                atMs = mark.timeStamp.toMillisecondOfDay().toLong(),
+                                                text = mark.text,
+                                            )
+                                        },
+                                    )
+                                },
                                 onSeekTo = { ms ->
                                     playerViewModel.onPlayerEvents(com.eva.feature_player.state.PlayerEvents.OnSeekingPlayer(with(kotlin.time.Duration) { ms.milliseconds }))
                                     playerViewModel.onPlayerEvents(com.eva.feature_player.state.PlayerEvents.OnSeekEndPlayer)
