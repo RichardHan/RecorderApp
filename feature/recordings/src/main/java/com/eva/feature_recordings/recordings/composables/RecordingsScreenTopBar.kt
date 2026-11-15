@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.DropdownMenu
@@ -70,6 +71,7 @@ internal fun RecordingsScreenTopBar(
 	onSortItems: () -> Unit = {},
 	onNavigateToSearch: () -> Unit = {},
 	onManageCategories: () -> Unit = {},
+	onShowRecap: () -> Unit = {},
 	colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors(
 		actionIconContentColor = MaterialTheme.colorScheme.primary,
 		navigationIconContentColor = MaterialTheme.colorScheme.onSurface
@@ -202,6 +204,16 @@ internal fun RecordingsScreenTopBar(
 								Icon(
 									imageVector = Icons.AutoMirrored.Filled.Sort,
 									contentDescription = stringResource(id = R.string.menu_option_sort_order)
+								)
+							},
+						)
+						DropdownMenuItem(
+							text = { Text(text = "近期回顧") },
+							onClick = { showDropDown = false; onShowRecap() },
+							leadingIcon = {
+								Icon(
+									imageVector = Icons.Default.DateRange,
+									contentDescription = null,
 								)
 							},
 						)
