@@ -80,7 +80,6 @@ internal fun VoiceRecorderScreen(
 				start = dimensionResource(id = R.dimen.sc_padding),
 				end = dimensionResource(R.dimen.sc_padding),
 				top = dimensionResource(id = R.dimen.sc_padding_secondary) + scPadding.calculateTopPadding(),
-				bottom = dimensionResource(id = R.dimen.sc_padding_secondary) + scPadding.calculateBottomPadding()
 			)
 		) {
 			RecorderContent(

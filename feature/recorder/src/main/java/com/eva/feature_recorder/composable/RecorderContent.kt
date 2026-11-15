@@ -3,11 +3,10 @@
 package com.eva.feature_recorder.composable
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -49,16 +48,15 @@ internal fun RecorderContent(
 	/** Off in previews/tests (needs Hilt). */
 	showNotes: Boolean = false,
 ) {
-	Box(modifier = modifier) {
-		// compact header (timer + thin input-level bar) so transcript + 重點 get most of the screen
+	Column(modifier = modifier.fillMaxSize()) {
 		Column(
 			horizontalAlignment = Alignment.CenterHorizontally,
-			verticalArrangement = Arrangement.spacedBy(4.dp),
+			verticalArrangement = Arrangement.spacedBy(8.dp),
 			modifier = Modifier
-				.fillMaxSize()
-				.padding(bottom = 112.dp)
+				.weight(1f)
+				.fillMaxWidth()
+				.padding(horizontal = 4.dp),
 		) {
-			// compact header: timer and chips share one (wrapping) row so transcript + key points get the space
 			androidx.compose.foundation.layout.FlowRow(
 				horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
 				verticalArrangement = Arrangement.Center,
@@ -71,19 +69,17 @@ internal fun RecorderContent(
 					style = MaterialTheme.typography.titleLarge,
 				)
 				AssociatedRecorderActions(
-					onAddBookMark = { onRecorderAction(RecorderAction.AddBookMarkAction) },
-					recorderState = recorderState,
 					transcriptionSettings = transcriptionSettings,
 					onOpenSettings = onNavigateToSettings,
 					onToggleLiveTranscription = onToggleLiveTranscription,
 				)
 				if (showNotes) RecordingNotesChip()
+				SlackSyncIndicator(
+					status = slackStatus,
+					isRecording = recorderState == RecorderState.RECORDING || recorderState == RecorderState.PAUSED,
+					onToggle = onToggleSlackSync,
+				)
 			}
-			SlackSyncIndicator(
-				status = slackStatus,
-				isRecording = recorderState == RecorderState.RECORDING || recorderState == RecorderState.PAUSED,
-				onToggle = onToggleSlackSync,
-			)
 			RecorderInputLevelBar(
 				points = recordingPointsCallback,
 				modifier = Modifier.fillMaxWidth(),
@@ -108,14 +104,18 @@ internal fun RecorderContent(
 				)
 			}
 		}
-		AnimatedRecorderActionTray(
-			recorderState = recorderState,
-			onRecorderAction = onRecorderAction,
-			isStartRecordingEnabled = isStartRecordingEnabled,
-			modifier = Modifier
-				.fillMaxWidth()
-				.align(Alignment.BottomCenter)
-		)
+		androidx.compose.material3.Surface(tonalElevation = 2.dp, shadowElevation = 4.dp) {
+			AnimatedRecorderActionTray(
+				recorderState = recorderState,
+				onRecorderAction = onRecorderAction,
+				isStartRecordingEnabled = isStartRecordingEnabled,
+				onAddBookMark = { onRecorderAction(RecorderAction.AddBookMarkAction) },
+				modifier = Modifier
+					.fillMaxWidth()
+					.navigationBarsPadding()
+					.padding(vertical = 8.dp),
+			)
+		}
 	}
 }
 
