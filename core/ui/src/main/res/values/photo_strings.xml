@@ -2,6 +2,7 @@
 <resources>
  <string name="photo_image">錄音照片附件</string>
  <string name="photo_loading">讀取照片…</string>
+ <string name="photo_unavailable">無法讀取照片（檔案已移除或格式不支援）</string>
  <string name="photo_button">照片 (%1$d/30)</string>
  <string name="photo_title">照片時間附件</string>
  <string name="photo_local_hint">只存本機，不送雲端或 Drive。最多 30 張，長邊 1600px；時間以按下拍照／選圖時為準。錄音進垃圾桶時，照片也會刪除，無法復原。</string>

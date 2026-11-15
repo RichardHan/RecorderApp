@@ -337,6 +337,13 @@ internal fun TranscriptLines(
 	var matchIndex by remember(record.id, query, lines) { mutableStateOf(if (matches.isEmpty()) -1 else 0) }
 	var navigationRequest by remember(record.id) { mutableStateOf(0) }
 	val timed = lines.any { it.startMs != null }
+	// Photo -> line mapping is computed once per photos/lines change; doing it per rendered row was
+	// O(visible rows × photos × lines).
+	val photoLineStarts = remember(lines) { lines.map { it.startMs } }
+	val photosByLine = remember(photos, photoLineStarts) {
+		photos.mapNotNull { p -> com.eva.recordings.domain.models.PhotoRules.nearestLine(p.atMs, photoLineStarts)?.let { it to p } }
+			.groupBy({ it.first }, { it.second })
+	}
 	val listState = rememberLazyListState()
 	val active by remember(lines) {
 		derivedStateOf { if (timed) PlaybackTranscripts.activeIndex(lines, trackData().current.inWholeMilliseconds) else -1 }
@@ -385,7 +392,7 @@ internal fun TranscriptLines(
 		SelectionContainer(Modifier.weight(1f)) {
 			LazyColumn(state = listState, modifier = Modifier.testTag("transcript-search-lines"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
 				itemsIndexed(lines) { i, line ->
-					val linePhotos = photos.filter { com.eva.recordings.domain.models.PhotoRules.nearestLine(it.atMs, lines.map { l -> l.startMs }) == i }
+					val linePhotos = photosByLine[i].orEmpty()
 					val isActive = i == active
 					val highlight = SpanStyle(background = MaterialTheme.colorScheme.tertiaryContainer, color = MaterialTheme.colorScheme.onTertiaryContainer)
 					val click: Modifier = when {
