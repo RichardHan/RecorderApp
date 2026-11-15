@@ -82,6 +82,9 @@ internal class VoiceRecorderService : LifecycleService() {
     @Inject
     lateinit var notesDraft: com.eva.cloudtranscribe.notes.RecordingNotesDraft
 
+    @Inject
+    lateinit var statusTracker: com.eva.recorder.domain.RecorderStatusTracker
+
     private val binder = LocalBinder()
     private val _bookMarks = MutableStateFlow(emptySet<LocalTime>())
     private val _warnings = Channel<String>(Channel.BUFFERED)
@@ -157,6 +160,8 @@ internal class VoiceRecorderService : LifecycleService() {
             readTimerAndUpdateNotification()
             // update widget state
             updateRecorderWidgetState()
+            // mirror state for the quick settings tile
+            publishRecorderStatus()
             // initiate transcript
             lifecycleScope.launch {
                 voiceRecorder.initTranscriptions()
@@ -218,6 +223,13 @@ internal class VoiceRecorderService : LifecycleService() {
         combine(widgetTimer, voiceRecorder.recorderState) { time, state ->
             // update the widget
             widgetFacade.updateWidget(state, time)
+        }.launchIn(lifecycleScope)
+    }
+
+    private fun publishRecorderStatus() {
+        voiceRecorder.recorderState.onEach { state ->
+            statusTracker.publish(state)
+            com.eva.recorder.data.tile.RecorderTileService.requestRefresh(applicationContext)
         }.launchIn(lifecycleScope)
     }
 
@@ -390,6 +402,9 @@ internal class VoiceRecorderService : LifecycleService() {
         // release transcript
         voiceRecorder.transcriptCleanUp()
         liveCloud.release()
+        // the service (and any session) is gone: the tile must not stay ACTIVE
+        statusTracker.publish(RecorderState.IDLE)
+        com.eva.recorder.data.tile.RecorderTileService.requestRefresh(applicationContext)
         Log.i(TAG, "RECORDER SERVICE DESTROYED")
         super.onDestroy()
     }
