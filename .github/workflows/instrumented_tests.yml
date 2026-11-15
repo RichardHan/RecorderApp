@@ -6,6 +6,12 @@ on:
     pull_request:
         branches: [ main ]
     workflow_dispatch:
+        inputs:
+            test_scope:
+                description: "Instrumented test scope (all modules or photo attachment acceptance)"
+                type: choice
+                options: [all, photos]
+                default: all
 
 permissions:
     contents: read
@@ -100,7 +106,7 @@ jobs:
                         adb devices
                         # Keep every module's debug tests, without benchmark/profile release builds.
                         # Serialize projects sharing one emulator and bound concurrent dex workers.
-                        ./gradlew connectedDebugAndroidTest -PincludeEmulatorAbis=true --no-parallel --max-workers=2 --continue --stacktrace
+                        if [ "${{ inputs.test_scope }}" = "photos" ]; then bash scripts/test-photo-attachments.sh; else ./gradlew connectedDebugAndroidTest -PincludeEmulatorAbis=true --no-parallel --max-workers=2 --continue --stacktrace; fi
 
             -   name: Module-wise test summary
                 if: always()

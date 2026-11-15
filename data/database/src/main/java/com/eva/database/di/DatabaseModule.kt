@@ -23,6 +23,9 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 	@Provides
+	fun photos(db: RecorderDataBase): com.eva.database.dao.RecordingPhotosDao = db.recordingPhotosDao()
+
+	@Provides
 	@Singleton
 	fun providesRoomDatabase(
 		@ApplicationContext context: Context,
