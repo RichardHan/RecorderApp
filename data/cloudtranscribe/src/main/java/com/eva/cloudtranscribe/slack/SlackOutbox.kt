@@ -61,6 +61,12 @@ class SlackDeliveryState @Inject constructor(@ApplicationContext context: Contex
 		prefs.edit().putStringSet(KEY_SENT, next.toSet()).putString(KEY_SENT_ORDER, next.joinToString(",")).apply()
 	}
 
+	/** Persist the server deadline so a restarted worker cannot retry early. */
+	internal val retryGate = SlackRetryGate(
+		readDeadline = { prefs.getLong("retry_not_before", 0L) },
+		writeDeadline = { prefs.edit().putLong("retry_not_before", it).commit(); Unit },
+	)
+
 	fun setError(message: String?) {
 		prefs.edit().putString(KEY_ERROR, message).apply()
 		_lastError.value = message
@@ -141,6 +147,7 @@ class SlackSendWorker @AssistedInject constructor(
 			alreadySent = state.wasSent(message.hash),
 		)
 		if (!allowed || url == null) return Result.success()
+		if (!state.retryGate.canSend()) return Result.retry()
 		return when (val result = sender.send(url, message.text)) {
 			SlackSendResult.Sent -> {
 				state.markSent(message.hash)
@@ -155,6 +162,7 @@ class SlackSendWorker @AssistedInject constructor(
 
 			is SlackSendResult.Retry, is SlackSendResult.RetryAfter -> {
 				state.setError(SlackSendPolicy.describe(result))
+				if (result is SlackSendResult.RetryAfter) state.retryGate.defer(result.seconds)
 				if (runAttemptCount >= MAX_ATTEMPTS) Result.success() else Result.retry()
 			}
 		}
