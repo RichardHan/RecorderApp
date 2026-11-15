@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="auto_summary_cost_hint">每份成功逐字稿建立摘要工作；失敗時可能重試並增加費用</string>
+    <string name="auto_summary_cost_details">每次雲端轉錄成功後（手動或自動都算），會建立摘要工作：只送逐字稿文字、不上傳音訊，使用你設定的摘要模型。可重試的錯誤最多嘗試 3 次，每次都可能產生 API 費用。部分完成、失敗或取消的轉錄不會自動摘要；同份逐字稿已有未取消的摘要工作時不會自動重複建立。</string>
+</resources>
