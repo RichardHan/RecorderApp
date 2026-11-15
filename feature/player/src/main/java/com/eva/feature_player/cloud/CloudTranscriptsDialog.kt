@@ -141,9 +141,8 @@ private fun RunStatus.zh() = when (this) {
 fun CloudTranscriptsDialog(
 	recordingId: Long,
 	onDismiss: () -> Unit,
+	onSeekTo: ((Long) -> Unit)? = null,
 	viewModel: CloudTranscriptsViewModel = hiltViewModel(),
-	/** Seeks playback to a reported segment start; no-op by default. */
-	onSeekTo: (Long) -> Unit = {},
 ) {
 	LaunchedEffect(recordingId) { viewModel.bind(recordingId) }
 	val state by viewModel.state.collectAsStateWithLifecycle()
@@ -229,7 +228,24 @@ fun CloudTranscriptsDialog(
 						latestSummaryAtMillis = newestSummary?.createdAtMillis,
 					)
 				}
-				item { SpeechPaceCard(state.transcripts, onSeekTo = { ms -> onSeekTo(ms); onDismiss() }) }
+				item { RecordingQaCard(recordingId = recordingId, onSeekTo = onSeekTo) }
+				item {
+					val newestSummary = state.summaries.firstOrNull { it.status == RunStatus.SUCCESS && it.text.isNotBlank() }
+					if (newestSummary != null) OutlineCard(
+						recordingId = recordingId,
+						summaryId = newestSummary?.id,
+						summaryText = newestSummary?.text,
+					)
+				}
+				item {
+					val accepted = state.summaries.firstOrNull { it.status == RunStatus.SUCCESS && it.text.isNotBlank() }
+					FollowUpDraftCard(
+						recordingId = recordingId,
+						acceptedSummaryId = accepted?.id,
+						acceptedSummaryText = accepted?.text,
+					)
+				}
+				item { SpeechPaceCard(state.transcripts, onSeekTo = { ms -> onSeekTo?.invoke(ms); onDismiss() }) }
 				items(state.summaries, key = { it.id }) { s ->
 					Card {
 						Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
