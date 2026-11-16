@@ -65,7 +65,7 @@ private inline fun safeCall(apiKey: String, block: () -> CallOutcome): CallOutco
 }
 
 /**
- * OpenAI-compatible `/chat/completions` (e.g. the company RONE endpoint).
+ * OpenAI-compatible `/chat/completions` endpoint.
  * Audio is sent as `{"type":"input_audio","input_audio":{"data":<b64>,"format":"mp3"}}`.
  */
 class OpenAiCompatibleClient(

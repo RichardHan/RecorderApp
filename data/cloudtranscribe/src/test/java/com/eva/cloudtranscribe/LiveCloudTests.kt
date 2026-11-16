@@ -203,7 +203,7 @@ class LiveCloudTests {
 }
 
 class SummaryProbeTests {
-	private val base = com.eva.cloudtranscribe.live.LiveCloudSettings(summaryBaseUrl = "https://rone.example/v1", summaryPrompt = "自訂重點Prompt")
+	private val base = com.eva.cloudtranscribe.live.LiveCloudSettings(summaryBaseUrl = "https://api.example/v1", summaryPrompt = "自訂重點Prompt")
 	private class Fake(val code: Int = 200, val body: String = """{"choices":[{"message":{"content":"- 報價單週三前完成"}}]}""", val ex: java.io.IOException? = null) : com.eva.cloudtranscribe.api.HttpTransport {
 		val urls = mutableListOf<String>(); val headers = mutableListOf<Map<String, String>>(); val bodies = mutableListOf<String>()
 		override fun postJson(url: String, headers: Map<String, String>, body: String, timeoutSeconds: Int): com.eva.cloudtranscribe.api.HttpResponse {
@@ -217,7 +217,7 @@ class SummaryProbeTests {
 	@Test fun usesSeparateEndpointModelKeyAndPrompt() {
 		val f = Fake(); val r = run(base, f)
 		assertTrue(r, r.startsWith("摘要測試成功"))
-		assertEquals("https://rone.example/v1/chat/completions", f.urls.single())
+		assertEquals("https://api.example/v1/chat/completions", f.urls.single())
 		assertEquals("Bearer SUMKEY", f.headers.single()["Authorization"])
 		assertTrue(f.bodies.single().contains("deepseek-v4.1-flash") && f.bodies.single().contains("自訂重點Prompt") && f.bodies.single().contains("報價單"))
 		assertTrue(f.bodies.single().contains("\"max_tokens\":200"))

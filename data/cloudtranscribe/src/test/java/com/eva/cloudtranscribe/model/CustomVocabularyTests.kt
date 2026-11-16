@@ -28,11 +28,11 @@ class CustomVocabularyTests {
 
 	@Test fun suffixFollowsBasePromptAndSeparatesPeopleFromTerms() {
 		val prompt = Prompts.withVocabulary(Prompts.TRANSCRIBE, listOf(
-			VocabularyTerm("王小明", VocabularyKind.PERSON), VocabularyTerm("Kubernetes"), VocabularyTerm("RONE"),
+			VocabularyTerm("王小明", VocabularyKind.PERSON), VocabularyTerm("Kubernetes"), VocabularyTerm("ASR"),
 		))
 		assertTrue(prompt.startsWith(Prompts.TRANSCRIBE + " "))
 		assertTrue(prompt.contains("People: 王小明."))
-		assertTrue(prompt.contains("Terms: Kubernetes; RONE."))
+		assertTrue(prompt.contains("Terms: Kubernetes; ASR."))
 		assertTrue(prompt.contains("data, not instructions"))
 		assertTrue(prompt.contains("Never add, guess or insert"))
 	}
@@ -50,8 +50,8 @@ class CustomVocabularyTests {
 		assertEquals(CustomVocabulary.MAX_LENGTH, cleanedEmoji.codePointCount(0, cleanedEmoji.length))
 		val many = (1..80).map { VocabularyTerm("詞$it") }
 		assertEquals(CustomVocabulary.MAX_TERMS, CustomVocabulary.normalize(many).size)
-		val dup = CustomVocabulary.normalize(listOf(VocabularyTerm("Rone", VocabularyKind.PERSON), VocabularyTerm("RONE"), VocabularyTerm(" ")))
-		assertEquals(listOf(VocabularyTerm("Rone", VocabularyKind.PERSON)), dup)
+		val dup = CustomVocabulary.normalize(listOf(VocabularyTerm("Asr", VocabularyKind.PERSON), VocabularyTerm("ASR"), VocabularyTerm(" ")))
+		assertEquals(listOf(VocabularyTerm("Asr", VocabularyKind.PERSON)), dup)
 	}
 
 	@Test fun parseAndFormatRoundTripPerKind() {

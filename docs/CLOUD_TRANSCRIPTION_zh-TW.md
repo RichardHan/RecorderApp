@@ -3,7 +3,7 @@
 ## 設定（只需一次）
 1. 開啟 App →「設定」→「雲端」分頁 → 上方切到「AI 轉錄／摘要」。
 2. 介面格式：
-   - **OpenAI 相容（公司 RONE）**：Endpoint 填到 `/chat/completions` 前面，例如 `https://<公司網域>/v1`。App 會呼叫 `POST {Endpoint}/chat/completions`。
+   - **OpenAI 相容服務**：Endpoint 填到 `/chat/completions` 前面，例如 `https://api.example.com/v1`（範例網址，請替換為你的服務網址）。App 會呼叫 `POST {Endpoint}/chat/completions`。
    - **Gemini 原生**：Endpoint 例如 `https://generativelanguage.googleapis.com/v1beta`，呼叫 `models/{模型}:generateContent`。
 3. 轉錄模型預設 `gemini-3.8-flash`，可改成任何模型 ID（例如你提到的 `gemini-3.5-transcribe`；App 不保證該 ID 存在，以服務端為準）。摘要模型可分開設定。
 4. 貼上 API Key →「儲存 Key」。Key 以 Android Keystore 加密保存，可在設定畫面查看完整內容並選取複製；不會寫入記錄檔、備份或 APK，可隨時「移除 Key」。

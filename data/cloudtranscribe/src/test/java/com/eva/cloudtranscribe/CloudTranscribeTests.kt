@@ -185,12 +185,12 @@ class AdapterTests {
 		}
 	}
 
-	@Test fun openAiRequestMatchesRonePipeline() {
+	@Test fun openAiRequestMatchesCompatibleEndpoint() {
 		val t = Capture(HttpResponse(200, """{"choices":[{"message":{"content":"Alice: 你好 hello"},"finish_reason":"stop"}]}"""))
-		val c = OpenAiCompatibleClient("https://rone.example.com/v1/", KEY, "gemini-3.8-flash", ReasoningEffort.LOW, t)
+		val c = OpenAiCompatibleClient("https://api.example.com/v1/", KEY, "gemini-3.8-flash", ReasoningEffort.LOW, t)
 		val out = c.transcribe("prompt", AudioPayload(byteArrayOf(1, 2, 3)))
 		assertEquals(CallOutcome.Text("Alice: 你好 hello"), out)
-		assertEquals("https://rone.example.com/v1/chat/completions", t.url)
+		assertEquals("https://api.example.com/v1/chat/completions", t.url)
 		assertEquals("Bearer $KEY", t.headers["Authorization"])
 		val body = Json.parseToJsonElement(t.body).jsonObject
 		assertEquals("gemini-3.8-flash", body["model"]!!.jsonPrimitive.content)

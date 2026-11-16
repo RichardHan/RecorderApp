@@ -117,7 +117,7 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 
 		Text("重點整理服務", style = MaterialTheme.typography.bodyLarge)
 		OutlinedTextField(draft.summaryBaseUrl, { draft = draft.copy(summaryBaseUrl = it.trim()) }, Modifier.fillMaxWidth(),
-			label = { Text("摘要 Endpoint（RONE，不含 /chat/completions）") }, singleLine = true,
+			label = { Text("摘要 Endpoint（不含 /chat/completions）") }, singleLine = true,
 			keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
 			isError = draft.summaryBaseUrl.isNotBlank() && !draft.summaryBaseUrl.startsWith("https://"))
 		OutlinedTextField(draft.summaryModel, { draft = draft.copy(summaryModel = it.trim()) }, Modifier.fillMaxWidth(),
