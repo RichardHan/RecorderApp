@@ -87,7 +87,8 @@ internal fun TranscribeSettingsTabContent(
         }
         item {
             ListItem(
-                headlineContent = { Text(text = stringResource(R.string.option_enable)) },
+                headlineContent = { Text("錄音開始時預設開啟本機字幕") },
+                supportingContent = { Text("錄音中可在畫面隨時開關，不會改這裡的預設。模型在關閉時仍可選取。") },
                 trailingContent = {
                     Switch(
                         checked = isTranscriptionActive,
@@ -122,8 +123,7 @@ internal fun TranscribeSettingsTabContent(
                 onSelect = { onSelectSTTModel(model.model) },
                 onUnSelect = onUnSelectSTTModel,
                 onSelectInvalid = { onSelectInvalidModel(model.model) },
-                // Picking a model must not depend on the live-caption switch: the recorder's 即時字幕 toggle
-                // writes the same flag, and a disabled card silently ignored taps ("cannot select a local model").
+                // Picking a model must not depend on the live-caption switch (default or per-recording).
                 modifier = Modifier
                     .fillMaxWidth()
                     .animateItem(),

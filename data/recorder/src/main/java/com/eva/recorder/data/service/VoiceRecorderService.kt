@@ -29,12 +29,16 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
@@ -84,6 +88,9 @@ internal class VoiceRecorderService : LifecycleService() {
 
     @Inject
     lateinit var slackSync: com.eva.cloudtranscribe.slack.SlackSyncCoordinator
+
+    @Inject
+    lateinit var liveToggles: com.eva.recorder.domain.live.RecorderLiveToggles
 
     /** Per-recording notes draft (#5): bound on save, dropped on cancel. */
     @Inject
@@ -143,8 +150,11 @@ internal class VoiceRecorderService : LifecycleService() {
             transcriber = voiceRecorder,
             liveCloud = liveCloud,
             transcriptStore = transcriptStore,
+            liveToggles = liveToggles,
         )
     }
+
+    private var liveToggleJobs: Job? = null
 
     override fun onBind(intent: Intent): IBinder {
         super.onBind(intent)
@@ -251,6 +261,40 @@ internal class VoiceRecorderService : LifecycleService() {
             .launchIn(lifecycleScope)
     }
 
+    /** Mid-recording chip changes after the initial start defaults have already been applied. */
+    private fun observeLiveTogglesForThisRecording() {
+        liveToggleJobs?.cancel()
+        liveToggleJobs = launchToggleObservers()
+    }
+
+    private fun launchToggleObservers(): Job {
+        val jobs = mutableListOf<Job>()
+        jobs += liveToggles.ui
+            .map { it.cloudOn }
+            .distinctUntilChanged()
+            .drop(1)
+            .onEach { on -> liveCloud.applySessionEnabled(on) }
+            .launchIn(lifecycleScope)
+        jobs += liveToggles.ui
+            .map { it.slackOn }
+            .distinctUntilChanged()
+            .drop(1)
+            .onEach { on -> slackSync.setSyncForThisRecording(on) }
+            .launchIn(lifecycleScope)
+        return lifecycleScope.launch {
+            try {
+                kotlinx.coroutines.awaitCancellation()
+            } finally {
+                jobs.forEach { it.cancel() }
+            }
+        }
+    }
+
+    private fun stopObservingLiveToggles() {
+        liveToggleJobs?.cancel()
+        liveToggleJobs = null
+    }
+
     private fun publishRecorderStatus() {
         voiceRecorder.recorderState.onEach { state ->
             statusTracker.publish(state)
@@ -269,6 +313,8 @@ internal class VoiceRecorderService : LifecycleService() {
             val started = sessionCoordinator.startRecording { runCatching { photos.beginSession() } }
             if (started) {
                 runCatching { slackSync.onRecordingStarted() }
+                runCatching { slackSync.setSyncForThisRecording(liveToggles.ui.value.slackOn) }
+                observeLiveTogglesForThisRecording()
                 startVoiceRecorderService(
                     NotificationConstants.RECORDER_NOTIFICATION_ID,
                     notificationHelper.timerNotification,
@@ -310,6 +356,7 @@ internal class VoiceRecorderService : LifecycleService() {
                 onCancelled = {
                     runCatching { photos.cancelSession() }
                     slackSync.onRecordingCancelled()
+                    stopObservingLiveToggles()
                     // a cancelled recording's notes never carry over to the next one
                     runCatching { notesDraft.discard() }
                     // clear bookmarks
@@ -342,6 +389,7 @@ internal class VoiceRecorderService : LifecycleService() {
                     cloudJobScheduler.onRecordingFinalized(recordingId)
                     // opt-in only (default off): one end message with the final key points
                     slackSync.onRecordingSaved()
+                    stopObservingLiveToggles()
                     // again show the notification
                     notificationHelper.showCompletedNotificationWithIntent(recordingId)
                 },

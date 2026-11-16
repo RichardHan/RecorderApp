@@ -156,6 +156,7 @@ internal fun CloudAiSettingsContent(
 			"只有按下按鈕或開啟自動功能時才會上傳到你設定的服務。",
 			"雲端轉錄與摘要只在你按下按鈕（或開啟自動轉錄）時，才會把錄音上傳到下方設定的服務。行動網路可能產生流量費用，服務本身也可能計費。",
 		)
+		RecordingStartDefaultsSection()
 		SettingsCard("連線", if (hasKey) current.transcribeModel.ifBlank { "尚未設定模型" } else "尚未設定 API Key", "ai-conn") {
 			Text("介面格式", style = MaterialTheme.typography.bodyLarge)
 			Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {

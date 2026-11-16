@@ -13,6 +13,7 @@ import com.eva.recorder.domain.recorder.AudioByteDataProvider
 import com.eva.recorder.domain.recorder.AudioDataReader
 import com.eva.recorder.domain.recorder.AudioVisualDataProvider
 import com.eva.recorder.domain.recorder.TranscriptionProvider
+import com.eva.recorder.domain.live.RecorderLiveToggles
 import com.eva.recorder.domain.recorder.VoiceRecorder
 import com.eva.recorder.domain.stopwatch.RecorderStopWatch
 import com.eva.recordings.domain.provider.RecorderFileProvider
@@ -25,6 +26,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ServiceComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ServiceScoped
+import kotlinx.coroutines.flow.map
 
 @Module
 @InstallIn(ServiceComponent::class)
@@ -68,12 +70,14 @@ internal object RecorderServiceModule {
 		settingsRepo: TranscriptionSettingsRepo,
 		repository: com.eva.transcribe.domain.repository.STTModelsRepository,
 		offlineEngine: com.eva.transcribe.offline.OfflineSpeechEngine,
+		liveToggles: RecorderLiveToggles,
 	): TranscriptionProvider = TranscriptionProviderImpl(
 		source = source,
 		transcriptor = transcriptor,
 		settingsRepo = settingsRepo,
 		repository = repository,
 		offlineEngine = offlineEngine,
+		sessionLocalEnabled = liveToggles.ui.map { it.localOn },
 	)
 
 	@Provides
@@ -95,10 +99,12 @@ internal object RecorderServiceModule {
 		summaryKeys: com.eva.cloudtranscribe.secure.SummaryApiKeyStore,
 		store: com.eva.cloudtranscribe.store.TranscriptStore,
 		notesDraft: com.eva.cloudtranscribe.notes.RecordingNotesDraft,
+		liveToggles: RecorderLiveToggles,
 	): com.eva.recorder.data.recorder.LiveCloudCoordinator =
 		com.eva.recorder.data.recorder.LiveCloudCoordinator(
 			source, transcriber, liveRepo, cloudRepo, asrKeys, summaryKeys, store,
 			recordingNotes = { notesDraft.current() },
+			sessionCloudEnabled = { liveToggles.ui.value.cloudOn },
 		)
 
 	@Provides

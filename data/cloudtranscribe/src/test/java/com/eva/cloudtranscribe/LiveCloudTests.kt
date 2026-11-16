@@ -177,6 +177,43 @@ class LiveCloudTests {
 		assertEquals(1, summaries)
 	}
 
+	@Test fun pausingUploadsStopsNewChunksAndResumeStartsAtCurrentPosition() = runTest {
+		val calls = mutableListOf<Pair<Long, Long>>()
+		val s = LiveCloudSession(backgroundScope, on, "s",
+			transcribe = { _, a, b -> calls += a to b; CallOutcome.Text("c$a") },
+			summarize = { CallOutcome.Text("k") }, sampleRate = 100)
+		repeat(60) { s.onAudio(pcm(1), 100) } // first chunk 0-60s
+		advanceUntilIdle(); runCurrent()
+		assertEquals(listOf(0L to 60_000L), calls)
+		s.setUploadsPaused(true)
+		repeat(45) { s.onAudio(pcm(1), 100) } // 60-105s paused: no new upload
+		advanceUntilIdle(); runCurrent()
+		assertEquals(listOf(0L to 60_000L), calls)
+		s.setUploadsPaused(false)
+		repeat(60) { s.onAudio(pcm(1), 100) } // resume at 105s, next chunk 105-165s
+		advanceUntilIdle(); runCurrent()
+		assertEquals(listOf(0L to 60_000L, 105_000L to 165_000L), calls)
+		// no overlap / double upload of the paused range
+		assertTrue(calls.none { it.first < 105_000L && it.second > 60_000L && it.first != 0L })
+		val end = s.finish()
+		assertEquals(2, end.cloudSpans.size)
+		assertEquals(0L, end.cloudSpans[0].startMs)
+		assertEquals(105_000L, end.cloudSpans[1].startMs)
+	}
+
+	@Test fun finishWhilePausedDoesNotUploadDroppedBuffer() = runTest {
+		val calls = mutableListOf<Pair<Long, Long>>()
+		val s = LiveCloudSession(backgroundScope, on, "s",
+			transcribe = { _, a, b -> calls += a to b; CallOutcome.Text("c") },
+			summarize = { CallOutcome.Text("k") }, sampleRate = 100)
+		repeat(60) { s.onAudio(pcm(1), 100) }
+		advanceUntilIdle(); runCurrent()
+		s.setUploadsPaused(true)
+		repeat(20) { s.onAudio(pcm(1), 100) }
+		s.finish()
+		assertEquals(listOf(0L to 60_000L), calls)
+	}
+
 	// ---- playback selection ----
 	private fun rec(id: String, src: TranscriptSource, at: Long, status: RunStatus = RunStatus.SUCCESS, text: String = "t", segs: List<SegmentResult> = emptyList()) =
 		TranscriptRecord(id, 1, src, Provenance(engine = "e", model = "m"), at, status = status, text = text, segments = segs)

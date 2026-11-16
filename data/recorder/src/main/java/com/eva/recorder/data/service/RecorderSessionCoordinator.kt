@@ -30,6 +30,7 @@ internal class RecorderSessionCoordinator(
 	private val transcriber: TranscriptionProvider,
 	private val liveCloud: LiveCloudCoordinator,
 	private val transcriptStore: TranscriptStore,
+	private val liveToggles: com.eva.recorder.domain.live.RecorderLiveToggles? = null,
 ) {
 	/** Serializes recorder lifecycle commands while keeping post-stop cloud HTTP flush outside the lock. */
 	private val commandLock = Mutex()
@@ -53,6 +54,8 @@ internal class RecorderSessionCoordinator(
 						// per-recording reset; waits for an earlier recording's offline transcript save (same lock)
 						// so its text is saved first and can never leak into this recording
 						transcriptLock.withLock {
+							runCatching { liveToggles?.beginRecording() }
+								.onFailure { if (it is CancellationException) throw it else Log.e(TAG, "live toggles begin failed", it) }
 							runCatching { transcriber.beginNewRecording() }
 								.onFailure { if (it is CancellationException) throw it else Log.e(TAG, "transcript reset failed", it) }
 						}
@@ -64,6 +67,7 @@ internal class RecorderSessionCoordinator(
 				)
 				if (!started && initializedSession) {
 					liveCloud.cancelActiveSession()
+					runCatching { liveToggles?.endRecording() }
 				}
 				if (started) onStarted()
 				started
@@ -95,6 +99,7 @@ internal class RecorderSessionCoordinator(
 		commandLock.withLock {
 			liveCloud.cancel()
 			recorder.cancelRecording()
+			runCatching { liveToggles?.endRecording() }
 			onCancelled()
 		}
 	}
@@ -127,6 +132,7 @@ internal class RecorderSessionCoordinator(
 					},
 					onFailure = { error ->
 						liveCloud.cancelActiveSession()
+						runCatching { liveToggles?.endRecording() }
 						onSaveFailed(error)
 					},
 				)
@@ -136,6 +142,7 @@ internal class RecorderSessionCoordinator(
 					lockHeld = false
 				}
 			}
+			runCatching { if (savedRecordingId != null) liveToggles?.endRecording() }
 			onResetUi()
 		}
 		// Flush tail audio + final key points outside commandLock so a subsequent recording can start immediately

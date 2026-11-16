@@ -64,6 +64,7 @@ fun NavGraphBuilder.recorderRoute(navController: NavHostController) =
 		val transcriptionSettings by viewModel.transcribeSettings.collectAsStateWithLifecycle()
 		val liveCloud by viewModel.liveCloud.collectAsStateWithLifecycle()
 		val slackStatus by viewModel.slackStatus.collectAsStateWithLifecycle()
+		val liveToggleUi by viewModel.liveToggleUi.collectAsStateWithLifecycle()
 
 		UiEventsHandler(eventsFlow = viewModel::uiEvent)
 
@@ -78,11 +79,15 @@ fun NavGraphBuilder.recorderRoute(navController: NavHostController) =
 				slackStatus = slackStatus,
 				onToggleSlackSync = viewModel::setSlackSyncForThisRecording,
 				transcriptionSettings = transcriptionSettings,
+				liveToggles = liveToggleUi,
+				onToggleLocalLive = viewModel::setLocalLive,
+				onToggleCloudLive = viewModel::setCloudLive,
+				onAcceptCloudConsent = viewModel::acceptCloudConsent,
 				recorderTimer = { recorderTimer },
 				deferredRecordingPoints = { recordingPoints },
 				onRecorderAction = viewModel::onAction,
 				onScreenEvent = viewModel::onEvent,
-				onToggleLiveTranscription = viewModel::setLiveTranscription,
+				onToggleLiveTranscription = viewModel::setLocalLive,
 				showNotes = true,
 				onShowRecordings = dropUnlessResumed { navController.navigate(NavRoutes.VoiceRecordings) },
 				onNavigateToBin = dropUnlessResumed { navController.navigate(NavRoutes.TrashRecordings) },
