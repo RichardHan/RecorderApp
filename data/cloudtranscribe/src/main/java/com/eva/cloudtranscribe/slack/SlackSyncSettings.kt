@@ -30,7 +30,7 @@ data class SlackSyncSettings(
 ) {
 	val isActive: Boolean get() = enabled && consentAtMillis != null
 	val normalizedIntervalMinutes: Int
-		get() = minIntervalMinutes.coerceIn(SlackThrottle.MIN_INTERVAL_MINUTES, SlackThrottle.MAX_INTERVAL_MINUTES)
+		get() = SlackThrottle.normalize(minIntervalMinutes)
 
 	companion object {
 		const val MAX_LABEL = 40

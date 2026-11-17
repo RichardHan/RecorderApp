@@ -353,15 +353,24 @@ class SummaryPromptV2Tests {
 		assertFalse(p.contains("更新後的完整重點清單"))
 		assertFalse(p.contains("嗯"))
 		assertTrue(com.eva.cloudtranscribe.engine.Prompts.summary("x").contains("目前無重點"))
+		assertTrue(p.contains(com.eva.cloudtranscribe.engine.SpeakerOwnerPrompt.RULE))
+		assertTrue(p.contains(com.eva.cloudtranscribe.engine.SpeakerOwnerPrompt.EXAMPLE_FACT))
+		assertTrue(p.contains(com.eva.cloudtranscribe.engine.SpeakerOwnerPrompt.EXAMPLE_TODO))
+		assertTrue(p.contains("絕不可猜測"))
 	}
 	@Test fun legacyDefaultMigratesOnce_customKept() {
 		assertEquals(S.DEFAULT_SUMMARY_PROMPT, LiveCloudSettings(summaryPrompt = S.LEGACY_SUMMARY_PROMPT_V1).normalized().summaryPrompt)
 		assertEquals(S.DEFAULT_SUMMARY_PROMPT, LiveCloudSettings(summaryPrompt = "  " + S.LEGACY_SUMMARY_PROMPT_V1 + "\n").normalized().summaryPrompt)
+		assertEquals(S.DEFAULT_SUMMARY_PROMPT, LiveCloudSettings(summaryPrompt = S.LEGACY_SUMMARY_PROMPT_V2).normalized().summaryPrompt)
+		assertEquals(S.DEFAULT_SUMMARY_PROMPT, LiveCloudSettings(summaryPrompt = "  " + S.LEGACY_SUMMARY_PROMPT_V2 + "\n").normalized().summaryPrompt)
 		val custom = S.LEGACY_SUMMARY_PROMPT_V1 + "另外列出風險。"
 		assertEquals(custom, LiveCloudSettings(summaryPrompt = custom).normalized().summaryPrompt)
+		val customV2 = S.LEGACY_SUMMARY_PROMPT_V2 + "另外列出風險。"
+		assertEquals(customV2, LiveCloudSettings(summaryPrompt = customV2).normalized().summaryPrompt)
 		assertEquals(S.DEFAULT_SUMMARY_PROMPT, LiveCloudSettings(summaryPrompt = S.DEFAULT_SUMMARY_PROMPT).normalized().normalized().summaryPrompt)
 		// realtime + test button both build through summaryPrompt(): legacy is migrated there too
 		assertTrue(com.eva.cloudtranscribe.live.TranscriptMerge.summaryPrompt(S.LEGACY_SUMMARY_PROMPT_V1, "", "t", "").startsWith(S.DEFAULT_SUMMARY_PROMPT))
+		assertTrue(com.eva.cloudtranscribe.live.TranscriptMerge.summaryPrompt(S.LEGACY_SUMMARY_PROMPT_V2, "", "t", "").startsWith(S.DEFAULT_SUMMARY_PROMPT))
 		assertTrue(com.eva.cloudtranscribe.live.SummaryProbe.buildPrompt(LiveCloudSettings(summaryPrompt = custom)).startsWith(custom))
 	}
 	@Test fun noNewPointsNeverErasesPrevious() {

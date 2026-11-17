@@ -388,7 +388,7 @@ internal class VoiceRecorderService : LifecycleService() {
                     // opt-in only (default off); never reached for cancelled recordings
                     cloudJobScheduler.onRecordingFinalized(recordingId)
                     // opt-in only (default off): one end message with the final key points
-                    slackSync.onRecordingSaved()
+                    slackSync.onRecordingSaved(recordingId, timeBeforeSave.toMillisecondOfDay().toLong())
                     stopObservingLiveToggles()
                     // again show the notification
                     notificationHelper.showCompletedNotificationWithIntent(recordingId)

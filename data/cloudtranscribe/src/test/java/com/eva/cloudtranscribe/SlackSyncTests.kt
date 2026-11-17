@@ -47,9 +47,10 @@ class SlackMessagesTests {
 	@Test
 	fun end_text_is_null_without_items_and_texts_are_capped() {
 		assertNull(SlackMessages.endText(emptyList()))
-		val long = SlackMessages.keyPointsText(List(400) { "很長的重點 $it ".repeat(3) })
+		val long = SlackMessages.keyPointsText(List(3) { "很長的重點 $it ".repeat(2_000) })!!
 		assertTrue(long.length <= SlackMessages.MAX_TEXT)
 		assertTrue(long.endsWith(SlackMessages.TRUNCATED_MARK))
+		assertFalse(long.contains("以 App 為準"))
 	}
 
 	@Test
@@ -92,10 +93,19 @@ class SlackMessagesTests {
 
 	@Test
 	fun throttle_waits_for_interval() {
-		assertEquals(0L, SlackThrottle.delayUntilDue(null, 1_000L, 180_000L))
+		assertEquals(0, SlackThrottle.normalize(-3))
+		assertEquals(5, SlackThrottle.normalize(3))
+		assertEquals(5, SlackThrottle.normalize(7))
+		assertEquals(10, SlackThrottle.normalize(8))
+		assertEquals(15, SlackThrottle.normalize(99))
+		assertEquals(5 * 60_000L, SlackThrottle.intervalMillis(3))
+		assertEquals(15 * 60_000L, SlackThrottle.intervalMillis(99))
+		assertEquals(0L, SlackThrottle.intervalMillis(0))
+		assertTrue(SlackThrottle.isOff(0))
+		assertEquals(Long.MAX_VALUE, SlackThrottle.delayUntilDue(null, 1_000L, 0L, sessionStartedAtMillis = 0L))
+		assertEquals(300_000L, SlackThrottle.delayUntilDue(null, 0L, 300_000L, sessionStartedAtMillis = 0L))
 		assertEquals(60_000L, SlackThrottle.delayUntilDue(0L, 120_000L, 180_000L))
-		assertEquals(120_000L, SlackThrottle.intervalMillis(1))
-		assertEquals(600_000L, SlackThrottle.intervalMillis(99))
+		assertEquals(0L, SlackThrottle.delayUntilDue(null, 1_000L, 180_000L))
 	}
 
 	@Test
@@ -153,17 +163,23 @@ class SlackSyncCoordinatorTests {
 		override fun enqueue(message: SlackOutgoing) { sent += message }
 	}
 
+	private class FakeEndScheduler : com.eva.cloudtranscribe.slack.SlackEndScheduler {
+		val requests = mutableListOf<com.eva.cloudtranscribe.slack.SlackEndRequest>()
+		override fun schedule(request: com.eva.cloudtranscribe.slack.SlackEndRequest) { requests += request }
+	}
+
 	private class Holder : SlackDeliveryStateHolder {
 		override var currentSessionId: String? = null
 	}
 
-	private val active = SlackSyncSettings(enabled = true, consentAtMillis = 1L, channelLabel = "#notes", minIntervalMinutes = 3)
+	private val active = SlackSyncSettings(enabled = true, consentAtMillis = 1L, channelLabel = "#notes", minIntervalMinutes = 5)
 
 	private fun TestScope.coordinator(
 		outbox: FakeOutbox,
 		settings: SlackSyncSettings = active,
 		hasWebhook: Boolean = true,
 		holder: Holder = Holder(),
+		endScheduler: FakeEndScheduler = FakeEndScheduler(),
 	) = SlackSyncCoordinator(
 		hasWebhook = { hasWebhook },
 		outbox = outbox,
@@ -171,6 +187,7 @@ class SlackSyncCoordinatorTests {
 		clock = { testScheduler.currentTime },
 		scope = backgroundScope,
 		settingsProvider = { settings },
+		endScheduler = endScheduler,
 	)
 
 	@Test
@@ -191,9 +208,10 @@ class SlackSyncCoordinatorTests {
 	}
 
 	@Test
-	fun start_then_throttled_coalesced_new_items_then_end() = runTest {
+	fun start_then_throttled_coalesced_new_items_then_end_is_scheduled() = runTest {
 		val outbox = FakeOutbox()
-		val c = coordinator(outbox)
+		val ends = FakeEndScheduler()
+		val c = coordinator(outbox, endScheduler = ends)
 		c.onRecordingStarted()
 		assertTrue(c.status.value.syncing)
 		assertEquals("#notes", c.status.value.channelLabel)
@@ -203,37 +221,56 @@ class SlackSyncCoordinatorTests {
 		runCurrent()
 		assertEquals(1, outbox.sent.size)
 
+		// first mid-recording update also waits the full interval from session start
 		c.onKeyPoints("- 決定 A")
 		runCurrent()
-		assertEquals("📝 新重點：\n• 決定 A\n（完整清單以 App 為準）", outbox.sent.last().text)
+		assertEquals(1, outbox.sent.size)
 
-		// two updates inside the 3 min window are coalesced into one message with only new items
 		advanceTimeBy(30_000)
 		c.onKeyPoints("- 決定 A\n- B 負責報價")
 		advanceTimeBy(30_000)
 		c.onKeyPoints("- 決定 A\n- B 負責報價\n- 週三再開會")
-		// placeholder later must not wipe anything
 		c.onKeyPoints("目前無重點")
 		runCurrent()
+		assertEquals(1, outbox.sent.size)
+		advanceTimeBy(5 * 60_000L - 60_000L + 1)
+		runCurrent()
 		assertEquals(2, outbox.sent.size)
-		advanceTimeBy(120_001)
+		assertEquals("📝 新重點：\n• 決定 A\n• B 負責報價\n• 週三再開會", outbox.sent.last().text)
+		assertFalse(outbox.sent.last().text.contains("以 App 為準"))
+
+		// second window: at most 3 new bullets, no extra compression
+		c.onKeyPoints("- 決定 A\n- B 負責報價\n- 週三再開會\n- 第四\n- 第五\n- 第六")
+		runCurrent()
+		assertEquals(2, outbox.sent.size)
+		advanceTimeBy(5 * 60_000L + 1)
 		runCurrent()
 		assertEquals(3, outbox.sent.size)
-		val update = outbox.sent.last().text
-		assertTrue(update.contains("B 負責報價") && update.contains("週三再開會") && !update.contains("決定 A"))
+		val second = outbox.sent.last().text
+		assertTrue(second.contains("第四") && second.contains("第五") && second.contains("第六"))
+		assertFalse(second.contains("決定 A"))
 
-		c.onRecordingSaved()
-		val end = outbox.sent.last()
-		assertEquals(SlackMessageKind.END, end.kind)
-		assertTrue(end.text.contains("決定 A") && end.text.contains("週三再開會"))
+		c.onRecordingSaved(recordingId = 42L, durationMs = 65_000L, title = "週會")
+		assertTrue(outbox.sent.none { it.kind == SlackMessageKind.END })
+		assertEquals(1, ends.requests.size)
+		assertEquals(42L, ends.requests.single().recordingId)
+		assertEquals(65_000L, ends.requests.single().durationMs)
+		assertEquals("週會", ends.requests.single().title)
+		assertTrue(ends.requests.single().liveKeyPoints.contains("決定 A"))
+		assertTrue(ends.requests.single().liveKeyPoints.contains("第六"))
 		assertFalse(c.status.value.syncing)
 		assertEquals(1, outbox.sent.map { it.sessionId }.distinct().size)
+
+		// a second save after the session ended must not schedule again
+		c.onRecordingSaved(recordingId = 42L, durationMs = 65_000L)
+		assertEquals(1, ends.requests.size)
 	}
 
 	@Test
 	fun pause_holds_updates_and_per_recording_switch_stops_sending() = runTest {
 		val outbox = FakeOutbox()
-		val c = coordinator(outbox)
+		val ends = FakeEndScheduler()
+		val c = coordinator(outbox, endScheduler = ends)
 		c.onRecordingStarted()
 		c.onPaused()
 		assertTrue(c.status.value.paused)
@@ -241,6 +278,9 @@ class SlackSyncCoordinatorTests {
 		runCurrent()
 		assertEquals(1, outbox.sent.size)
 		c.onResumed()
+		runCurrent()
+		assertEquals(1, outbox.sent.size)
+		advanceTimeBy(5 * 60_000L + 1)
 		runCurrent()
 		assertEquals(2, outbox.sent.size)
 
@@ -250,8 +290,9 @@ class SlackSyncCoordinatorTests {
 		c.onKeyPoints("- 決定 A\n- 新的")
 		advanceTimeBy(600_000)
 		runCurrent()
-		c.onRecordingSaved()
+		c.onRecordingSaved(recordingId = 1L)
 		assertEquals(2, outbox.sent.size)
+		assertTrue(ends.requests.isEmpty())
 	}
 
 	@Test
@@ -262,12 +303,14 @@ class SlackSyncCoordinatorTests {
 		c.onRecordingStarted()
 		val first = holder.currentSessionId
 		c.onKeyPoints("- 決定 A")
-		advanceTimeBy(10_000)
+		advanceTimeBy(5 * 60_000L + 1)
+		runCurrent()
 		c.onKeyPoints("- 決定 A\n- 尚未送出的")
 		c.onRecordingCancelled()
 		advanceTimeBy(600_000)
 		runCurrent()
 		assertEquals(listOf(SlackMessageKind.START, SlackMessageKind.KEY_POINTS), outbox.sent.map { it.kind })
+		assertFalse(outbox.sent.last().text.contains("尚未送出的"))
 
 		c.onRecordingStarted()
 		assertTrue(holder.currentSessionId != null && holder.currentSessionId != first)
@@ -275,16 +318,34 @@ class SlackSyncCoordinatorTests {
 	}
 
 	@Test
-	fun end_is_skipped_when_there_are_no_key_points_and_masking_applies() = runTest {
+	fun end_is_scheduled_even_without_live_points_and_masking_applies() = runTest {
 		val outbox = FakeOutbox()
-		val c = coordinator(outbox, settings = active.copy(sendStart = false, maskSensitive = true))
+		val ends = FakeEndScheduler()
+		val c = coordinator(outbox, settings = active.copy(sendStart = false, maskSensitive = true), endScheduler = ends)
 		c.onRecordingStarted()
-		c.onRecordingSaved()
+		c.onRecordingSaved(recordingId = 9L, durationMs = 1_000L)
 		assertTrue(outbox.sent.isEmpty())
+		assertEquals(1, ends.requests.size)
+		assertTrue(ends.requests.single().liveKeyPoints.isEmpty())
+		assertTrue(ends.requests.single().maskSensitive)
 
 		c.onRecordingStarted()
 		c.onKeyPoints("- 聯絡 a@example.com")
 		runCurrent()
+		assertTrue(outbox.sent.isEmpty())
+		advanceTimeBy(5 * 60_000L + 1)
+		runCurrent()
 		assertFalse(outbox.sent.single().text.contains("example.com"))
+	}
+
+	@Test
+	fun mid_updates_are_disabled_when_interval_is_off() = runTest {
+		val outbox = FakeOutbox()
+		val c = coordinator(outbox, settings = active.copy(minIntervalMinutes = 0))
+		c.onRecordingStarted()
+		c.onKeyPoints("- 決定 A")
+		advanceTimeBy(20 * 60_000L)
+		runCurrent()
+		assertEquals(listOf(SlackMessageKind.START), outbox.sent.map { it.kind })
 	}
 }

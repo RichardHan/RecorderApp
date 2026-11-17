@@ -39,6 +39,7 @@ class SlackSyncCoordinator internal constructor(
 	private val clock: () -> Long,
 	private val scope: CoroutineScope,
 	private val settingsProvider: suspend () -> SlackSyncSettings,
+	private val endScheduler: SlackEndScheduler = NoOpSlackEndScheduler,
 ) {
 
 	@Inject
@@ -47,6 +48,7 @@ class SlackSyncCoordinator internal constructor(
 		webhookStore: SlackWebhookStore,
 		outbox: WorkManagerSlackOutbox,
 		deliveryState: SlackDeliveryState,
+		endScheduler: WorkManagerSlackEndScheduler,
 	) : this(
 		hasWebhook = { webhookStore.hasKey.value },
 		outbox = outbox,
@@ -58,6 +60,7 @@ class SlackSyncCoordinator internal constructor(
 		clock = { System.currentTimeMillis() },
 		scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 		settingsProvider = { settingsRepo.current() },
+		endScheduler = endScheduler,
 	)
 
 	private class Session(
@@ -142,10 +145,14 @@ class SlackSyncCoordinator internal constructor(
 
 	private fun scheduleKeyPoints(s: Session) = synchronized(lock) {
 		if (!s.syncing() || !s.settings.sendKeyPoints || s.paused) return@synchronized
+		if (SlackThrottle.isOff(s.settings.normalizedIntervalMinutes)) return@synchronized
 		if (SlackMessages.diff(s.sentItems, s.latestItems).isEmpty()) return@synchronized
 		if (s.timer?.isActive == true) return@synchronized // coalesced: the timer sends the newest diff when due
 		val wait = SlackThrottle.delayUntilDue(
-			s.lastKeyPointsSentAt, clock(), SlackThrottle.intervalMillis(s.settings.normalizedIntervalMinutes),
+			s.lastKeyPointsSentAt,
+			clock(),
+			SlackThrottle.intervalMillis(s.settings.normalizedIntervalMinutes),
+			s.startedAtMillis,
 		)
 		s.timer = scope.launch {
 			if (wait > 0) delay(wait)
@@ -156,25 +163,40 @@ class SlackSyncCoordinator internal constructor(
 	private fun flushKeyPoints(s: Session) {
 		val message = synchronized(lock) {
 			if (session !== s || !s.syncing() || s.paused) return
-			val newItems = SlackMessages.diff(s.sentItems, s.latestItems)
+			val newItems = SlackMessages.capItems(
+				SlackMessages.diff(s.sentItems, s.latestItems),
+				SlackMessages.MID_MAX_ITEMS,
+			)
 			if (newItems.isEmpty()) return
 			s.sentItems = s.sentItems + newItems
 			s.lastKeyPointsSentAt = clock()
 			s.timer = null
-			SlackOutgoing(s.id, SlackMessageKind.KEY_POINTS, maybeMask(s, SlackMessages.keyPointsText(newItems)))
+			val text = SlackMessages.keyPointsText(newItems) ?: return
+			SlackOutgoing(s.id, SlackMessageKind.KEY_POINTS, maybeMask(s, text))
 		}
 		outbox.enqueue(message)
 	}
 
-	/** Recording saved: drop any pending mid-way update and send one end message (if there is anything to say). */
-	fun onRecordingSaved() {
+	/**
+	 * Recording saved: drop any pending mid-way update and schedule one end message that waits for the
+	 * post-recording cloud summary (with a live-key-point fallback). Never mixes sessions.
+	 */
+	fun onRecordingSaved(recordingId: Long = 0L, durationMs: Long = 0L, title: String? = null) {
 		val s = synchronized(lock) { session?.also { session = null } } ?: return
 		s.timer?.cancel()
 		publish(null)
 		if (!s.syncing() || !s.settings.sendEnd) return
-		val finalItems = s.latestItems.ifEmpty { s.sentItems }
-		val text = SlackMessages.endText(finalItems) ?: return
-		outbox.enqueue(SlackOutgoing(s.id, SlackMessageKind.END, maybeMask(s, text)))
+		endScheduler.schedule(
+			SlackEndRequest(
+				sessionId = s.id,
+				recordingId = recordingId,
+				durationMs = durationMs,
+				title = title,
+				liveKeyPoints = s.latestItems.ifEmpty { s.sentItems },
+				maskSensitive = s.settings.maskSensitive,
+				enqueuedAtMillis = clock(),
+			),
+		)
 	}
 
 	/** Recording discarded: nothing more is sent for it. */
@@ -195,4 +217,9 @@ class SlackSyncCoordinator internal constructor(
 /** Indirection so the coordinator can be tested without SharedPreferences. */
 interface SlackDeliveryStateHolder {
 	var currentSessionId: String?
+}
+
+
+object NoOpSlackEndScheduler : SlackEndScheduler {
+	override fun schedule(request: SlackEndRequest) = Unit
 }
