@@ -46,6 +46,7 @@ internal class RecorderViewModel @Inject constructor(
     private val recorderService: RecorderServiceBinder,
     private val transcriptionSettings: TranscriptionSettingsRepo,
     private val slackSync: com.eva.cloudtranscribe.slack.SlackSyncCoordinator,
+    private val liveToggles: com.eva.recorder.domain.live.RecorderLiveToggles,
     private val statusTracker: RecorderStatusTracker,
     private val savedStateHandle: SavedStateHandle,
 ) : AppViewModel() {
@@ -76,12 +77,36 @@ internal class RecorderViewModel @Inject constructor(
     val slackStatus: StateFlow<com.eva.cloudtranscribe.slack.SlackSyncStatus> = slackSync.status
 
     /** Turns Slack sync off/on for the current recording only (never enables it without the global opt-in). */
-    fun setSlackSyncForThisRecording(enabled: Boolean) = slackSync.setSyncForThisRecording(enabled)
-
-    /** Live on-device captions on/off; only this preference changes (cloud settings are independent). */
-    fun setLiveTranscription(enabled: Boolean) {
-        viewModelScope.launch { transcriptionSettings.onEnableOrDisable(enabled) }
+    fun setSlackSyncForThisRecording(enabled: Boolean) {
+        viewModelScope.launch { liveToggles.toggle(com.eva.cloudtranscribe.live.LiveToggleKind.SLACK, enabled) }
     }
+
+    val liveToggleUi: StateFlow<com.eva.recorder.domain.live.RecorderLiveToggleUi> = liveToggles.ui
+
+    init {
+        viewModelScope.launch { liveToggles.refreshInputs() }
+    }
+
+    /** Per-recording 本機字幕; does not write the settings default. */
+    fun setLocalLive(enabled: Boolean) {
+        viewModelScope.launch { liveToggles.toggle(com.eva.cloudtranscribe.live.LiveToggleKind.LOCAL, enabled) }
+    }
+
+    /** Per-recording 雲端即時; does not write the settings default (consent is persisted separately). */
+    fun setCloudLive(enabled: Boolean) {
+        viewModelScope.launch { liveToggles.toggle(com.eva.cloudtranscribe.live.LiveToggleKind.CLOUD, enabled) }
+    }
+
+    fun acceptCloudConsent() {
+        viewModelScope.launch { liveToggles.acceptCloudConsent() }
+    }
+
+    fun refreshLiveToggles() {
+        viewModelScope.launch { liveToggles.refreshInputs() }
+    }
+
+    /** Kept for older call sites; settings default is no longer written from the recorder chip. */
+    fun setLiveTranscription(enabled: Boolean) = setLocalLive(enabled)
 
     private val _uiEvents = MutableSharedFlow<UIEvents>()
     override val uiEvent: SharedFlow<UIEvents>
@@ -164,7 +189,10 @@ internal class RecorderViewModel @Inject constructor(
 
     fun onEvent(event: RecorderScreenEvent) {
         when (event) {
-            RecorderScreenEvent.BindRecorderService -> recorderService.bindToService()
+            RecorderScreenEvent.BindRecorderService -> {
+                recorderService.bindToService()
+                refreshLiveToggles()
+            }
             RecorderScreenEvent.UnBindRecorderService -> recorderService.unBindService()
         }
     }

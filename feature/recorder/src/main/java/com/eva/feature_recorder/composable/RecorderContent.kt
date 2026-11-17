@@ -45,6 +45,10 @@ internal fun RecorderContent(
 	onToggleLiveTranscription: (Boolean) -> Unit = {},
 	slackStatus: com.eva.cloudtranscribe.slack.SlackSyncStatus = com.eva.cloudtranscribe.slack.SlackSyncStatus(),
 	onToggleSlackSync: (Boolean) -> Unit = {},
+	liveToggles: com.eva.recorder.domain.live.RecorderLiveToggleUi = com.eva.recorder.domain.live.RecorderLiveToggleUi(),
+	onToggleLocalLive: (Boolean) -> Unit = {},
+	onToggleCloudLive: (Boolean) -> Unit = {},
+	onAcceptCloudConsent: () -> Unit = {},
 	/** Off in previews/tests (needs Hilt). */
 	showNotes: Boolean = false,
 ) {
@@ -68,20 +72,18 @@ internal fun RecorderContent(
 					fontFamily = DownloadableFonts.SPLINE_SANS_MONO_FONT_FAMILY,
 					style = MaterialTheme.typography.titleLarge,
 				)
-				AssociatedRecorderActions(
-					transcriptionSettings = transcriptionSettings,
-					onOpenSettings = onNavigateToSettings,
-					onToggleLiveTranscription = onToggleLiveTranscription,
-				)
 				if (showNotes) RecordingNotesChip()
 				if (showNotes)
 					com.eva.feature_recorder.photos.RecordingPhotosButton(timeMs = { timer().toMillisecondOfDay().toLong() })
-				SlackSyncIndicator(
-					status = slackStatus,
-					isRecording = recorderState == RecorderState.RECORDING || recorderState == RecorderState.PAUSED,
-					onToggle = onToggleSlackSync,
-				)
 			}
+			RecorderLiveToggleChips(
+				ui = liveToggles,
+				onToggleLocal = onToggleLocalLive,
+				onToggleCloud = onToggleCloudLive,
+				onToggleSlack = onToggleSlackSync,
+				onNeedLocalModel = onNavigateToSettings,
+				onAcceptCloudConsent = onAcceptCloudConsent,
+			)
 			RecorderInputLevelBar(
 				points = recordingPointsCallback,
 				modifier = Modifier.fillMaxWidth(),
@@ -91,11 +93,11 @@ internal fun RecorderContent(
 					offline = transcriptions,
 					cloud = liveCloud,
 					isActive = recorderState.canReadAmplitudes,
-					showOffline = transcriptionSettings.isEnabled || transcriptions.hasText,
+					showOffline = liveToggles.localOn || transcriptions.hasText,
 					fontFamily = DownloadableFonts.SOURCE_SANS_3_FONT_FAMILY,
 					modifier = Modifier.fillMaxWidth().weight(1f),
 				)
-			} else if (transcriptionSettings.isEnabled || transcriptions.hasText) {
+			} else if (liveToggles.localOn || transcriptions.hasText) {
 				RecorderLiveTranscriptionText(
 					result = transcriptions,
 					isActive = recorderState.canReadAmplitudes,

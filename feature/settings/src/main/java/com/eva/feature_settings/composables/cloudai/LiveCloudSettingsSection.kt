@@ -27,6 +27,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.eva.cloudtranscribe.live.LiveCloudConsentCopy
 import com.eva.cloudtranscribe.live.LiveCloudSettings
 import com.eva.cloudtranscribe.live.LiveCloudSettingsRepository
 import com.eva.cloudtranscribe.secure.ApiKeyStore
@@ -159,17 +160,16 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 
 	if (confirmEnable) AlertDialog(
 		onDismissRequest = { confirmEnable = false },
-		title = { Text("開啟進階即時雲端模式？") },
+		title = { Text(LiveCloudConsentCopy.TITLE) },
 		text = {
-			Text("錄音期間每 ${draft.transcribeIntervalSec} 秒會把新錄到的音訊上傳到你設定的轉錄服務，並每 ${draft.summaryIntervalSec} 秒把新增文字送到摘要服務（${draft.summaryModel}）。" +
-				"會持續使用行動數據並產生 API 費用；服務慢或失敗時不會影響錄音存檔。")
+			Text(LiveCloudConsentCopy.body(draft.transcribeIntervalSec, draft.summaryIntervalSec, draft.summaryModel))
 		},
 		confirmButton = {
 			TextButton(onClick = {
 				draft = draft.copy(enabled = true, consentAcceptedAtMillis = System.currentTimeMillis()); confirmEnable = false
-			}) { Text("我了解費用與上傳，開啟") }
+			}) { Text(LiveCloudConsentCopy.CONFIRM) }
 		},
-		dismissButton = { TextButton(onClick = { confirmEnable = false }) { Text("取消") } },
+		dismissButton = { TextButton(onClick = { confirmEnable = false }) { Text(LiveCloudConsentCopy.CANCEL) } },
 	)
 	if (confirmTest) AlertDialog(
 		onDismissRequest = { confirmTest = false },

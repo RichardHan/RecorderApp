@@ -30,8 +30,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -39,7 +41,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 private const val TAG = "TRANSCRIPTION_PROVIDER"
 
 /**
- * Live on-device recognition that follows the "即時字幕" switch (TranscriptionSettings.isEnabled) during recording.
+ * Live on-device recognition that follows the per-recording 「本機字幕」 switch during recording.
  * - Switching off flushes the current run, keeps its text and frees the model; the recording is unaffected.
  * - Switching on (re)loads the model and recognises from the current audio onwards.
  * - All transitions are serialized by [LiveAsrController]; rapid toggles are conflated.
@@ -52,6 +54,8 @@ internal class TranscriptionProviderImpl(
 	private val repository: STTModelsRepository,
 	private val offlineEngine: OfflineSpeechEngine,
 	private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+	/** Per-recording local-captions switch; when null, [TranscriptionSettings.isEnabled] is used (tests). */
+	private val sessionLocalEnabled: Flow<Boolean>? = null,
 ) : TranscriptionProvider {
 
 	private val _display = MutableStateFlow(LiveTranscriptState())
@@ -90,10 +94,10 @@ internal class TranscriptionProviderImpl(
 				_timed.value = s.timedLines
 			}
 		}
-		// follow the switch for the whole recording
+		// follow the per-recording switch (or the settings default in tests) and the selected model
 		scope.launch {
-			settingsRepo.settingsFlow
-				.map { it.isEnabled to it.modelId }
+			val enabledFlow = sessionLocalEnabled ?: settingsRepo.settingsFlow.map { it.isEnabled }
+			combine(enabledFlow, settingsRepo.settingsFlow.map { it.modelId }) { enabled, modelId -> enabled to modelId }
 				.distinctUntilChanged()
 				.conflate()
 				.collect { (enabled, modelId) ->

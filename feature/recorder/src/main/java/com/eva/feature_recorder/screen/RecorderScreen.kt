@@ -44,6 +44,10 @@ internal fun VoiceRecorderScreen(
 	onToggleLiveTranscription: (Boolean) -> Unit = {},
 	slackStatus: com.eva.cloudtranscribe.slack.SlackSyncStatus = com.eva.cloudtranscribe.slack.SlackSyncStatus(),
 	onToggleSlackSync: (Boolean) -> Unit = {},
+	liveToggles: com.eva.recorder.domain.live.RecorderLiveToggleUi = com.eva.recorder.domain.live.RecorderLiveToggleUi(),
+	onToggleLocalLive: (Boolean) -> Unit = {},
+	onToggleCloudLive: (Boolean) -> Unit = {},
+	onAcceptCloudConsent: () -> Unit = {},
 	showNotes: Boolean = false,
 ) {
 
@@ -95,6 +99,10 @@ internal fun VoiceRecorderScreen(
 				transcriptionSettings = transcriptionSettings,
 				onNavigateToSettings = onNavigateToSettings,
 				onToggleLiveTranscription = onToggleLiveTranscription,
+				liveToggles = liveToggles,
+				onToggleLocalLive = onToggleLocalLive,
+				onToggleCloudLive = onToggleCloudLive,
+				onAcceptCloudConsent = onAcceptCloudConsent,
 				showNotes = showNotes,
 				modifier = Modifier.fillMaxSize()
 			)

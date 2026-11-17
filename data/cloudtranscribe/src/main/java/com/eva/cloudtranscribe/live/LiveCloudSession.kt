@@ -54,6 +54,8 @@ class LiveCloudSession(
 	private var summaryJob: Job? = null
 	@Volatile private var transcribing = false
 	@Volatile private var closed = false
+	/** When true, audio timeline still advances but no new chunks are cut/uploaded and no new summaries are scheduled. */
+	@Volatile private var uploadsPaused = false
 
 	private val _state = MutableStateFlow(
 		LiveCloudState(active = true, phase = LiveCloudPhase.WAITING_FIRST_CHUNK, summaryModel = settings.summaryModel, transcribeModel = transcribeModel)
@@ -71,17 +73,43 @@ class LiveCloudSession(
 
 	val elapsedMs: Long get() = synchronized(lock) { totalSamples * 1000 / sampleRate }
 
+	val isUploadsPaused: Boolean get() = uploadsPaused
+
+	/**
+	 * Mid-recording pause/resume of cloud uploads. The recorded-audio timeline keeps advancing.
+	 * Turning off drops the uncut buffer (no partial upload) and stops scheduling new chunks/summaries;
+	 * already-queued or in-flight work may finish. Turning back on starts a new chunk at the current
+	 * position so there is no overlap with earlier uploads and no mix with another recording.
+	 */
+	fun setUploadsPaused(paused: Boolean) {
+		if (closed) return
+		synchronized(lock) {
+			if (uploadsPaused == paused) return
+			uploadsPaused = paused
+			if (paused && bufferLen > 0) {
+				bufferStartSample += bufferLen
+				bufferLen = 0
+			}
+		}
+		if (!paused) maybeSummarize()
+	}
+
 	/** Cheap, non-suspending; copies samples. Called from the PCM stream collector (not the recorder). */
 	fun onAudio(samples: ShortArray, length: Int) {
 		if (closed || length <= 0) return
 		synchronized(lock) {
-			ensureCapacity(bufferLen + length)
-			System.arraycopy(samples, 0, buffer, bufferLen, length)
-			bufferLen += length
 			totalSamples += length
-			if (bufferLen >= intervalSamples) cutChunkLocked()
+			if (!uploadsPaused) {
+				ensureCapacity(bufferLen + length)
+				System.arraycopy(samples, 0, buffer, bufferLen, length)
+				bufferLen += length
+				if (bufferLen >= intervalSamples) cutChunkLocked()
+			} else {
+				// keep the next resume chunk aligned with the recorded-audio timeline
+				if (bufferLen == 0) bufferStartSample = totalSamples
+			}
 		}
-		maybeSummarize()
+		if (!uploadsPaused) maybeSummarize()
 	}
 
 	/** Latest offline finalized lines (whole list, same audio timeline). */
@@ -175,7 +203,7 @@ class LiveCloudSession(
 			if (ok) lastSummaryAtMs = elapsed
 			ok
 		}
-		if (!run || closed && !force) return null
+		if (!run || (closed && !force) || (uploadsPaused && !force)) return null
 		val versionAtStart = synchronized(lock) { contentVersion }
 		val snapshot = _state.value
 		val okSpans = snapshot.cloudSpans.filter { it.covers }

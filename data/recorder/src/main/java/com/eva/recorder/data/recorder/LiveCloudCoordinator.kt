@@ -86,6 +86,8 @@ internal class LiveCloudCoordinator(
 	private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 	/** Per-recording notes draft (#5); blank falls back to the global meeting notes. */
 	private val recordingNotes: () -> String = { "" },
+	/** Per-recording cloud switch; when null, [LiveCloudSettings.isActive] decides (tests). */
+	private val sessionCloudEnabled: (() -> Boolean)? = null,
 ) {
 	private val _state = MutableStateFlow(LiveCloudState())
 	val state: StateFlow<LiveCloudState> = _state.asStateFlow()
@@ -118,7 +120,41 @@ internal class LiveCloudCoordinator(
 			synchronized(lock) { if (generation != startGeneration) return }
 			val live = liveRepo.current()
 			synchronized(lock) { if (generation != startGeneration) return }
-			if (!live.isActive) return // default: OFF, nothing happens
+			val wantCloud = sessionCloudEnabled?.invoke() ?: live.isActive
+			if (!wantCloud) return // this recording's cloud chip is off: no session, no requests
+			installSessionLocked(startGeneration, live)
+		}
+	}
+
+	/**
+	 * Mid-recording cloud chip. Turning off pauses new uploads on the current session (does not cancel it).
+	 * Turning on resumes an existing session, or starts one from the current audio position if this
+	 * recording began with cloud off. Never touches a finishing session of a previous recording.
+	 */
+	suspend fun applySessionEnabled(enabled: Boolean) {
+		val existing = synchronized(lock) { session }
+		if (existing != null) {
+			existing.setUploadsPaused(!enabled)
+			return
+		}
+		if (!enabled) return
+		val startGeneration = synchronized(lock) { generation }
+		startupLock.withLock {
+			synchronized(lock) {
+				if (generation != startGeneration) return
+				if (session != null) {
+					session?.setUploadsPaused(false)
+					return
+				}
+			}
+			val live = liveRepo.current()
+			synchronized(lock) { if (generation != startGeneration) return }
+			installSessionLocked(startGeneration, live)
+		}
+	}
+
+	/** Must be called while holding [startupLock]. */
+	private suspend fun installSessionLocked(startGeneration: Long, live: com.eva.cloudtranscribe.live.LiveCloudSettings) {
 			val cloud = cloudRepo.current()
 			val asrKey = asrKeys.read()
 			synchronized(lock) { if (generation != startGeneration) return }
@@ -192,7 +228,6 @@ internal class LiveCloudCoordinator(
 				transcriber.offlineTimedLines.collect { l -> s.onOfflineLines(l.map { (ms, t) -> OfflineLine(ms, t) }) }
 			}
 			Log.i(TAG, "live cloud session started")
-		}
 	}
 
 	/**
