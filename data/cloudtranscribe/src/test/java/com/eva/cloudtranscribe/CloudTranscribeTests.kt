@@ -292,6 +292,7 @@ class HallucinationGuardTests {
 		for (p in listOf(prompts.TRANSCRIBE, prompts.TRANSCRIBE_ALT)) {
 			assertTrue(p.contains(prompts.NO_SPEECH))
 			assertTrue(p.contains("聽不清楚"))
+			assertTrue(p.contains("verbatim") || p.contains("Verbatim"))
 			assertFalse(p.contains("嗯"))
 		}
 	}

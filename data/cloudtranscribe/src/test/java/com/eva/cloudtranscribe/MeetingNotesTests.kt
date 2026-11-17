@@ -76,7 +76,7 @@ class MeetingNotesTests {
 	fun liveSessionPutsNotesIntoTheSummaryRequest() = runTest {
 		val prompts = mutableListOf<String>()
 		val s = LiveCloudSession(backgroundScope, LiveCloudSettings(enabled = true, consentAcceptedAtMillis = 1L, meetingNotes = notes), "notes",
-			transcribe = { _, _, _ -> CallOutcome.Text("雲端稿") },
+			transcribe = { _ -> CallOutcome.Text("雲端稿") },
 			summarize = { p -> prompts += p; CallOutcome.Text("- 重點") },
 			sampleRate = 100)
 		repeat(90) { s.onAudio(pcm(1), 100) }
@@ -92,7 +92,7 @@ class MeetingNotesTests {
 	fun liveSessionWithoutNotesSendsTheOriginalPrompt() = runTest {
 		val prompts = mutableListOf<String>()
 		val s = LiveCloudSession(backgroundScope, LiveCloudSettings(enabled = true, consentAcceptedAtMillis = 1L), "no-notes",
-			transcribe = { _, _, _ -> CallOutcome.Text("雲端稿") },
+			transcribe = { _ -> CallOutcome.Text("雲端稿") },
 			summarize = { p -> prompts += p; CallOutcome.Text("- 重點") },
 			sampleRate = 100)
 		repeat(90) { s.onAudio(pcm(1), 100) }
@@ -106,7 +106,7 @@ class MeetingNotesTests {
 	fun perRecordingNotesReplaceTheGlobalNotesInTheLiveRequest() = runTest {
 		val prompts = mutableListOf<String>()
 		val s = LiveCloudSession(backgroundScope, LiveCloudSettings(enabled = true, consentAcceptedAtMillis = 1L, meetingNotes = notes), "per-rec",
-			transcribe = { _, _, _ -> CallOutcome.Text("雲端稿") },
+			transcribe = { _ -> CallOutcome.Text("雲端稿") },
 			summarize = { p -> prompts += p; CallOutcome.Text("- 重點") },
 			sampleRate = 100,
 			meetingNotes = { com.eva.cloudtranscribe.notes.RecordingNotes.effective("本場：預算", notes) })

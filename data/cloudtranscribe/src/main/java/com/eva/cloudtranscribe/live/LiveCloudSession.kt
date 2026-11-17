@@ -3,7 +3,7 @@ package com.eva.cloudtranscribe.live
 import com.eva.cloudtranscribe.api.CallOutcome
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,7 +15,11 @@ import kotlinx.coroutines.withTimeoutOrNull
  * One recording's advanced live-cloud session.
  * - Audio arrives as PCM copies from the live capture stream (the recorder's output file is never read or uploaded).
  * - Every [LiveCloudSettings.transcribeIntervalMs] of recorded audio, the new samples become an immutable chunk
- *   placed in a bounded queue; ONE worker transcribes chunks in order (no ever-growing backlog).
+ *   placed in a bounded queue. Up to [LiveCloudSettings.MAX_PARALLEL_TRANSCRIBES] uploads may run at once; results
+ *   are applied in recorded-audio order so a slow reply never blocks the next chunk's upload, and later text never
+ *   appears before earlier audio.
+ * - When [LiveCloudSettings.enhanceContextQuality] is on, later chunks include a short leading audio overlap and
+ *   previous-text context; a text-only refine may then replace the raw text asynchronously (raw is shown first).
  * - Key-point summary runs at most one at a time, gated by [SummaryGate]; failures keep the last good key points.
  * - Results are applied only while [sessionId] is current (stale results after stop/cancel are ignored).
  * Nothing here ever blocks or alters audio recording.
@@ -24,26 +28,42 @@ class LiveCloudSession(
 	private val scope: CoroutineScope,
 	private val settings: LiveCloudSettings,
 	val sessionId: String,
-	private val transcribe: suspend (samples: ShortArray, startMs: Long, endMs: Long) -> CallOutcome,
+	private val transcribe: suspend (LiveTranscribeJob) -> CallOutcome,
 	private val summarize: suspend (prompt: String) -> CallOutcome,
 	private val sampleRate: Int = 16_000,
 	queueCapacity: Int = 3,
 	transcribeModel: String? = null,
-	/** Notes used for live key points; read on every summary so in-meeting edits apply (default: global notes). */
 	private val meetingNotes: () -> String = { settings.meetingNotes },
+	private val transcribePrompt: String = com.eva.cloudtranscribe.engine.Prompts.TRANSCRIBE,
+	private val seedTerms: List<String> = emptyList(),
+	private val refine: (suspend (String) -> CallOutcome)? = null,
+	private val clock: () -> Long = { System.currentTimeMillis() },
 ) {
-	data class Chunk(val startMs: Long, val endMs: Long, val samples: ShortArray)
+	data class Chunk(
+		val startMs: Long,
+		val endMs: Long,
+		val samples: ShortArray,
+		val overlapMs: Long,
+		val seq: Int,
+	)
+
+	private class FinishedChunk(
+		val chunk: Chunk,
+		val outcome: CallOutcome,
+		val transcribeMs: Long,
+		val uploadedMs: Long,
+	)
 
 	private val lock = Any()
 	private val guard = SessionGuard().also { it.start(sessionId) }
 	private val queue = BoundedChunkQueue<Chunk>(queueCapacity)
-	private val wake = Channel<Unit>(Channel.CONFLATED)
 
 	private var buffer = ShortArray(sampleRate * 8)
 	private var bufferLen = 0
 	private var bufferStartSample = 0L
 	private var totalSamples = 0L
 	private val intervalSamples = settings.transcribeIntervalMs * sampleRate / 1000
+	private var overlapTail = ShortArray(0)
 
 	private var offline: List<OfflineLine> = emptyList()
 	private var successfulChunks = 0
@@ -52,6 +72,13 @@ class LiveCloudSession(
 	private var lastSummaryAtMs: Long? = null
 	private var summarizedSpanCount = 0
 	private var summaryJob: Job? = null
+	private var nextSeq = 0
+	private var nextApplySeq = 0
+	private var activeTranscribes = 0
+	private val finished = sortedMapOf<Int, FinishedChunk>()
+	private val transcribeJobs = mutableListOf<Job>()
+	private val refineJobs = mutableListOf<Job>()
+	private var knownTerms: List<String> = LiveKnownTerms.merge(emptyList(), seedTerms)
 	@Volatile private var transcribing = false
 	@Volatile private var closed = false
 	/** When true, audio timeline still advances but no new chunks are cut/uploaded and no new summaries are scheduled. */
@@ -61,15 +88,6 @@ class LiveCloudSession(
 		LiveCloudState(active = true, phase = LiveCloudPhase.WAITING_FIRST_CHUNK, summaryModel = settings.summaryModel, transcribeModel = transcribeModel)
 	)
 	val state: StateFlow<LiveCloudState> = _state.asStateFlow()
-
-	private val worker: Job = scope.launch {
-		for (signal in wake) {
-			while (true) {
-				val chunk = queue.poll() ?: break
-				process(chunk)
-			}
-		}
-	}
 
 	val elapsedMs: Long get() = synchronized(lock) { totalSamples * 1000 / sampleRate }
 
@@ -86,9 +104,13 @@ class LiveCloudSession(
 		synchronized(lock) {
 			if (uploadsPaused == paused) return
 			uploadsPaused = paused
-			if (paused && bufferLen > 0) {
-				bufferStartSample += bufferLen
-				bufferLen = 0
+			if (paused) {
+				if (bufferLen > 0) {
+					bufferStartSample += bufferLen
+					bufferLen = 0
+				}
+				// a gap after resume must not reuse pre-pause audio as overlap context
+				overlapTail = ShortArray(0)
 			}
 		}
 		if (!paused) maybeSummarize()
@@ -103,13 +125,16 @@ class LiveCloudSession(
 				ensureCapacity(bufferLen + length)
 				System.arraycopy(samples, 0, buffer, bufferLen, length)
 				bufferLen += length
-				if (bufferLen >= intervalSamples) cutChunkLocked()
+				while (bufferLen >= intervalSamples) cutChunkLocked()
 			} else {
 				// keep the next resume chunk aligned with the recorded-audio timeline
 				if (bufferLen == 0) bufferStartSample = totalSamples
 			}
 		}
-		if (!uploadsPaused) maybeSummarize()
+		if (!uploadsPaused) {
+			tryStart()
+			maybeSummarize()
+		}
 	}
 
 	/** Latest offline finalized lines (whole list, same audio timeline). */
@@ -128,12 +153,23 @@ class LiveCloudSession(
 
 	private fun cutChunkLocked(): Boolean {
 		if (bufferLen == 0) return false
+		val take = if (closed) bufferLen else minOf(bufferLen.toLong(), intervalSamples).toInt().let { if (it <= 0) bufferLen else it }
 		val startMs = bufferStartSample * 1000 / sampleRate
-		val endSample = bufferStartSample + bufferLen
-		val chunk = Chunk(startMs, endSample * 1000 / sampleRate, buffer.copyOf(bufferLen))
-		bufferStartSample = endSample
-		bufferLen = 0
-		if (buffer.size > sampleRate * 120) buffer = ShortArray(sampleRate * 8)
+		val fresh = buffer.copyOf(take)
+		if (bufferLen > take) {
+			System.arraycopy(buffer, take, buffer, 0, bufferLen - take)
+			bufferLen -= take
+		} else {
+			bufferLen = 0
+		}
+		bufferStartSample += take
+		if (buffer.size > sampleRate * 120 && bufferLen == 0) buffer = ShortArray(sampleRate * 8)
+		val overlapMs = if (settings.enhanceContextQuality) settings.effectiveOverlapMs else 0L
+		val leading = if (overlapMs > 0L) overlapTail else ShortArray(0)
+		val uploaded = LiveAudioOverlap.prepend(leading, fresh)
+		val endMs = bufferStartSample * 1000 / sampleRate
+		overlapTail = if (overlapMs > 0L) LiveAudioOverlap.tail(fresh, overlapMs, sampleRate) else ShortArray(0)
+		val chunk = Chunk(startMs, endMs, uploaded, if (leading.isEmpty()) 0L else overlapMs, nextSeq++)
 		val dropped = queue.offer(chunk)
 		if (dropped != null) {
 			val lost = dropped.endMs - dropped.startMs
@@ -144,46 +180,186 @@ class LiveCloudSession(
 				)
 			}
 		}
-		_state.update { it.copy(pendingChunks = queue.size()) }
-		wake.trySend(Unit)
+		_state.update { it.copy(pendingChunks = queue.size(), inFlightTranscribes = activeTranscribes) }
 		return true
 	}
 
-	private suspend fun process(chunk: Chunk) {
-		if (!guard.isCurrent(sessionId)) return
-		transcribing = true
-		_state.update { it.copy(phase = LiveCloudPhase.TRANSCRIBING, pendingChunks = queue.size()) }
-		var outcome = transcribe(chunk.samples, chunk.startMs, chunk.endMs)
-		if (outcome is CallOutcome.Failure && outcome.retryable && guard.isCurrent(sessionId)) {
-			outcome = transcribe(chunk.samples, chunk.startMs, chunk.endMs)
+	private fun tryStart() {
+		val toRun = mutableListOf<Chunk>()
+		synchronized(lock) {
+			val cap = LiveCloudSettings.MAX_PARALLEL_TRANSCRIBES
+			while (activeTranscribes < cap) {
+				val chunk = queue.poll() ?: break
+				activeTranscribes++
+				toRun += chunk
+			}
+			transcribing = activeTranscribes > 0
+			_state.update { it.copy(pendingChunks = queue.size(), inFlightTranscribes = activeTranscribes) }
 		}
-		transcribing = false
+		toRun.forEach { chunk ->
+			val job = scope.launch { process(chunk) }
+			synchronized(lock) { transcribeJobs += job }
+		}
+	}
+
+	private suspend fun process(chunk: Chunk) {
+		if (!guard.isCurrent(sessionId)) {
+			onProcessDone()
+			return
+		}
+		_state.update {
+			it.copy(phase = LiveCloudPhase.TRANSCRIBING, pendingChunks = queue.size(), inFlightTranscribes = activeTranscribes)
+		}
+		val previous: String
+		val terms: List<String>
+		synchronized(lock) {
+			previous = previousCloudTailLocked()
+			terms = knownTerms
+		}
+		val prompt = LiveTranscribePrompt.build(
+			base = transcribePrompt,
+			overlapMs = chunk.overlapMs,
+			previousSentences = previous,
+			knownTerms = terms,
+			enhance = settings.enhanceContextQuality,
+		)
+		val job = LiveTranscribeJob(
+			samples = chunk.samples,
+			startMs = chunk.startMs,
+			endMs = chunk.endMs,
+			overlapMs = chunk.overlapMs,
+			prompt = prompt,
+			previousSentences = previous,
+			knownTerms = terms,
+		)
+		val t0 = clock()
+		var outcome = transcribe(job)
+		if (outcome is CallOutcome.Failure && outcome.retryable && guard.isCurrent(sessionId)) {
+			outcome = transcribe(job)
+		}
+		val transcribeMs = (clock() - t0).coerceAtLeast(0L)
+		val uploadedMs = chunk.samples.size.toLong() * 1000L / sampleRate
+		synchronized(lock) {
+			finished[chunk.seq] = FinishedChunk(chunk, outcome, transcribeMs, uploadedMs)
+		}
+		drainApply()
+		onProcessDone()
+	}
+
+	private fun onProcessDone() {
+		synchronized(lock) {
+			activeTranscribes = (activeTranscribes - 1).coerceAtLeast(0)
+			transcribing = activeTranscribes > 0
+			_state.update { it.copy(inFlightTranscribes = activeTranscribes, pendingChunks = queue.size()) }
+		}
+		tryStart()
+	}
+
+	private fun drainApply() {
+		while (true) {
+			val ready = synchronized(lock) {
+				if (!guard.isCurrent(sessionId)) {
+					null
+				} else {
+					val item = finished.remove(nextApplySeq)
+					if (item != null) nextApplySeq++
+					item
+				}
+			} ?: return
+			applyFinished(ready)
+		}
+	}
+
+	private fun applyFinished(ready: FinishedChunk) {
 		if (!guard.isCurrent(sessionId)) return
-		val span = when (outcome) {
+		val chunk = ready.chunk
+		val prevText = synchronized(lock) { previousCloudTextLocked() }
+		val span = spanOf(chunk, ready.outcome, prevText)
+		synchronized(lock) {
+			if (span.ok && !span.suspicious) {
+				successfulChunks++
+				if (span.covers) {
+					contentVersion++
+					knownTerms = LiveKnownTerms.merge(knownTerms, LiveKnownTerms.extract(span.text))
+				}
+			}
+		}
+		val latency = ChunkLatency(
+			startMs = chunk.startMs,
+			endMs = chunk.endMs,
+			overlapMs = chunk.overlapMs,
+			uploadedMs = ready.uploadedMs,
+			transcribeMs = ready.transcribeMs,
+		)
+		_state.update {
+			it.copy(
+				cloudSpans = (it.cloudSpans + span).sortedBy { s -> s.startMs },
+				transcribeError = if (span.ok && !span.suspicious) null else span.error,
+				phase = when {
+					activeTranscribes > 0 -> LiveCloudPhase.TRANSCRIBING
+					else -> LiveCloudPhase.IDLE
+				},
+				pendingChunks = queue.size(),
+				inFlightTranscribes = activeTranscribes,
+				lastChunkLatency = latency,
+			)
+		}
+		publishProvisional()
+		maybeSummarize()
+		if (span.covers && settings.effectiveRefine && refine != null) startRefine(span, prevText, latency)
+	}
+
+	private fun startRefine(span: CloudSpan, previousText: String, latency: ChunkLatency) {
+		val refineFn = refine ?: return
+		val terms = synchronized(lock) { knownTerms }
+		val tail = LiveTranscriptOverlap.lastSentences(previousText)
+		val job = scope.launch {
+			val t0 = clock()
+			val outcome = runCatching { refineFn(LiveBoundaryRefine.prompt(tail, span.text, terms)) }
+				.getOrElse { CallOutcome.Failure(it.message ?: "refine failed", retryable = false) }
+			val refineMs = (clock() - t0).coerceAtLeast(0L)
+			if (!guard.isCurrent(sessionId)) return@launch
+			val accepted = (outcome as? CallOutcome.Text)?.text?.let { LiveBoundaryRefine.accept(span.text, it) }
+			if (accepted == null || accepted == span.text) {
+				_state.update { it.copy(lastChunkLatency = latency.copy(refineMs = refineMs)) }
+				return@launch
+			}
+			synchronized(lock) {
+				knownTerms = LiveKnownTerms.merge(knownTerms, LiveKnownTerms.extract(accepted))
+			}
+			_state.update { s ->
+				s.copy(
+					cloudSpans = s.cloudSpans.map { if (it.startMs == span.startMs && it.endMs == span.endMs) it.copy(text = accepted) else it },
+					lastChunkLatency = latency.copy(refineMs = refineMs),
+				)
+			}
+			publishProvisional()
+			maybeSummarize()
+		}
+		synchronized(lock) { refineJobs += job }
+	}
+
+	private fun spanOf(chunk: Chunk, outcome: CallOutcome, previousText: String): CloudSpan {
+		fun cleaned(raw: String): String =
+			if (settings.enhanceContextQuality) LiveTranscriptOverlap.trimLeadingOverlap(previousText, raw) else raw.trim()
+		return when (outcome) {
 			is CallOutcome.Text -> when {
 				com.eva.cloudtranscribe.engine.Prompts.isNoSpeech(outcome.text) -> CloudSpan(chunk.startMs, chunk.endMs, "")
 				com.eva.cloudtranscribe.engine.RepetitionGuard.isPathological(outcome.text) ->
 					CloudSpan(chunk.startMs, chunk.endMs, outcome.text, ok = true, suspicious = true, error = com.eva.cloudtranscribe.engine.RepetitionGuard.WARNING)
-				else -> CloudSpan(chunk.startMs, chunk.endMs, outcome.text)
+				else -> CloudSpan(chunk.startMs, chunk.endMs, cleaned(outcome.text))
 			}
 			CallOutcome.Empty -> CloudSpan(chunk.startMs, chunk.endMs, "")
 			CallOutcome.ContentFiltered -> CloudSpan(chunk.startMs, chunk.endMs, "", ok = false, error = "內容被服務過濾")
 			is CallOutcome.Failure -> CloudSpan(chunk.startMs, chunk.endMs, "", ok = false, error = outcome.message)
 		}
-		synchronized(lock) {
-			if (span.ok && !span.suspicious) { successfulChunks++; if (span.covers) contentVersion++ }
-		}
-		_state.update {
-			it.copy(
-				cloudSpans = (it.cloudSpans + span).sortedBy { s -> s.startMs },
-				transcribeError = if (span.ok && !span.suspicious) null else span.error,
-				phase = LiveCloudPhase.IDLE,
-				pendingChunks = queue.size(),
-			)
-		}
-		publishProvisional()
-		maybeSummarize()
 	}
+
+	private fun previousCloudTextLocked(): String =
+		_state.value.cloudSpans.filter { it.covers }.maxByOrNull { it.startMs }?.text.orEmpty()
+
+	private fun previousCloudTailLocked(): String =
+		LiveTranscriptOverlap.lastSentences(previousCloudTextLocked())
 
 	private fun publishProvisional() {
 		val lines = synchronized(lock) { offline }
@@ -249,12 +425,23 @@ class LiveCloudSession(
 		closed = true
 		_state.update { it.copy(phase = LiveCloudPhase.FINISHING) }
 		synchronized(lock) { if (bufferLen >= sampleRate) cutChunkLocked() else bufferLen = 0 }
-		wake.close()
-		withTimeoutOrNull(transcribeTimeoutMs) { worker.join() } ?: run { worker.cancel() }
+		tryStart()
+		withTimeoutOrNull(transcribeTimeoutMs) {
+			while (true) {
+				val pending = synchronized(lock) { queue.size() + activeTranscribes }
+				if (pending == 0) break
+				delay(20)
+			}
+		} ?: synchronized(lock) { transcribeJobs.forEach { it.cancel() } }
+		drainApply()
+		val pendingRefine = synchronized(lock) { refineJobs.filter { it.isActive } }
+		if (pendingRefine.isNotEmpty()) {
+			withTimeoutOrNull(20_000) { pendingRefine.forEach { it.join() } }
+		}
 		synchronized(lock) { summaryJob }?.let { withTimeoutOrNull(summaryTimeoutMs) { it.join() } }
 		maybeSummarize(force = true)?.let { j -> withTimeoutOrNull(summaryTimeoutMs) { j.join() } ?: j.cancel() }
 		guard.close()
-		_state.update { it.copy(phase = LiveCloudPhase.DONE, pendingChunks = queue.size()) }
+		_state.update { it.copy(phase = LiveCloudPhase.DONE, pendingChunks = queue.size(), inFlightTranscribes = 0) }
 		return _state.value
 	}
 
@@ -263,8 +450,14 @@ class LiveCloudSession(
 		closed = true
 		guard.close()
 		queue.clear()
-		wake.close()
-		worker.cancel()
+		synchronized(lock) {
+			transcribeJobs.forEach { it.cancel() }
+			refineJobs.forEach { it.cancel() }
+			finished.clear()
+			activeTranscribes = 0
+			overlapTail = ShortArray(0)
+			knownTerms = emptyList()
+		}
 		summaryJob?.cancel()
 	}
 }

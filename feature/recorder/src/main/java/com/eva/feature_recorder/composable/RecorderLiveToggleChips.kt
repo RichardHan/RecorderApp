@@ -64,6 +64,7 @@ internal fun RecorderLiveToggleChips(
 						ui.inputs.cloudTranscribeIntervalSec,
 						ui.inputs.cloudSummaryIntervalSec,
 						ui.inputs.cloudSummaryModel,
+						ui.inputs.cloudEnhanceContextQuality,
 					)
 				)
 			},

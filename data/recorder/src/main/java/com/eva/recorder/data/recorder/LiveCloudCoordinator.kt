@@ -182,19 +182,28 @@ internal class LiveCloudCoordinator(
 				OpenAiCompatibleClient(live.summaryBaseUrl, summaryKey, live.summaryModel, ReasoningEffort.OFF, transport)
 			else null
 
+			val notesOf = { com.eva.cloudtranscribe.notes.RecordingNotes.effective(recordingNotes(), live.meetingNotes) }
 			val s = LiveCloudSession(
 				scope = scope,
 				settings = live,
 				sessionId = UUID.randomUUID().toString(),
-				transcribe = { samples, _, _ ->
-					val mp3 = audioEncoder(samples)
-					asrClient.transcribe(transcribePrompt, AudioPayload(mp3, "mp3"))
+				transcribe = { job ->
+					val mp3 = audioEncoder(job.samples)
+					asrClient.transcribe(job.prompt.ifBlank { transcribePrompt }, AudioPayload(mp3, "mp3"))
 				},
 				summarize = { prompt ->
 					summaryClient?.complete(prompt) ?: CallOutcome.Failure("重點整理未啟動：${summaryProblem ?: "缺少摘要 Key"}", retryable = false)
 				},
 				transcribeModel = cloud.transcribeModel,
-				meetingNotes = { com.eva.cloudtranscribe.notes.RecordingNotes.effective(recordingNotes(), live.meetingNotes) },
+				meetingNotes = notesOf,
+				transcribePrompt = transcribePrompt,
+				seedTerms = com.eva.cloudtranscribe.live.LiveKnownTerms.fromSeeds(
+					cloud.customVocabulary.map { it.term },
+					notesOf(),
+				),
+				refine = { prompt ->
+					summaryClient?.complete(prompt) ?: asrClient.complete(prompt)
+				},
 			)
 			val sessionJobs = mutableListOf<Job>()
 			val installed = synchronized(lock) {
@@ -217,7 +226,14 @@ internal class LiveCloudCoordinator(
 			sessionJobs += scope.launch(start = CoroutineStart.UNDISPATCHED) {
 				s.state.collect { st ->
 					synchronized(lock) {
-						if (com.eva.cloudtranscribe.live.LiveCloudOwnership.mayPublish(s, session, finishing)) _state.value = st
+						if (com.eva.cloudtranscribe.live.LiveCloudOwnership.mayPublish(s, session, finishing)) {
+							val prev = _state.value.lastChunkLatency
+							_state.value = st
+							val lat = st.lastChunkLatency
+							if (lat != null && lat != prev) {
+								Log.i(TAG, "chunk ${lat.startMs}-${lat.endMs}ms transcribe=${lat.transcribeMs}ms overlap=${lat.overlapMs}ms uploaded=${lat.uploadedMs}ms refine=${lat.refineMs ?: "-"}")
+							}
+						}
 					}
 				}
 			}

@@ -108,7 +108,7 @@ class LiveCloudTests {
 		val calls = mutableListOf<Long>()
 		val prompts = mutableListOf<String>()
 		val s = LiveCloudSession(backgroundScope, on, "s1",
-			transcribe = { _, start, _ -> calls += start; CallOutcome.Text("雲端@$start") },
+			transcribe = { job -> calls += job.startMs; CallOutcome.Text("雲端@${job.startMs}") },
 			summarize = { p -> prompts += p; CallOutcome.Text("重點${prompts.size}") },
 			sampleRate = 100)
 		repeat(60) { s.onAudio(pcm(1), 100) }   // 60 s → first chunk
@@ -131,7 +131,7 @@ class LiveCloudTests {
 	@Test fun summaryFailureKeepsLastGoodKeyPoints() = runTest {
 		var fail = false
 		val s = LiveCloudSession(backgroundScope, on.copy(requireCloudBeforeFirstSummary = false, firstSummaryDelaySec = 0, summaryIntervalSec = 15), "s",
-			transcribe = { _, _, _ -> CallOutcome.Text("t") },
+			transcribe = { CallOutcome.Text("t") },
 			summarize = { if (fail) CallOutcome.Failure("HTTP 500", false) else CallOutcome.Text("好結果") }, sampleRate = 100)
 		s.onOfflineLines(listOf(OfflineLine(0, "a")))
 		s.onAudio(pcm(1), 100); advanceUntilIdle(); runCurrent()
@@ -146,7 +146,7 @@ class LiveCloudTests {
 	@Test fun staleResultsIgnoredAfterCancel() = runTest {
 		val gate = CompletableDeferred<Unit>()
 		val s = LiveCloudSession(backgroundScope, on, "s",
-			transcribe = { _, _, _ -> gate.await(); CallOutcome.Text("遲到") },
+			transcribe = { gate.await(); CallOutcome.Text("遲到") },
 			summarize = { CallOutcome.Text("x") }, sampleRate = 100)
 		repeat(60) { s.onAudio(pcm(1), 100) }
 		advanceUntilIdle(); runCurrent()
@@ -157,7 +157,7 @@ class LiveCloudTests {
 	@Test fun finishFlushesTailChunk() = runTest {
 		val calls = mutableListOf<Pair<Long, Long>>()
 		val s = LiveCloudSession(backgroundScope, on, "s",
-			transcribe = { _, a, b -> calls += a to b; CallOutcome.Text("尾") },
+			transcribe = { job -> calls += job.startMs to job.endMs; CallOutcome.Text("尾") },
 			summarize = { CallOutcome.Text("終") }, sampleRate = 100)
 		repeat(75) { s.onAudio(pcm(1), 100) }
 		val end = s.finish()
@@ -169,7 +169,7 @@ class LiveCloudTests {
 		val gate = CompletableDeferred<Unit>()
 		var summaries = 0
 		val s = LiveCloudSession(backgroundScope, on, "s",
-			transcribe = { _, _, _ -> gate.await(); CallOutcome.Text("慢") },
+			transcribe = { gate.await(); CallOutcome.Text("慢") },
 			summarize = { summaries++; CallOutcome.Text("x") }, sampleRate = 100)
 		repeat(100) { s.onAudio(pcm(1), 100) }; advanceUntilIdle(); runCurrent()
 		assertEquals(0, summaries)
@@ -180,7 +180,7 @@ class LiveCloudTests {
 	@Test fun pausingUploadsStopsNewChunksAndResumeStartsAtCurrentPosition() = runTest {
 		val calls = mutableListOf<Pair<Long, Long>>()
 		val s = LiveCloudSession(backgroundScope, on, "s",
-			transcribe = { _, a, b -> calls += a to b; CallOutcome.Text("c$a") },
+			transcribe = { job -> calls += job.startMs to job.endMs; CallOutcome.Text("c${job.startMs}") },
 			summarize = { CallOutcome.Text("k") }, sampleRate = 100)
 		repeat(60) { s.onAudio(pcm(1), 100) } // first chunk 0-60s
 		advanceUntilIdle(); runCurrent()
@@ -204,7 +204,7 @@ class LiveCloudTests {
 	@Test fun finishWhilePausedDoesNotUploadDroppedBuffer() = runTest {
 		val calls = mutableListOf<Pair<Long, Long>>()
 		val s = LiveCloudSession(backgroundScope, on, "s",
-			transcribe = { _, a, b -> calls += a to b; CallOutcome.Text("c") },
+			transcribe = { job -> calls += job.startMs to job.endMs; CallOutcome.Text("c") },
 			summarize = { CallOutcome.Text("k") }, sampleRate = 100)
 		repeat(60) { s.onAudio(pcm(1), 100) }
 		advanceUntilIdle(); runCurrent()

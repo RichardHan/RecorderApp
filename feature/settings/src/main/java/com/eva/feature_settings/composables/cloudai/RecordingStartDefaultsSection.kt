@@ -116,7 +116,7 @@ internal fun RecordingStartDefaultsSection(viewModel: RecordingStartDefaultsView
 	if (confirmCloud) AlertDialog(
 		onDismissRequest = { confirmCloud = false },
 		title = { Text(LiveCloudConsentCopy.TITLE) },
-		text = { Text(LiveCloudConsentCopy.body(cloud.transcribeIntervalSec, cloud.summaryIntervalSec, cloud.summaryModel)) },
+		text = { Text(LiveCloudConsentCopy.body(cloud.transcribeIntervalSec, cloud.summaryIntervalSec, cloud.summaryModel, cloud.enhanceContextQuality)) },
 		confirmButton = {
 			TextButton(onClick = { confirmCloud = false; viewModel.setCloudDefault(true, consentNow = true) }) {
 				Text(LiveCloudConsentCopy.CONFIRM)

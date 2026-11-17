@@ -28,11 +28,23 @@ data class LiveCloudSettings(
 	 * key points; never treated as something that was said. Empty (default) = prompt unchanged.
 	 */
 	val meetingNotes: String = "",
+	/**
+	 * Improve Chinese/English code-switching and sentence boundaries for live chunks: a short audio overlap,
+	 * previous-text context, and an optional non-blocking refine pass. Default ON; only used while this mode is active.
+	 */
+	val enhanceContextQuality: Boolean = true,
+	/** Leading seconds of the previous chunk's audio included in the next upload (0–5). Ignored when [enhanceContextQuality] is off. */
+	val overlapSec: Int = DEFAULT_OVERLAP_SEC,
+	/** After each chunk, run a text-only refine asynchronously; raw text is shown first and kept if refine fails. */
+	val refineBoundaries: Boolean = true,
 ) {
 	val transcribeIntervalMs: Long get() = transcribeIntervalSec.coerceIn(MIN_TRANSCRIBE_INTERVAL, MAX_TRANSCRIBE_INTERVAL) * 1000L
 	val summaryIntervalMs: Long get() = summaryIntervalSec.coerceIn(MIN_SUMMARY_INTERVAL, MAX_SUMMARY_INTERVAL) * 1000L
 	val firstSummaryDelayMs: Long get() = firstSummaryDelaySec.coerceIn(0, MAX_FIRST_DELAY) * 1000L
 	val isActive: Boolean get() = enabled && consentAcceptedAtMillis != null
+	val effectiveOverlapMs: Long
+		get() = if (enhanceContextQuality) overlapSec.coerceIn(MIN_OVERLAP_SEC, MAX_OVERLAP_SEC) * 1000L else 0L
+	val effectiveRefine: Boolean get() = enhanceContextQuality && refineBoundaries
 
 	fun normalized() = copy(
 		transcribeIntervalSec = transcribeIntervalSec.coerceIn(MIN_TRANSCRIBE_INTERVAL, MAX_TRANSCRIBE_INTERVAL),
@@ -42,6 +54,7 @@ data class LiveCloudSettings(
 		summaryModel = summaryModel.trim(),
 		summaryBaseUrl = summaryBaseUrl.trim(),
 		meetingNotes = meetingNotes.trim().take(MAX_MEETING_NOTES),
+		overlapSec = overlapSec.coerceIn(MIN_OVERLAP_SEC, MAX_OVERLAP_SEC),
 	)
 
 	fun validateSummary(hasSummaryKey: Boolean, hasTranscribeKey: Boolean): String? = when {
@@ -57,12 +70,17 @@ data class LiveCloudSettings(
 		const val DEFAULT_TRANSCRIBE_INTERVAL = 60
 		const val DEFAULT_SUMMARY_INTERVAL = 30
 		const val DEFAULT_FIRST_SUMMARY_DELAY = 90
-		const val MIN_TRANSCRIBE_INTERVAL = 30
+		const val MIN_TRANSCRIBE_INTERVAL = 15
 		const val MAX_TRANSCRIBE_INTERVAL = 600
 		const val MIN_SUMMARY_INTERVAL = 15
 		const val MAX_SUMMARY_INTERVAL = 600
 		const val MAX_FIRST_DELAY = 1800
 		const val MAX_MEETING_NOTES = 2000
+		const val DEFAULT_OVERLAP_SEC = 3
+		const val MIN_OVERLAP_SEC = 0
+		const val MAX_OVERLAP_SEC = 5
+		/** Max live transcribe requests in flight; results are still applied in recorded-audio order. */
+		const val MAX_PARALLEL_TRANSCRIBES = 2
 		const val DEFAULT_SUMMARY_MODEL = "deepseek-v4.1-flash"
 		/** Exact pre-1.7.11 default; a saved prompt equal to this (trimmed) is migrated to [DEFAULT_SUMMARY_PROMPT]. */
 		const val LEGACY_SUMMARY_PROMPT_V1 =
@@ -137,4 +155,7 @@ data class LiveCloudState(
 	val skippedMs: Long = 0,
 	val summaryModel: String? = null,
 	val transcribeModel: String? = null,
+	/** Latest finished transcribe (and refine, if any) latency, for debugging. */
+	val lastChunkLatency: ChunkLatency? = null,
+	val inFlightTranscribes: Int = 0,
 )

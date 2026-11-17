@@ -134,6 +134,7 @@ class RecorderLiveToggles @Inject constructor(
 			cloudTranscribeIntervalSec = live.transcribeIntervalSec,
 			cloudSummaryIntervalSec = live.summaryIntervalSec,
 			cloudSummaryModel = live.summaryModel.ifBlank { com.eva.cloudtranscribe.live.LiveCloudSettings.DEFAULT_SUMMARY_MODEL },
+			cloudEnhanceContextQuality = live.enhanceContextQuality,
 			slackDefaultOn = slack.isActive && hasWebhook,
 			slackConfigured = slack.isActive && hasWebhook,
 		)

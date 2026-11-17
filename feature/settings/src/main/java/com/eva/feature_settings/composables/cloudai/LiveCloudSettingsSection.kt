@@ -110,11 +110,19 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 		SettingSwitch("啟用即時雲端模式", draft.enabled) { on ->
 			if (on) confirmEnable = true else draft = draft.copy(enabled = false)
 		}
-		NumberField("雲端轉錄間隔（秒，30–600，預設 60）", draft.transcribeIntervalSec) { draft = draft.copy(transcribeIntervalSec = it) }
+		NumberField("雲端轉錄間隔（秒，15–600，預設 60）", draft.transcribeIntervalSec) { draft = draft.copy(transcribeIntervalSec = it) }
 		NumberField("重點整理間隔（秒，15–600，預設 30）", draft.summaryIntervalSec) { draft = draft.copy(summaryIntervalSec = it) }
 		NumberField("首次整理不早於（秒，預設 90）", draft.firstSummaryDelaySec) { draft = draft.copy(firstSummaryDelaySec = it) }
 		SettingSwitch("首次整理需先完成一段雲端轉錄", draft.requireCloudBeforeFirstSummary) { draft = draft.copy(requireCloudBeforeFirstSummary = it) }
 		SettingSwitch("用離線字幕暫時補上", draft.offlineSupplement, "雲端稿回來後取代") { draft = draft.copy(offlineSupplement = it) }
+		SettingSwitch(
+			"提高中英夾雜與斷句品質",
+			draft.enhanceContextQuality,
+			"相鄰片段短重疊約 3 秒（上傳量約 +10%），並帶入前文與名稱脈絡；文字校正在背景進行，不延遲顯示。會多用一些 token。",
+		) { draft = draft.copy(enhanceContextQuality = it) }
+		if (draft.enhanceContextQuality) {
+			NumberField("音訊重疊（秒，0–5，預設 3）", draft.overlapSec) { draft = draft.copy(overlapSec = it) }
+		}
 
 		Text("重點整理服務", style = MaterialTheme.typography.bodyLarge)
 		OutlinedTextField(draft.summaryBaseUrl, { draft = draft.copy(summaryBaseUrl = it.trim()) }, Modifier.fillMaxWidth(),
@@ -162,7 +170,7 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 		onDismissRequest = { confirmEnable = false },
 		title = { Text(LiveCloudConsentCopy.TITLE) },
 		text = {
-			Text(LiveCloudConsentCopy.body(draft.transcribeIntervalSec, draft.summaryIntervalSec, draft.summaryModel))
+			Text(LiveCloudConsentCopy.body(draft.transcribeIntervalSec, draft.summaryIntervalSec, draft.summaryModel, draft.enhanceContextQuality))
 		},
 		confirmButton = {
 			TextButton(onClick = {
