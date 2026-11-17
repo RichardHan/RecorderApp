@@ -80,6 +80,7 @@ internal fun AudioPlayerScreen(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showBottomSheet by remember { mutableStateOf(false) }
+    var showBookmarkList by remember { mutableStateOf(false) }
 
     FileMetadataDetailsSheet(
         contentLoadState = loadState,
@@ -105,6 +106,9 @@ internal fun AudioPlayerScreen(
                 onToggleFavourite = { model ->
                     onFileEvent(UserAudioAction.ToggleIsFavourite(model))
                 },
+                isBookmarksEnabled = isAppActionsEnabled,
+                onAddBookmark = { onBookmarkEvent(BookMarkEvents.OpenDialogToCreate) },
+                onShowBookmarkList = { showBookmarkList = true },
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackBarProvider) },
@@ -128,6 +132,8 @@ internal fun AudioPlayerScreen(
                     bookMarkState = bookMarkState,
                     onPlayerEvents = onPlayerEvents,
                     onBookmarkEvent = onBookmarkEvent,
+                    showBookmarkList = showBookmarkList,
+                    onShowBookmarkList = { showBookmarkList = it },
                     transcriptPanel = transcriptPanel,
                 )
             },

@@ -26,7 +26,9 @@ import com.eva.feature_player.R
 import androidx.compose.runtime.produceState
 import com.eva.cloudtranscribe.model.TranscriptKeywords
 import com.eva.cloudtranscribe.model.TranscriptSearch
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -38,7 +40,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -199,10 +204,16 @@ internal fun SavedTranscriptPanel(
 					val raws = list.map { it.raw }
 					val selectedRaw = raws.firstOrNull { it.id == selectedId } ?: PlaybackTranscripts.defaultSelection(raws) ?: raws.first()
 					val entry = list.first { it.raw.id == selectedRaw.id }
-					SourcePicker(raws, selectedRaw) { selectedId = it; editMode = false }
-					TranscriptExportButton(entry.shown, extras = { exportContext().toExtras(entry.shown, summaries) })
-					TranscriptEditBar(entry, editMode, onToggle = { editMode = !editMode }, onUndo = { viewModel.undo(entry) },
-						onResolve = { keep -> viewModel.resolveConflict(entry, keep) })
+					Row(
+						verticalAlignment = Alignment.CenterVertically,
+						horizontalArrangement = Arrangement.spacedBy(0.dp),
+						modifier = Modifier.fillMaxWidth(),
+					) {
+						SourcePicker(raws, selectedRaw, modifier = Modifier.weight(1f)) { selectedId = it; editMode = false }
+						TranscriptExportButton(entry.shown, extras = { exportContext().toExtras(entry.shown, summaries) }, compact = true)
+						TranscriptEditToggle(entry, editMode, onToggle = { editMode = !editMode }, onUndo = { viewModel.undo(entry) })
+					}
+					TranscriptEditStatus(entry, editMode, onResolve = { keep -> viewModel.resolveConflict(entry, keep) })
 					message?.let { m ->
 						Row {
 							Text(m, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f).padding(top = 12.dp))
@@ -246,11 +257,29 @@ internal fun SavedTranscriptPanel(
 }
 
 @Composable
-private fun TranscriptEditBar(
+private fun TranscriptEditToggle(
 	entry: SavedTranscriptEntry,
 	editMode: Boolean,
 	onToggle: () -> Unit,
 	onUndo: () -> Unit,
+) {
+	if (!TranscriptEditing.canEdit(entry.raw) || entry.conflict) return
+	IconButton(onClick = onToggle, modifier = Modifier.testTag("transcript-edit-toggle")) {
+		Icon(
+			painter = painterResource(id = com.eva.ui.R.drawable.ic_edit),
+			contentDescription = stringResource(R.string.transcript_edit_toggle),
+			tint = if (editMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+		)
+	}
+	if (entry.canUndo) {
+		TextButton(onUndo) { Text(stringResource(R.string.transcript_edit_undo)) }
+	}
+}
+
+@Composable
+private fun TranscriptEditStatus(
+	entry: SavedTranscriptEntry,
+	editMode: Boolean,
 	onResolve: (Boolean) -> Unit,
 ) {
 	when {
@@ -263,13 +292,10 @@ private fun TranscriptEditBar(
 				TextButton({ onResolve(false) }) { Text(stringResource(R.string.transcript_edit_conflict_discard)) }
 			}
 		}
-		else -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-			FilterChip(selected = editMode, onClick = onToggle, label = { Text(stringResource(R.string.transcript_edit_toggle)) },
-				modifier = Modifier.testTag("transcript-edit-toggle"))
-			if (entry.canUndo) TextButton(onUndo) { Text(stringResource(R.string.transcript_edit_undo)) }
-			if (entry.editedCount > 0) Text(stringResource(R.string.transcript_edit_count, entry.editedCount),
-				style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 14.dp))
-		}
+		entry.editedCount > 0 -> Text(
+			stringResource(R.string.transcript_edit_count, entry.editedCount),
+			style = MaterialTheme.typography.labelSmall,
+		)
 	}
 	if (editMode && !entry.conflict && TranscriptEditing.canEdit(entry.raw)) Text(stringResource(R.string.transcript_edit_hint),
 		style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -436,22 +462,33 @@ internal fun TranscriptLines(
 private fun fmt(ms: Long): String { val s = ms / 1000; return "%d:%02d".format(s / 60, s % 60) }
 
 
-/** Full-width picker: current source on one wrapping line; menu lists every variant with its full model name. */
+/** Compact chip/dropdown: current source on one ellipsized line; menu lists every variant with its full model name. */
 @Composable
-private fun SourcePicker(list: List<TranscriptRecord>, selected: TranscriptRecord, onSelect: (String) -> Unit) {
+private fun SourcePicker(
+	list: List<TranscriptRecord>,
+	selected: TranscriptRecord,
+	modifier: Modifier = Modifier,
+	onSelect: (String) -> Unit,
+) {
 	var open by remember { mutableStateOf(false) }
-	Box(Modifier.fillMaxWidth()) {
-		androidx.compose.material3.OutlinedButton(
+	val label = (if (list.size > 1) "逐字稿（${list.size} 份）：" else "逐字稿：") +
+		PlaybackTranscripts.label(selected)
+	Box(modifier) {
+		AssistChip(
 			onClick = { if (list.size > 1) open = true },
 			enabled = true,
-			modifier = Modifier.fillMaxWidth(),
-		) {
-			Text(
-				(if (list.size > 1) "逐字稿（${list.size} 份）：" else "逐字稿：") + PlaybackTranscripts.label(selected) + if (list.size > 1) "  ▾" else "",
-				style = MaterialTheme.typography.labelLarge,
-				modifier = Modifier.fillMaxWidth(),
-			)
-		}
+			label = {
+				Text(
+					label,
+					style = MaterialTheme.typography.labelMedium,
+					maxLines = 1,
+					overflow = TextOverflow.Ellipsis,
+				)
+			},
+			trailingIcon = if (list.size > 1) {
+				{ Text("▾", style = MaterialTheme.typography.labelMedium) }
+			} else null,
+		)
 		androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
 			list.forEach { r ->
 				androidx.compose.material3.DropdownMenuItem(

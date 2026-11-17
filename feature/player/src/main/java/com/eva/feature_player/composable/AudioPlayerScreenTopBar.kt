@@ -56,8 +56,11 @@ internal fun AudioPlayerScreenTopBar(
     onDetailsOptions: () -> Unit = {},
     onCloudTranscripts: () -> Unit = {},
     onToggleFavourite: (AudioFileModel) -> Unit = {},
+    onAddBookmark: () -> Unit = {},
+    onShowBookmarkList: () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior? = null,
     isFavouritesActionEnabled: Boolean = true,
+    isBookmarksEnabled: Boolean = true,
     colors: TopAppBarColors = TopAppBarDefaults
         .topAppBarColors(actionIconContentColor = MaterialTheme.colorScheme.primary),
 ) {
@@ -117,6 +120,27 @@ internal fun AudioPlayerScreenTopBar(
                         }
                     }
 
+                    TooltipBox(
+                        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
+                            TooltipAnchorPosition.Below,
+                        ),
+                        tooltip = {
+                            PlainTooltip {
+                                Text(text = stringResource(id = R.string.player_action_add_bookmark))
+                            }
+                        },
+                        state = rememberTooltipState(),
+                    ) {
+                        IconButton(
+                            onClick = onAddBookmark,
+                            enabled = isBookmarksEnabled,
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_boomark_add),
+                                contentDescription = stringResource(id = R.string.player_action_add_bookmark),
+                            )
+                        }
+                    }
 
                     TooltipBox(
                         positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
@@ -178,6 +202,14 @@ internal fun AudioPlayerScreenTopBar(
                                 onClick = {
                                     showDropDown = false
                                     onDetailsOptions()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(text = stringResource(id = R.string.player_action_show_bookmarks)) },
+                                enabled = isBookmarksEnabled,
+                                onClick = {
+                                    showDropDown = false
+                                    onShowBookmarkList()
                                 },
                             )
                             DropdownMenuItem(
