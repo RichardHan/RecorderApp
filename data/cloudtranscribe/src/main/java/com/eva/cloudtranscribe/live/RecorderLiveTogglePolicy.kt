@@ -13,6 +13,7 @@ data class LiveToggleInputs(
 	val cloudTranscribeIntervalSec: Int = LiveCloudSettings.DEFAULT_TRANSCRIBE_INTERVAL,
 	val cloudSummaryIntervalSec: Int = LiveCloudSettings.DEFAULT_SUMMARY_INTERVAL,
 	val cloudSummaryModel: String = LiveCloudSettings.DEFAULT_SUMMARY_MODEL,
+	val cloudEnhanceContextQuality: Boolean = true,
 	/** Settings default: Slack is opted in and a webhook exists. */
 	val slackDefaultOn: Boolean = false,
 	/** Webhook saved and Slack consent given. */

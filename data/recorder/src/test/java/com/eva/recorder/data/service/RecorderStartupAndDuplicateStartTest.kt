@@ -477,6 +477,8 @@ class RecorderStartupAndDuplicateStartTest {
 					enabled = true,
 					consentAcceptedAtMillis = 1_700_000_000_000L,
 					transcribeIntervalSec = 60,
+					// startup tests count transcribe HTTP only; refine is covered in LiveCloudContextTests
+					refineBoundaries = false,
 				)
 			}
 		}
