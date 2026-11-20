@@ -17,22 +17,22 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Summary formats change only the instructions: default stays byte-identical, and no format invents content. */
+/** Summary formats change only the instructions; no format invents content or names. */
 class SummaryFormatPromptTests {
 
 	private val transcript = "Speaker 1: 下週三前完成報價單。"
 	private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
-	/** Exact pre-format prompt; any change here is a regression, not an improvement. */
-	private fun legacy(text: String) = "請用繁體中文精簡整理以下會議逐字稿的重點。只寫明確說出的重要事實、決議與待辦；" +
-		"沒有的類別就省略，不必湊數。每點一句、以「- 」開頭，技術名詞與英文原樣保留。不要開場白、結語或客套話。" +
-		"不要推測或捏造內容、負責人或期限；重複字、語助詞與雜訊不是重點。完全沒有重點時只輸出：目前無重點\n\n逐字稿：\n$text"
-
 	@Test
-	fun defaultFormatIsByteIdenticalToTheOldPrompt() {
-		assertEquals(legacy(transcript), Prompts.summary(transcript))
-		assertEquals(legacy(transcript), Prompts.summary(transcript, SummaryFormat.CONCISE))
-		assertEquals(legacy(transcript), Prompts.summary(transcript, SummaryFormat.CONCISE, "被忽略的自訂文字"))
+	fun defaultFormatIncludesSpeakerOwnerRuleAndDoesNotInventNames() {
+		val prompt = Prompts.summary(transcript)
+		assertEquals(prompt, Prompts.summary(transcript, SummaryFormat.CONCISE))
+		assertEquals(prompt, Prompts.summary(transcript, SummaryFormat.CONCISE, "被忽略的自訂文字"))
+		assertTrue(prompt.contains(com.eva.cloudtranscribe.engine.SpeakerOwnerPrompt.RULE))
+		assertTrue(prompt.contains(com.eva.cloudtranscribe.engine.SpeakerOwnerPrompt.EXAMPLE_FACT))
+		assertTrue(prompt.contains(com.eva.cloudtranscribe.engine.SpeakerOwnerPrompt.EXAMPLE_TODO))
+		assertTrue(prompt.contains("絕不可猜測"))
+		assertTrue(prompt.contains(transcript))
 	}
 
 	@Test
@@ -42,6 +42,8 @@ class SummaryFormatPromptTests {
 			assertTrue("$format must allow omission", prompt.contains("省略"))
 			assertTrue("$format must answer 目前無重點", prompt.contains("目前無重點"))
 			assertTrue("$format must not invite invented owners", prompt.contains("不要推測或捏造"))
+			assertTrue("$format must include speaker/owner rule", prompt.contains(com.eva.cloudtranscribe.engine.SpeakerOwnerPrompt.RULE))
+			assertTrue("$format must forbid guessing names", prompt.contains("絕不可猜測"))
 			assertTrue("$format must keep the transcript", prompt.contains(transcript))
 		}
 	}

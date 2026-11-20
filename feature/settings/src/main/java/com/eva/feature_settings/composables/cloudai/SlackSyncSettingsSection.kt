@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -193,19 +194,19 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 
 		Text("要送的內容", style = MaterialTheme.typography.titleSmall)
 		SettingSwitch("錄音開始通知", current.sendStart) { v -> viewModel.update { it.copy(sendStart = v) } }
-		SettingSwitch("即時重點更新", current.sendKeyPoints, "只送新增的重點；需開啟即時雲端摘要") { v -> viewModel.update { it.copy(sendKeyPoints = v) } }
-		SettingSwitch("結束時的重點總結", current.sendEnd, "沒有重點就不送") { v -> viewModel.update { it.copy(sendEnd = v) } }
+		SettingSwitch("即時重點更新", current.sendKeyPoints, "合併去重後每批最多 3 點；需開啟即時雲端摘要") { v -> viewModel.update { it.copy(sendKeyPoints = v) } }
+		SettingSwitch("結束時的重點總結", current.sendEnd, "等錄音後的雲端摘要完成再送一則精簡總結") { v -> viewModel.update { it.copy(sendEnd = v) } }
 		SettingSwitch("送出前遮蔽個資", current.maskSensitive, "電子郵件與長數字") { v -> viewModel.update { it.copy(maskSensitive = v) } }
-		Text("重點更新最短間隔：${current.normalizedIntervalMinutes} 分鐘", style = MaterialTheme.typography.bodyMedium)
+		Text("即時重點更新間隔", style = MaterialTheme.typography.bodyMedium)
 		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-			OutlinedButton(
-				enabled = current.normalizedIntervalMinutes > SlackThrottle.MIN_INTERVAL_MINUTES,
-				onClick = { viewModel.update { it.copy(minIntervalMinutes = it.normalizedIntervalMinutes - 1) } },
-			) { Text("−") }
-			OutlinedButton(
-				enabled = current.normalizedIntervalMinutes < SlackThrottle.MAX_INTERVAL_MINUTES,
-				onClick = { viewModel.update { it.copy(minIntervalMinutes = it.normalizedIntervalMinutes + 1) } },
-			) { Text("＋") }
+			SlackThrottle.OPTIONS_MINUTES.forEach { minutes ->
+				val label = if (minutes == 0) "關閉" else "${minutes} 分鐘"
+				FilterChip(
+					selected = current.normalizedIntervalMinutes == minutes,
+					onClick = { viewModel.update { it.copy(minIntervalMinutes = minutes) } },
+					label = { Text(label) },
+				)
+			}
 		}
 
 		OutlinedButton(enabled = hasWebhook && !viewModel.testing, onClick = { confirmTest = true }) {
@@ -213,7 +214,7 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 		}
 		viewModel.testResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 		lastError?.let { Text("最近一次同步：$it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-		InfoLine("不會另外呼叫模型；重點來自既有的即時雲端摘要。")
+		InfoLine("即時重點只合併去重、不另外壓縮。結束訊息會等錄音後的雲端摘要；失敗或逾時則改用精簡的即時重點。")
 	}
 
 	if (consent) AlertDialog(
@@ -224,8 +225,8 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 				Text("目的地：${current.channelLabel.ifBlank { "（你建立 Webhook 時選的頻道）" }}")
 				Text("會送出：" + listOfNotNull(
 					"錄音開始通知".takeIf { current.sendStart },
-					"新增的即時重點（最多每 ${current.normalizedIntervalMinutes} 分鐘一則）".takeIf { current.sendKeyPoints },
-					"結束時的重點總結".takeIf { current.sendEnd },
+					"新增的即時重點（每 ${current.normalizedIntervalMinutes} 分鐘一批，最多 3 點）".takeIf { current.sendKeyPoints && current.normalizedIntervalMinutes > 0 },
+					"結束時的重點總結（等雲端摘要）".takeIf { current.sendEnd },
 				).joinToString("、").ifEmpty { "（目前沒有勾選任何內容）" })
 				Text("與會者說的話轉成的文字重點會離開這台手機，進入該 Slack 工作區。不會上傳音訊檔。")
 				Text("隨時可以在這裡關閉或清除 Webhook；已送到 Slack 的訊息無法由 App 刪除。")

@@ -18,7 +18,7 @@ object SlackMessages {
 
 	/** Slack recommends keeping `text` under 4,000 characters. */
 	const val MAX_TEXT = 4_000
-	const val TRUNCATED_MARK = "\n…（已截斷，完整內容以 App 為準）"
+	const val TRUNCATED_MARK = "\n…（已截斷）"
 
 	const val TEST_TEXT = "RecorderApp 測試：Slack 連線正常。"
 
@@ -53,24 +53,35 @@ object SlackMessages {
 		return "🎙️ RecorderApp：開始錄音（$time，${zone.id} UTC$offset）。狀態：進行中。"
 	}
 
-	fun keyPointsText(newItems: List<String>): String = truncate(
-		buildString {
-			appendLine("📝 新重點：")
-			newItems.forEach { appendLine("• $it") }
-			append("（完整清單以 App 為準）")
-		},
-	)
+	const val MID_MAX_ITEMS = 3
 
-	/** End message with the final key points; null when there is nothing worth posting (no empty summaries). */
-	fun endText(finalItems: List<String>): String? {
-		if (finalItems.isEmpty()) return null
+	/** Mid-recording update: merge/dedupe is already done by the caller; cap at [maxItems], no footer. */
+	fun keyPointsText(newItems: List<String>, maxItems: Int = MID_MAX_ITEMS): String? {
+		val items = capItems(newItems, maxItems)
+		if (items.isEmpty()) return null
 		return truncate(
 			buildString {
-				appendLine("✅ 錄音已結束。重點：")
-				finalItems.forEach { appendLine("• $it") }
-				append("（完整摘要與待辦請在 App 查看）")
-			},
+				appendLine("📝 新重點：")
+				items.forEach { appendLine("• $it") }
+			}.trimEnd(),
 		)
+	}
+
+	/** Dedupe (same rules as [bullets]) then keep at most [max] items, preserving order. */
+	fun capItems(items: List<String>, max: Int): List<String> {
+		if (max <= 0) return emptyList()
+		val seen = HashSet<String>()
+		return items
+			.map { it.trim() }
+			.filter { it.isNotEmpty() && it !in PLACEHOLDERS }
+			.filter { seen.add(normalize(it)) }
+			.take(max)
+	}
+
+	/** @deprecated Use [SlackEndMessage.compose]; kept for older call sites and tests. */
+	fun endText(finalItems: List<String>): String? {
+		if (finalItems.isEmpty()) return null
+		return SlackEndMessage.compose(title = null, durationMs = null, summaryText = null, fallbackItems = finalItems)
 	}
 
 	fun truncate(text: String, max: Int = MAX_TEXT): String =
@@ -140,17 +151,42 @@ object SlackSendPolicy {
 	}
 }
 
-/** Key-point update throttling: at most one update per interval. */
+/** Mid-recording key-point batching: 關閉, or one message every 5 / 10 / 15 minutes. */
 object SlackThrottle {
-	const val MIN_INTERVAL_MINUTES = 2
-	const val MAX_INTERVAL_MINUTES = 10
-	const val DEFAULT_INTERVAL_MINUTES = 3
+	const val OFF_INTERVAL_MINUTES = 0
+	const val MIN_INTERVAL_MINUTES = 0
+	const val MAX_INTERVAL_MINUTES = 15
+	const val DEFAULT_INTERVAL_MINUTES = 5
+	val OPTIONS_MINUTES = listOf(0, 5, 10, 15)
 
-	fun intervalMillis(minutes: Int): Long = minutes.coerceIn(MIN_INTERVAL_MINUTES, MAX_INTERVAL_MINUTES) * 60_000L
+	/** Maps a stored value (including older 2–10 settings) onto 關閉 / 5 / 10 / 15. */
+	fun normalize(minutes: Int): Int = when {
+		minutes <= 0 -> OFF_INTERVAL_MINUTES
+		minutes <= 7 -> 5
+		minutes <= 12 -> 10
+		else -> 15
+	}
 
-	/** Milliseconds to wait before the next key-point update may go out (0 = now). */
-	fun delayUntilDue(lastSentAtMillis: Long?, nowMillis: Long, intervalMillis: Long): Long {
-		if (lastSentAtMillis == null) return 0L
-		return (lastSentAtMillis + intervalMillis - nowMillis).coerceAtLeast(0L)
+	fun isOff(minutes: Int): Boolean = normalize(minutes) == OFF_INTERVAL_MINUTES
+
+	fun intervalMillis(minutes: Int): Long {
+		val n = normalize(minutes)
+		return if (n == 0) 0L else n * 60_000L
+	}
+
+	/**
+	 * Milliseconds to wait before the next key-point update may go out (0 = now).
+	 * When [intervalMillis] is 0 (關閉), the update is never due.
+	 * The first mid-recording message waits a full interval from [sessionStartedAtMillis].
+	 */
+	fun delayUntilDue(
+		lastSentAtMillis: Long?,
+		nowMillis: Long,
+		intervalMillis: Long,
+		sessionStartedAtMillis: Long? = null,
+	): Long {
+		if (intervalMillis <= 0L) return Long.MAX_VALUE
+		val anchor = lastSentAtMillis ?: sessionStartedAtMillis ?: return 0L
+		return (anchor + intervalMillis - nowMillis).coerceAtLeast(0L)
 	}
 }
