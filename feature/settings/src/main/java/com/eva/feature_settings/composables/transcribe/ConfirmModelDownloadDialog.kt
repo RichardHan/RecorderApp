@@ -1,5 +1,10 @@
 package com.eva.feature_settings.composables.transcribe
 
+import com.eva.transcribe.domain.models.localizedName
+
+import com.eva.feature_settings.R as StringsRes
+import androidx.compose.ui.res.stringResource
+
 import android.text.format.Formatter
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
@@ -18,19 +23,19 @@ internal fun ConfirmModelDownloadDialog(model: STTModel, onDismiss: () -> Unit, 
 	val large = model.archiveSize >= 1_500_000_000L
 	AlertDialog(
 		onDismissRequest = onDismiss,
-		title = { Text("下載 ${model.displayName}？") },
+		title = { Text(stringResource(StringsRes.string.feature_settings_download_alt, (model.localizedName()).toString())) },
 		text = {
 			Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-				Text("下載大小：$size。預設只在 Wi‑Fi（不計費網路）下載；使用行動數據可能產生費用。")
-				if (large) Text("實驗性大型模型：需要 64 位元裝置、下載時至少保留約 6 GB 可用空間，載入時會檢查實際可用記憶體；記憶體不足時只會停用逐字稿，錄音照常保存。")
-				Text("可隨時取消，已下載的檔案會保留，下次從中斷處續傳。")
+				Text(stringResource(StringsRes.string.feature_settings_download_size_wi_fi_or_an_unmetered, (size).toString()))
+				if (large) Text(stringResource(StringsRes.string.feature_settings_experimental_large_model_requires_a_64_bit))
+				Text(stringResource(StringsRes.string.feature_settings_cancel_at_any_time_downloaded_data_is))
 			}
 		},
-		confirmButton = { TextButton(onClick = { onConfirm(false) }) { Text("僅 Wi‑Fi 下載") } },
+		confirmButton = { TextButton(onClick = { onConfirm(false) }) { Text(stringResource(StringsRes.string.feature_settings_download_on_wi_fi_only)) } },
 		dismissButton = {
 			Column {
-				TextButton(onClick = { onConfirm(true) }) { Text("允許行動數據") }
-				TextButton(onClick = onDismiss) { Text("取消") }
+				TextButton(onClick = { onConfirm(true) }) { Text(stringResource(StringsRes.string.feature_settings_allow_mobile_data)) }
+				TextButton(onClick = onDismiss) { Text(stringResource(StringsRes.string.feature_settings_cancel)) }
 			}
 		},
 	)

@@ -1,0 +1,4 @@
+<resources>
+	<string name="feature_player_shared_failed_to_compute_visuals">無法產生音訊視覺化圖形</string>
+	<string name="feature_player_shared_cannot_share_audio_file">無法分享音訊檔</string>
+</resources>

@@ -1,5 +1,7 @@
 package com.eva.worker
 
+import com.eva.utils.UiStrings
+
 import android.content.Context
 import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
@@ -64,7 +66,7 @@ internal class STTModelDownloaderWorker @AssistedInject constructor(
         )
         if (taskResult.isFailure) {
             val exception = taskResult.exceptionOrNull()
-            val reason = exception?.message ?: "Some unwanted issue happened"
+            val reason = exception?.message ?: UiStrings.get(com.eva.worker.R.string.data_worker_message_some_unwanted_issue_happened, "Some unwanted issue happened")
             return Result.failure(
                 workDataOf(
                     WorkerParams.WORK_DATA_STT_MODEL_ID to modelId,
@@ -127,12 +129,12 @@ internal class STTModelDownloaderWorker @AssistedInject constructor(
     }
 
     private fun ModelDownloadState.toProgressMessage(): String = when (this) {
-        is ModelDownloadState.DownloadProgress -> "下載中"
-        ModelDownloadState.DownloadInitiated -> "準備下載"
+        is ModelDownloadState.DownloadProgress -> UiStrings.get(R.string.data_worker_downloading, "下載中")
+        ModelDownloadState.DownloadInitiated -> UiStrings.get(R.string.data_worker_preparing_download, "準備下載")
         ModelDownloadState.ModelUnzipping -> applicationContext.getString(R.string.stt_model_unzip_text)
         is ModelDownloadState.Processing -> when (stage) {
-            ModelDownloadState.Stage.VERIFYING -> "驗證檔案"
-            ModelDownloadState.Stage.EXTRACTING -> "解壓安裝（大模型需數分鐘）"
+            ModelDownloadState.Stage.VERIFYING -> UiStrings.get(R.string.data_worker_verifying_files, "驗證檔案")
+            ModelDownloadState.Stage.EXTRACTING -> UiStrings.get(R.string.data_worker_extracting_model_large_models_may_take_several, "解壓安裝（大模型需數分鐘）")
         }
         ModelDownloadState.ModelReadyToSave -> applicationContext.getString(R.string.stt_model_ready_text)
         ModelDownloadState.ModelSaved -> applicationContext.getString(R.string.stt_model_saved_text)

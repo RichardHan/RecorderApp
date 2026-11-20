@@ -1,5 +1,8 @@
 package com.eva.feature_categories.category_picker
 
+import com.eva.utils.UiStrings
+import com.eva.feature_categories.R as StringsRes
+
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
@@ -77,7 +80,7 @@ internal class CategoryPickerViewModel @Inject constructor(
 		val selectedCategory = _selected.value ?: return@launch
 
 		if (recordingIds.isEmpty()) {
-			_uiEvents.emit(UIEvents.ShowToast(message = "Select recordings"))
+			_uiEvents.emit(UIEvents.ShowToast(message = UiStrings.get(StringsRes.string.feature_categories_select_recordings, "Select recordings")))
 			_uiEvents.emit(UIEvents.PopScreen)
 			return@launch
 		}
@@ -94,7 +97,7 @@ internal class CategoryPickerViewModel @Inject constructor(
 			}
 
 			is Resource.Success -> {
-				val message = result.message ?: "Category set"
+				val message = result.message ?: UiStrings.get(StringsRes.string.feature_categories_message_category_set, "Category set")
 				_uiEvents.emit(UIEvents.ShowToast(message = message))
 				_uiEvents.emit(UIEvents.PopScreen)
 			}

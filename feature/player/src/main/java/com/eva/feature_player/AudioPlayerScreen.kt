@@ -1,5 +1,7 @@
 package com.eva.feature_player
 
+import com.eva.utils.UiStrings
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -151,7 +153,7 @@ internal fun AudioPlayerScreen(
                 ) {
                     CircularProgressIndicator()
                     Text(
-                        text = "Preparing player",
+                        text = UiStrings.get(com.eva.feature_player.R.string.feature_player_message_preparing_player, "Preparing player"),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )

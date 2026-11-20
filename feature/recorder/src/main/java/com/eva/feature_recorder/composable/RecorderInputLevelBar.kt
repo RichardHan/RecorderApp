@@ -1,5 +1,8 @@
 package com.eva.feature_recorder.composable
 
+import com.eva.feature_recorder.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,7 +32,7 @@ internal fun RecorderInputLevelBar(
 			.fillMaxWidth()
 			.height(height)
 			.clip(RoundedCornerShape(50))
-			.semantics { contentDescription = "輸入音量" }
+			.semantics { contentDescription = UiStrings.get(StringsRes.string.feature_recorder_input_level, "輸入音量") }
 			.drawWithCache {
 				onDrawBehind {
 					drawRect(track)

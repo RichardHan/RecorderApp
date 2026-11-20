@@ -1,5 +1,8 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -57,7 +60,7 @@ class ActionItemsViewModel @Inject constructor(
 		viewModelScope.launch {
 			provider.actionItemsAsFlow(id)
 				.map { list -> list }
-				.catch { message = "無法讀取待辦：${it.message ?: "未知錯誤"}"; emit(emptyList()) }
+				.catch { message = UiStrings.get(StringsRes.string.feature_player_could_not_load_action_items, "無法讀取待辦：%1\$s", it.message ?: UiStrings.get(StringsRes.string.feature_player_unknown_error, "未知錯誤")); emit(emptyList()) }
 				.collect { items = it }
 		}
 	}
@@ -72,7 +75,7 @@ class ActionItemsViewModel @Inject constructor(
 		candidates = SummaryActionItems.candidates(summaryText)
 			.filterNot { candidate -> existing.any { SummaryActionItems.normalize(it) == SummaryActionItems.normalize(candidate) } }
 		selected = emptySet()
-		if (candidates.isEmpty()) message = "這份摘要沒有可加入的待辦條目"
+		if (candidates.isEmpty()) message = UiStrings.get(StringsRes.string.feature_player_no_action_items_found_in_this_summary, "這份摘要沒有可加入的待辦條目")
 	}
 
 	fun toggleCandidate(candidate: String) {
@@ -89,7 +92,7 @@ class ActionItemsViewModel @Inject constructor(
 		if (picked.isEmpty() || recordingId <= 0) return
 		viewModelScope.launch {
 			val added = provider.addItems(recordingId, picked, source, Clock.System.now().toEpochMilliseconds())
-			message = if (added.isEmpty()) "沒有新增待辦（可能已存在）" else "已加入 ${added.size} 項待辦"
+			message = if (added.isEmpty()) UiStrings.get(StringsRes.string.feature_player_no_new_action_items_they_may_already, "沒有新增待辦（可能已存在）") else UiStrings.get(StringsRes.string.feature_player_added_action_items, "已加入 %1\$s 項待辦", added.size)
 		}
 	}
 
@@ -104,7 +107,7 @@ class ActionItemsViewModel @Inject constructor(
 				RecordingActionItemModel.SOURCE_MANUAL,
 				Clock.System.now().toEpochMilliseconds(),
 			)
-			message = if (added.isEmpty()) "這個待辦已存在" else null
+			message = if (added.isEmpty()) UiStrings.get(StringsRes.string.feature_player_this_action_item_already_exists, "這個待辦已存在") else null
 		}
 	}
 

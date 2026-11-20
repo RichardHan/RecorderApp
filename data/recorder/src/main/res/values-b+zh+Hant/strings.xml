@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+	<string name="recorder_action_pause">暫停</string>
+	<string name="recorder_action_resume">繼續</string>
+	<string name="recorder_action_stop">停止</string>
+	<string name="recorder_action_cancel">取消</string>
+	<string name="recorder_notification_text_running">正在錄音</string>
+	<string name="recorder_notification_text_paused">錄音已暫停</string>
+	<string name="recorder_recording_completed">錄音完成</string>
+	<string name="recorder_recording_completed_text">已儲存至外部儲存空間</string>
+	<string name="recorder_recording_completed_text_2">點一下播放</string>
+	<string name="toast_recording_bluetooth">正在使用藍牙麥克風</string>
+	<string name="toast_incoming_call">來電</string>
+	<string name="bookmarks_saved">已加入書籤</string>
+	<string name="bookmarks_too_fast_warning">書籤之間至少須相隔一秒</string>
+	<string name="recorder_tile_label">錄音</string>
+	<string name="recorder_tile_label_recording">錄音中</string>
+	<string name="recorder_tile_label_paused">已暫停</string>
+	<string name="recorder_tile_label_preparing">準備中</string>
+	<string name="recorder_tile_subtitle_start">點一下開始</string>
+	<string name="recorder_tile_subtitle_pause">點一下暫停</string>
+	<string name="recorder_tile_subtitle_resume">點一下繼續</string>
+	<string name="recorder_tile_subtitle_preparing">請稍候</string>
+	<string name="recorder_tile_cd_start">開始錄音</string>
+	<string name="recorder_tile_cd_pause">暫停錄音</string>
+	<string name="recorder_tile_cd_resume">繼續錄音</string>
+</resources>

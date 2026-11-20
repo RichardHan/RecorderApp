@@ -1,5 +1,8 @@
 package com.eva.feature_widget.recordings.composables
 
+import com.eva.feature_widget.R as StringsRes
+import com.eva.utils.UiStrings
+
 import android.text.format.Formatter
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -100,7 +103,7 @@ internal fun RecordingWidgetCard(
 		if (model.isFavorite) {
 			Image(
 				provider = ImageProvider(R.drawable.ic_widget_star_filled),
-				contentDescription = "Favourite",
+				contentDescription = UiStrings.get(StringsRes.string.feature_widget_favourite, "Favourite"),
 				modifier = GlanceModifier.size(16.dp),
 				colorFilter = ColorFilter.tint(colorProvider = GlanceTheme.colors.primary)
 			)

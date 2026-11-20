@@ -1,5 +1,7 @@
 package com.eva.feature_settings.composables.transcribe
 
+import com.eva.feature_settings.R as StringsRes
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -87,8 +89,8 @@ internal fun TranscribeSettingsTabContent(
         }
         item {
             ListItem(
-                headlineContent = { Text("錄音開始時預設開啟本機字幕") },
-                supportingContent = { Text("錄音中可在畫面隨時開關，不會改這裡的預設。模型在關閉時仍可選取。") },
+                headlineContent = { Text(stringResource(StringsRes.string.feature_settings_enable_local_captions_by_default_for_new)) },
+                supportingContent = { Text(stringResource(StringsRes.string.feature_settings_toggle_during_recording_without_changing_this_default)) },
                 trailingContent = {
                     Switch(
                         checked = isTranscriptionActive,

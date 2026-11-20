@@ -1,5 +1,7 @@
 package com.eva.drive.data.auth
 
+import com.eva.utils.UiStrings
+
 import android.accounts.Account
 import android.content.Context
 import android.content.Intent
@@ -77,7 +79,7 @@ internal class GoogleDriveAuthImpl @Inject constructor(
 
 	override suspend fun completeDriveAuthorization(resultData: Any?): Result<String> {
 		val intent = resultData as? Intent
-			?: return Result.failure(IllegalArgumentException("Missing Google authorization result"))
+			?: return Result.failure(IllegalArgumentException(UiStrings.get(com.eva.drive.R.string.data_drive_message_missing_google_authorization_result, "Missing Google authorization result")))
 		return try {
 			withContext(Dispatchers.IO) {
 				val result = authorizationClient.getAuthorizationResultFromIntent(intent)

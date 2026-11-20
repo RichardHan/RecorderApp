@@ -1,5 +1,9 @@
 package com.eva.feature_recordings.recap
 
+import com.eva.feature_recordings.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -70,7 +74,7 @@ internal class RecentRecapViewModel @Inject constructor(
 			} catch (e: kotlinx.coroutines.CancellationException) {
 				throw e
 			} catch (e: Exception) {
-				error = "無法讀取錄音清單"
+				error = UiStrings.get(StringsRes.string.feature_recordings_could_not_load_recordings, "無法讀取錄音清單")
 			}
 		}
 	}
@@ -101,21 +105,21 @@ internal fun RecentRecapDialog(onDismiss: () -> Unit, onOpenRecording: (Long) ->
 	val zone = ZoneId.systemDefault()
 	AlertDialog(
 		onDismissRequest = onDismiss,
-		title = { Text("近期回顧") },
+		title = { Text(stringResource(StringsRes.string.feature_recordings_recent_review)) },
 		text = {
 			Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
 				Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
 					RecapPeriod.entries.forEach { p -> FilterChip(viewModel.period == p, { viewModel.load(p) }, { Text(p.label) }) }
 				}
-				Text("只整理手機上已有的摘要與待辦，不會送出任何資料。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+				Text(stringResource(StringsRes.string.feature_recordings_uses_summaries_and_tasks_already_on_this), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 				val recap = viewModel.recap
 				when {
 					viewModel.error != null -> Text(viewModel.error!!, color = MaterialTheme.colorScheme.error)
 					recap == null -> CircularProgressIndicator()
-					recap.entries.isEmpty() -> Text("這段期間沒有錄音")
+					recap.entries.isEmpty() -> Text(stringResource(StringsRes.string.feature_recordings_no_recordings_during_this_period))
 					else -> LazyColumn(Modifier.heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
 						items(recap.entries, key = { it.recording.id }) { e -> RecapCard(e, zone) { onOpenRecording(e.recording.id) } }
-						if (recap.moreRecordings > 0) item { Text("另有 ${recap.moreRecordings} 段錄音未列出", style = MaterialTheme.typography.labelSmall) }
+						if (recap.moreRecordings > 0) item { Text(stringResource(StringsRes.string.feature_recordings_more_recordings_omitted, (recap.moreRecordings).toString()), style = MaterialTheme.typography.labelSmall) }
 					}
 				}
 			}
@@ -125,13 +129,13 @@ internal fun RecentRecapDialog(onDismiss: () -> Unit, onOpenRecording: (Long) ->
 				onClick = {
 					val r = viewModel.recap ?: return@TextButton
 					val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-					clipboard.setPrimaryClip(ClipData.newPlainText("近期回顧", RecentRecap.toMarkdown(r, viewModel.period, zone)))
-					Toast.makeText(context, "已複製", Toast.LENGTH_SHORT).show()
+					clipboard.setPrimaryClip(ClipData.newPlainText(UiStrings.get(StringsRes.string.feature_recordings_recent_review, "近期回顧"), RecentRecap.toMarkdown(r, viewModel.period, zone)))
+					Toast.makeText(context, UiStrings.get(StringsRes.string.feature_recordings_copied, "已複製"), Toast.LENGTH_SHORT).show()
 				},
 				enabled = viewModel.recap?.entries?.isNotEmpty() == true,
-			) { Text("複製 Markdown") }
+			) { Text(stringResource(StringsRes.string.feature_recordings_copy_markdown)) }
 		},
-		dismissButton = { TextButton(onDismiss) { Text("關閉") } },
+		dismissButton = { TextButton(onDismiss) { Text(stringResource(StringsRes.string.feature_recordings_close)) } },
 	)
 }
 
@@ -142,15 +146,15 @@ private fun RecapCard(e: RecapEntry, zone: ZoneId, onClick: () -> Unit) {
 			Text(e.recording.title, style = MaterialTheme.typography.titleSmall)
 			Text("${RecentRecap.date(e.recording.recordedAtMillis, zone)}・${RecentRecap.duration(e.recording.durationMs)}", style = MaterialTheme.typography.labelSmall)
 			when {
-				e.failed -> Text("讀取失敗", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-				e.points == null -> Text("尚無摘要", style = MaterialTheme.typography.bodySmall)
-				e.points.isEmpty() -> Text("沒有重點", style = MaterialTheme.typography.bodySmall)
+				e.failed -> Text(stringResource(StringsRes.string.feature_recordings_could_not_load), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+				e.points == null -> Text(stringResource(StringsRes.string.feature_recordings_no_summary_yet), style = MaterialTheme.typography.bodySmall)
+				e.points.isEmpty() -> Text(stringResource(StringsRes.string.feature_recordings_no_highlights), style = MaterialTheme.typography.bodySmall)
 				else -> e.points.forEach { Text("・$it", style = MaterialTheme.typography.bodySmall) }
 			}
 			if (e.openItems.isNotEmpty()) {
-				Text("未完成待辦", style = MaterialTheme.typography.labelMedium)
+				Text(stringResource(StringsRes.string.feature_recordings_open_tasks), style = MaterialTheme.typography.labelMedium)
 				e.openItems.forEach { Text("☐ $it", style = MaterialTheme.typography.bodySmall) }
-				if (e.moreOpenItems > 0) Text("另有 ${e.moreOpenItems} 條", style = MaterialTheme.typography.labelSmall)
+				if (e.moreOpenItems > 0) Text(stringResource(StringsRes.string.feature_recordings_more, (e.moreOpenItems).toString()), style = MaterialTheme.typography.labelSmall)
 			}
 		}
 	}

@@ -1,5 +1,7 @@
 package com.eva.recordings.data.provider
 
+import com.eva.utils.UiStrings
+
 import android.content.Context
 import android.database.sqlite.SQLiteException
 import com.eva.categories.domain.models.RecordingCategoryModel
@@ -76,7 +78,7 @@ internal class RecordingSecondaryDataProviderImpl(
 				Resource.Success(entity.toModel())
 			} ?: Resource.Error(InvalidRecordingIdException())
 		} catch (e: SQLiteException) {
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.recordings.R.string.data_recordings_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e, e.message ?: "")
@@ -92,7 +94,7 @@ internal class RecordingSecondaryDataProviderImpl(
 			}
 			Resource.Success(false)
 		} catch (e: SQLiteException) {
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.recordings.R.string.data_recordings_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e, e.message ?: "")
@@ -122,7 +124,7 @@ internal class RecordingSecondaryDataProviderImpl(
 				)
 			} ?: Resource.Error(InvalidRecordingIdException())
 		} catch (e: SQLiteException) {
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.recordings.R.string.data_recordings_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e, e.message ?: "")
@@ -160,7 +162,7 @@ internal class RecordingSecondaryDataProviderImpl(
 				Resource.Success(data = true, message = message)
 			}
 		} catch (e: SQLiteException) {
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.recordings.R.string.data_recordings_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e, e.message ?: "")
@@ -197,7 +199,7 @@ internal class RecordingSecondaryDataProviderImpl(
 
 			Resource.Success(data = Unit, message = message)
 		} catch (e: SQLiteException) {
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.recordings.R.string.data_recordings_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e, e.message ?: "")
@@ -214,7 +216,7 @@ internal class RecordingSecondaryDataProviderImpl(
 			}
 			Resource.Success(Unit)
 		} catch (e: SQLiteException) {
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.recordings.R.string.data_recordings_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e, e.message ?: "")
@@ -239,7 +241,7 @@ internal class RecordingSecondaryDataProviderImpl(
 
 			Resource.Success(Unit, message = message)
 		} catch (e: SQLiteException) {
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.recordings.R.string.data_recordings_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e, e.message ?: "")

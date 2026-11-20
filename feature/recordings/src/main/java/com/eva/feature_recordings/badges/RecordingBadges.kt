@@ -1,5 +1,8 @@
 package com.eva.feature_recordings.badges
 
+import com.eva.feature_recordings.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eva.cloudtranscribe.model.RunStatus
@@ -27,9 +30,9 @@ data class RecordingBadges(
 	/** Ordered labels; empty means the card shows no extra line. */
 	val labels: List<String>
 		get() = buildList {
-			if (hasTranscript) add("逐字稿") else if (transcribing) add("轉錄中")
-			if (hasSummary) add("摘要")
-			if (openItems > 0) add("待辦 $openItems")
+			if (hasTranscript) add(UiStrings.get(StringsRes.string.feature_recordings_transcript, "逐字稿")) else if (transcribing) add(UiStrings.get(StringsRes.string.feature_recordings_transcribing, "轉錄中"))
+			if (hasSummary) add(UiStrings.get(StringsRes.string.feature_recordings_summary, "摘要"))
+			if (openItems > 0) add(UiStrings.get(StringsRes.string.feature_recordings_to_do, "待辦 %1\$s", openItems))
 		}
 
 	companion object {

@@ -1,5 +1,8 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -36,7 +39,7 @@ internal fun CitedSummaryText(text: String, citations: List<Citation>, onSeekTo:
 					AssistChip(
 						onClick = { onSeekTo(c.startMs) },
 						label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-						modifier = androidx.compose.ui.Modifier.semantics { contentDescription = "跳到 $label" },
+						modifier = androidx.compose.ui.Modifier.semantics { contentDescription = UiStrings.get(StringsRes.string.feature_player_jump_to, "跳到 %1\$s", label) },
 					)
 				}
 			}

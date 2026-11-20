@@ -1,0 +1,8 @@
+<resources>
+	<string name="data_recordings_message_cannot_create_file">無法建立檔案</string>
+	<string name="data_recordings_message_cannot_delete_file_don_t_have_access">權限不足，無法刪除檔案</string>
+	<string name="data_recordings_message_cannot_fetch_trash_recordings">無法讀取垃圾桶內的錄音</string>
+	<string name="data_recordings_message_file_missing_exception">找不到檔案</string>
+	<string name="data_recordings_message_security_exception">存取權限不足</string>
+	<string name="data_recordings_message_sql_exception">資料庫錯誤</string>
+</resources>

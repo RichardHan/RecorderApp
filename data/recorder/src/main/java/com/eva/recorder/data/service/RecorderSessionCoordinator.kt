@@ -1,5 +1,8 @@
 package com.eva.recorder.data.service
 
+import com.eva.recorder.R as StringsRes
+import com.eva.utils.UiStrings
+
 import android.util.Log
 import com.eva.cloudtranscribe.model.Provenance
 import com.eva.cloudtranscribe.model.RunStatus
@@ -168,7 +171,7 @@ internal class RecorderSessionCoordinator(
 						engine = live.engine,
 						model = live.modelId,
 						trigger = "live",
-						audioFormat = if (live.engine == "vosk") "streaming" else "分句辨識（VAD）",
+						audioFormat = if (live.engine == "vosk") "streaming" else UiStrings.get(StringsRes.string.data_recorder_utterance_recognition_vad, "分句辨識（VAD）"),
 					),
 					createdAtMillis = now,
 					status = if (live.complete) RunStatus.SUCCESS else RunStatus.PARTIAL,
@@ -176,8 +179,8 @@ internal class RecorderSessionCoordinator(
 					totalSegments = live.decodedSegments + live.failedSegments,
 					completedSegments = live.decodedSegments,
 					warnings = buildList {
-						if (live.droppedMillis > 0) add("即時辨識跟不上，約 ${live.droppedMillis / 1000} 秒未辨識（可用離線重轉補齊）")
-						if (live.failedSegments > 0) add("${live.failedSegments} 段辨識失敗")
+						if (live.droppedMillis > 0) add(UiStrings.get(StringsRes.string.data_recorder_recognition_fell_behind_by_about_seconds_transcribe, "即時辨識跟不上，約 %1\$s 秒未辨識（可用離線重轉補齊）", live.droppedMillis / 1000))
+						if (live.failedSegments > 0) add(UiStrings.get(StringsRes.string.data_recorder_segments_failed, "%1\$s 段辨識失敗", live.failedSegments))
 					},
 				),
 			)

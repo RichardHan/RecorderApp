@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+	<string name="data_recorder_cloud_transcription_could_not_start">Cloud transcription could not start: %1$s</string>
+	<string name="data_recorder_could_not_load_vosk_model">Could not load Vosk model</string>
+	<string name="data_recorder_final_segment_failed">Final segment failed: %1$s</string>
+	<string name="data_recorder_highlights_could_not_start">Highlights could not start: %1$s</string>
+	<string name="data_recorder_live_audio_may_differ_slightly_from_the">Live audio may differ slightly from the saved file.</string>
+	<string name="data_recorder_mp3_from_live_pcm">MP3 from live PCM</string>
+	<string name="data_recorder_n_live_captions_missed_some_audio_the">\n[Live captions missed some audio. The complete recording was saved and can be transcribed again.]</string>
+	<string name="data_recorder_offline_model_not_found_select_it_again">Offline model not found. Select it again in Settings.</string>
+	<string name="data_recorder_recognition_error">Recognition error: %1$s</string>
+	<string name="data_recorder_recognition_fell_behind_by_about_seconds_transcribe">Recognition fell behind by about %1$s seconds. Transcribe the saved audio on device to fill gaps.</string>
+	<string name="data_recorder_recognition_fell_behind_some_audio_was_skipped">Recognition fell behind. Some audio was skipped; the complete recording was saved.</string>
+	<string name="data_recorder_segments_failed">%1$s segments failed</string>
+	<string name="data_recorder_some_cloud_segments_failed_were_skipped_or">Some cloud segments failed, were skipped or contain suspicious repetitions. The original segment text is available. Run transcription again on the saved recording.</string>
+	<string name="data_recorder_summary_key_missing">Summary key missing</string>
+	<string name="data_recorder_utterance_recognition_vad">Utterance recognition (VAD)</string>
+</resources>

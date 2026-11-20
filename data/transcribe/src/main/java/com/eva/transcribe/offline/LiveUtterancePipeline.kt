@@ -1,5 +1,8 @@
 package com.eva.transcribe.offline
 
+import com.eva.transcribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -64,13 +67,13 @@ class LiveUtterancePipeline(
 			when (item) {
 				is Item.Marker -> add(item.piece)
 				is Item.Work -> {
-					_display.value = "（分句辨識中…）"
+					_display.value = UiStrings.get(StringsRes.string.data_transcribe_recognizing_utterance, "（分句辨識中…）")
 					_decoding.value = true
 					val text = try { decode(item.u.samples) } catch (e: kotlinx.coroutines.CancellationException) { _decoding.value = false; throw e } catch (e: Exception) {
 						_decoding.value = false
 						failedUtterances++
-						add(Piece.Skipped(item.u.startSample, item.u.samples.size, "辨識失敗：${e.message}"))
-						_warning.value = "辨識失敗：${e.message}"
+						add(Piece.Skipped(item.u.startSample, item.u.samples.size, UiStrings.get(StringsRes.string.data_transcribe_recognition_failed, "辨識失敗：%1\$s", e.message)))
+						_warning.value = UiStrings.get(StringsRes.string.data_transcribe_recognition_failed, "辨識失敗：%1\$s", e.message)
 						continue
 					}
 					_decoding.value = false
@@ -93,7 +96,7 @@ class LiveUtterancePipeline(
 
 	private fun render(p: Piece, sampleRate: Int = 16_000): String = when (p) {
 		is Piece.Text -> p.text
-		is Piece.Skipped -> "[⚠ ${fmt(p.startSample * 1000 / sampleRate)} 起約 ${p.samples / sampleRate} 秒：${p.reason}]"
+		is Piece.Skipped -> UiStrings.get(StringsRes.string.data_transcribe_about_seconds_starting_at, "[⚠ %1\$s 起約 %2\$s 秒：%3\$s]", fmt(p.startSample * 1000 / sampleRate), p.samples / sampleRate, p.reason)
 	}
 
 	/** Called from the audio thread: cheap, non-suspending. */
@@ -102,10 +105,10 @@ class LiveUtterancePipeline(
 	private fun offer(u: UtteranceSegmenter.Utterance) {
 		if (queue.trySend(Item.Work(u)).isFailure) {
 			droppedSamples += u.samples.size
-			val piece = Piece.Skipped(u.startSample, u.samples.size, "辨識跟不上，此段未辨識（錄音完整保存，可事後重轉）")
+			val piece = Piece.Skipped(u.startSample, u.samples.size, UiStrings.get(StringsRes.string.data_transcribe_recognition_fell_behind_this_segment_was_skipped, "辨識跟不上，此段未辨識（錄音完整保存，可事後重轉）"))
 			markers.trySend(Item.Marker(piece))
-			_display.value = "⚠ 辨識跟不上，已略過一段"
-			_warning.value = "辨識跟不上，已略過一段（錄音完整保存）"
+			_display.value = UiStrings.get(StringsRes.string.data_transcribe_recognition_fell_behind_skipped_a_segment, "⚠ 辨識跟不上，已略過一段")
+			_warning.value = UiStrings.get(StringsRes.string.data_transcribe_recognition_fell_behind_skipped_a_segment_the, "辨識跟不上，已略過一段（錄音完整保存）")
 		}
 	}
 

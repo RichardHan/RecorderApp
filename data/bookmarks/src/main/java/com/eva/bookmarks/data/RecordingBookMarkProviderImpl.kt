@@ -1,5 +1,7 @@
 package com.eva.bookmarks.data
 
+import com.eva.utils.UiStrings
+
 import android.database.sqlite.SQLiteException
 import com.eva.bookmarks.domain.AudioBookmarkModel
 import com.eva.bookmarks.domain.exceptions.InvalidBookMarkIdException
@@ -54,7 +56,7 @@ internal class RecordingBookMarkProviderImpl(
 			throw e
 		} catch (e: SQLiteException) {
 			e.printStackTrace()
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.bookmarks.R.string.data_bookmarks_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e, e.message ?: "")
@@ -79,7 +81,7 @@ internal class RecordingBookMarkProviderImpl(
 		} catch (e: CancellationException) {
 			throw e
 		} catch (e: SQLiteException) {
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.bookmarks.R.string.data_bookmarks_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e, e.message ?: "")
@@ -109,7 +111,7 @@ internal class RecordingBookMarkProviderImpl(
 		} catch (e: CancellationException) {
 			throw e
 		} catch (e: SQLiteException) {
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.bookmarks.R.string.data_bookmarks_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e, e.message ?: "")
@@ -122,7 +124,7 @@ internal class RecordingBookMarkProviderImpl(
 			bookmarkDao.deleteBookMarks(entities)
 			Resource.Success(Unit)
 		} catch (e: SQLiteException) {
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.bookmarks.R.string.data_bookmarks_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e, e.message ?: "")

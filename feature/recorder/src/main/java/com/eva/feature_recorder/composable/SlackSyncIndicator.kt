@@ -1,5 +1,8 @@
 package com.eva.feature_recorder.composable
 
+import com.eva.feature_recorder.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -24,9 +27,9 @@ internal fun SlackSyncIndicator(
 ) {
 	if (!isRecording || !status.available) return
 	val label = when {
-		!status.syncing -> "⇄ 這次不同步"
-		status.paused -> "⇄ Slack 已暫停"
-		else -> "⇄ Slack 同步中"
+		!status.syncing -> UiStrings.get(StringsRes.string.feature_recorder_skip_sync_this_time, "⇄ 這次不同步")
+		status.paused -> UiStrings.get(StringsRes.string.feature_recorder_slack_paused, "⇄ Slack 已暫停")
+		else -> UiStrings.get(StringsRes.string.feature_recorder_syncing_to_slack, "⇄ Slack 同步中")
 	}
 	val description = buildString {
 		append(label)

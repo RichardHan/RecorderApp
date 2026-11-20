@@ -1,5 +1,8 @@
 package com.eva.feature_editor.composables
 
+import com.eva.feature_editor.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -75,7 +78,7 @@ private fun EditorActionsAndControls(
 			) {
 				Icon(
 					painter = painterResource(R.drawable.ic_cut),
-					contentDescription = "Action Cut"
+					contentDescription = UiStrings.get(StringsRes.string.feature_editor_action_cut, "Action Cut")
 				)
 			}
 			AnimatedPlayPauseButton(
@@ -93,7 +96,7 @@ private fun EditorActionsAndControls(
 			) {
 				Icon(
 					painter = painterResource(R.drawable.ic_crop),
-					contentDescription = "Action Crop"
+					contentDescription = UiStrings.get(StringsRes.string.feature_editor_action_crop, "Action Crop")
 				)
 			}
 		}

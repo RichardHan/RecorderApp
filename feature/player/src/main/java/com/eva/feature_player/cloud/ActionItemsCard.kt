@@ -1,5 +1,9 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -68,24 +72,24 @@ fun ActionItemsCard(
 				horizontalArrangement = Arrangement.SpaceBetween,
 			) {
 				Text(
-					if (viewModel.items.isEmpty()) "待辦" else "待辦（$doneCount/${viewModel.items.size}）",
+					if (viewModel.items.isEmpty()) UiStrings.get(StringsRes.string.feature_player_action_items_alt, "待辦") else UiStrings.get(StringsRes.string.feature_player_action_items_alt_alt, "待辦（%1\$s/%2\$s）", doneCount, viewModel.items.size),
 					style = MaterialTheme.typography.titleSmall,
 				)
 				Icon(
 					imageVector = if (viewModel.expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-					contentDescription = if (viewModel.expanded) "收合待辦" else "展開待辦",
+					contentDescription = if (viewModel.expanded) UiStrings.get(StringsRes.string.feature_player_collapse_action_items, "收合待辦") else UiStrings.get(StringsRes.string.feature_player_expand_action_items, "展開待辦"),
 				)
 			}
 			if (viewModel.expanded) {
 				if (summaryIsNewer) {
 					Text(
-						"重點已更新，可再次從重點建立",
+						stringResource(StringsRes.string.feature_player_highlights_changed_you_can_create_action_items),
 						style = MaterialTheme.typography.bodySmall,
 						color = MaterialTheme.colorScheme.secondary,
 					)
 				}
 				if (viewModel.items.isEmpty()) {
-					Text("尚無待辦。只會加入你確認過的摘要條目。", style = MaterialTheme.typography.bodySmall)
+					Text(stringResource(StringsRes.string.feature_player_no_action_items_only_summary_items_you), style = MaterialTheme.typography.bodySmall)
 				} else {
 					val byId = viewModel.items.associateBy { it.id }
 					ActionItemsListContent(
@@ -101,22 +105,22 @@ fun ActionItemsCard(
 					OutlinedButton(
 						enabled = latestSummaryText != null,
 						onClick = { latestSummaryText?.let(viewModel::startPicking) },
-					) { Text("從重點建立待辦") }
-					OutlinedButton(onClick = { manualDialog = true }) { Text("新增待辦") }
+					) { Text(stringResource(StringsRes.string.feature_player_create_action_items_from_highlights)) }
+					OutlinedButton(onClick = { manualDialog = true }) { Text(stringResource(StringsRes.string.feature_player_add_action_item)) }
 				}
 				OutlinedButton(
 					enabled = viewModel.items.any { !it.isDone },
 					onClick = {
 						val text = viewModel.unfinishedClipboardText()
 						val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-						clipboard.setPrimaryClip(ClipData.newPlainText("待辦", text))
+						clipboard.setPrimaryClip(ClipData.newPlainText(UiStrings.get(StringsRes.string.feature_player_action_items_alt, "待辦"), text))
 					},
-				) { Text("複製未完成") }
+				) { Text(stringResource(StringsRes.string.feature_player_copy_open_items)) }
 			}
 			viewModel.message?.let { msg ->
 				Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
 					Text(msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-					TextButton(onClick = viewModel::dismissMessage) { Text("知道了") }
+					TextButton(onClick = viewModel::dismissMessage) { Text(stringResource(StringsRes.string.feature_player_got_it)) }
 				}
 			}
 		}
@@ -125,10 +129,10 @@ fun ActionItemsCard(
 	if (viewModel.candidates.isNotEmpty()) {
 		AlertDialog(
 			onDismissRequest = viewModel::cancelPicking,
-			title = { Text("從重點建立待辦") },
+			title = { Text(stringResource(StringsRes.string.feature_player_create_action_items_from_highlights)) },
 			text = {
 				Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-					Text("只加入你勾選的條目；之後摘要再更新也不會改寫或刪除已建立的待辦。",
+					Text(stringResource(StringsRes.string.feature_player_only_checked_items_will_be_added_updating),
 						style = MaterialTheme.typography.bodySmall)
 					viewModel.candidates.forEach { candidate ->
 						Row(
@@ -143,10 +147,10 @@ fun ActionItemsCard(
 			},
 			confirmButton = {
 				TextButton(enabled = viewModel.selected.isNotEmpty(), onClick = { viewModel.confirmAddSelected() }) {
-					Text("加入 ${viewModel.selected.size} 項")
+					Text(stringResource(StringsRes.string.feature_player_add_items, (viewModel.selected.size).toString()))
 				}
 			},
-			dismissButton = { TextButton(onClick = viewModel::cancelPicking) { Text("取消") } },
+			dismissButton = { TextButton(onClick = viewModel::cancelPicking) { Text(stringResource(StringsRes.string.feature_player_cancel)) } },
 		)
 	}
 
@@ -181,7 +185,7 @@ internal fun ActionItemsListContent(
 						singleLine = true,
 						modifier = Modifier.weight(1f),
 					)
-					TextButton(onClick = { onSaveText(item.id, text) }) { Text("儲存") }
+					TextButton(onClick = { onSaveText(item.id, text) }) { Text(stringResource(StringsRes.string.feature_player_save)) }
 				} else {
 					Text(
 						text = item.text,
@@ -191,7 +195,7 @@ internal fun ActionItemsListContent(
 					)
 				}
 				IconButton(onClick = { onDelete(item.id) }) {
-					Icon(Icons.Default.Delete, contentDescription = "刪除待辦")
+					Icon(Icons.Default.Delete, contentDescription = stringResource(StringsRes.string.feature_player_delete_action_item))
 				}
 			}
 		}
@@ -203,11 +207,11 @@ private fun ManualItemDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit)
 	var text by remember { mutableStateOf("") }
 	AlertDialog(
 		onDismissRequest = onDismiss,
-		title = { Text("新增待辦") },
+		title = { Text(stringResource(StringsRes.string.feature_player_add_action_item)) },
 		text = {
-			OutlinedTextField(value = text, onValueChange = { text = it }, label = { Text("待辦內容") }, modifier = Modifier.fillMaxWidth())
+			OutlinedTextField(value = text, onValueChange = { text = it }, label = { Text(stringResource(StringsRes.string.feature_player_action_item)) }, modifier = Modifier.fillMaxWidth())
 		},
-		confirmButton = { TextButton(enabled = text.isNotBlank(), onClick = { onConfirm(text) }) { Text("加入") } },
-		dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+		confirmButton = { TextButton(enabled = text.isNotBlank(), onClick = { onConfirm(text) }) { Text(stringResource(StringsRes.string.feature_player_add_alt)) } },
+		dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(StringsRes.string.feature_player_cancel)) } },
 	)
 }

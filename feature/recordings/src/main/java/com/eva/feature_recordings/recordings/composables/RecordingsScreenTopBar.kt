@@ -1,5 +1,7 @@
 package com.eva.feature_recordings.recordings.composables
 
+import com.eva.feature_recordings.R as StringsRes
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -208,7 +210,7 @@ internal fun RecordingsScreenTopBar(
 							},
 						)
 						DropdownMenuItem(
-							text = { Text(text = "近期回顧") },
+							text = { Text(text = stringResource(StringsRes.string.feature_recordings_recent_review)) },
 							onClick = { showDropDown = false; onShowRecap() },
 							leadingIcon = {
 								Icon(

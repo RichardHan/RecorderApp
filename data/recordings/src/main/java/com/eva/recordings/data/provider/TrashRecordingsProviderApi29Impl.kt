@@ -1,5 +1,7 @@
 package com.eva.recordings.data.provider
 
+import com.eva.utils.UiStrings
+
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
@@ -82,7 +84,7 @@ internal class TrashRecordingsProviderApi29Impl(
 					.map(TrashFileEntity::toModel)
 				Resource.Success(trashedItems)
 			} catch (e: SQLException) {
-				Resource.Error(e, "SQL EXCEPTION")
+				Resource.Error(e, UiStrings.get(com.eva.recordings.R.string.data_recordings_message_sql_exception, "SQL EXCEPTION"))
 			} catch (e: IOException) {
 				Resource.Error(e)
 			}

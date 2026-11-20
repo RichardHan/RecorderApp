@@ -1,5 +1,8 @@
 package com.eva.feature_settings.screen
 
+import com.eva.utils.UiStrings
+import com.eva.feature_settings.R as StringsRes
+
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -65,7 +68,7 @@ internal class DriveSettingsViewModel @Inject constructor(
 		} catch (e: CancellationException) {
 			throw e
 		} catch (e: Exception) {
-			_errorMessage.emit(e.message ?: "Google Drive authorization failed")
+			_errorMessage.emit(e.message ?: UiStrings.get(StringsRes.string.feature_settings_google_drive_authorization_failed, "Google Drive authorization failed"))
 		} finally {
 			_isBusy.value = false
 		}

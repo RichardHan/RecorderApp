@@ -1,0 +1,4 @@
+<resources>
+	<string name="feature_editor_message_some_error">發生錯誤</string>
+	<string name="feature_editor_message_some_transformation_error">無法完成音訊轉換</string>
+</resources>

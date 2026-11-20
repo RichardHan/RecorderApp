@@ -1,5 +1,9 @@
 package com.eva.feature_player.clips
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -60,8 +64,8 @@ internal data class ClipDraft(
 
 	/** Null when savable, otherwise a user-facing reason. */
 	fun problem(totalMs: Long): String? {
-		val start = startMs ?: return "開始時間格式應為 分:秒"
-		val end = endMs ?: return "結束時間格式應為 分:秒"
+		val start = startMs ?: return UiStrings.get(StringsRes.string.feature_player_enter_start_time_as_min_sec, "開始時間格式應為 分:秒")
+		val end = endMs ?: return UiStrings.get(StringsRes.string.feature_player_enter_end_time_as_min_sec, "結束時間格式應為 分:秒")
 		return ClipRangePolicy.validate(start, end, totalMs, maxMs)?.let { ClipRangePolicy.problemMessage(it, maxMs) }
 	}
 
@@ -99,9 +103,9 @@ fun ClipsPanel(
 
 	Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.medium, modifier = modifier) {
 		Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-			Text("片段", style = MaterialTheme.typography.titleSmall)
+			Text(stringResource(StringsRes.string.feature_player_clip), style = MaterialTheme.typography.titleSmall)
 			if (viewModel.clips.isEmpty()) {
-				Text("尚無片段。剪出的片段是新檔案，原錄音不會被修改。", style = MaterialTheme.typography.bodySmall)
+				Text(stringResource(StringsRes.string.feature_player_no_clips_yet_clips_are_saved_separately), style = MaterialTheme.typography.bodySmall)
 			} else {
 				ClipsList(
 					clips = viewModel.clips,
@@ -120,15 +124,15 @@ fun ClipsPanel(
 				enabled = !viewModel.exporting && totalMs() > 0L,
 				onClick = { draft = ClipDraft.of(ClipRangePolicy.fromPosition(positionMs(), totalMs())) },
 				modifier = Modifier.fillMaxWidth(),
-			) { Text("從目前位置剪片段") }
+			) { Text(stringResource(StringsRes.string.feature_player_create_clip_at_current_position)) }
 			if (viewModel.exporting) {
 				LinearProgressIndicator(Modifier.fillMaxWidth())
-				TextButton(onClick = viewModel::cancelExport) { Text("取消匯出") }
+				TextButton(onClick = viewModel::cancelExport) { Text(stringResource(StringsRes.string.feature_player_cancel_export)) }
 			}
 			viewModel.message?.let { msg ->
 				Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
 					Text(msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-					TextButton(onClick = viewModel::dismissMessage) { Text("知道了") }
+					TextButton(onClick = viewModel::dismissMessage) { Text(stringResource(StringsRes.string.feature_player_got_it)) }
 				}
 			}
 		}
@@ -139,14 +143,14 @@ fun ClipsPanel(
 		val problem = current.problem(total)
 		AlertDialog(
 			onDismissRequest = { preview.stop(); draft = null },
-			title = { Text("剪片段") },
+			title = { Text(stringResource(StringsRes.string.feature_player_create_clip)) },
 			text = {
 				Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
 					Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 						OutlinedTextField(
 							value = current.startText,
 							onValueChange = { draft = current.copy(startText = it) },
-							label = { Text("開始") },
+							label = { Text(stringResource(StringsRes.string.feature_player_start)) },
 							singleLine = true,
 							keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
 							modifier = Modifier.weight(1f),
@@ -154,7 +158,7 @@ fun ClipsPanel(
 						OutlinedTextField(
 							value = current.endText,
 							onValueChange = { draft = current.copy(endText = it) },
-							label = { Text("結束") },
+							label = { Text(stringResource(StringsRes.string.feature_player_end)) },
 							singleLine = true,
 							keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
 							modifier = Modifier.weight(1f),
@@ -163,15 +167,15 @@ fun ClipsPanel(
 					FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
 						AssistChip(
 							onClick = { draft = current.copy(startText = ClipRangePolicy.formatMs(positionMs())) },
-							label = { Text("目前位置設為開始") },
+							label = { Text(stringResource(StringsRes.string.feature_player_set_start_to_current_position)) },
 						)
 						AssistChip(
 							onClick = { draft = current.copy(endText = ClipRangePolicy.formatMs(positionMs())) },
-							label = { Text("目前位置設為結束") },
+							label = { Text(stringResource(StringsRes.string.feature_player_set_end_to_current_position)) },
 						)
 					}
 					if (bookmarkTimesMs.isNotEmpty()) {
-						Text("從書籤（前後各 15 秒）", style = MaterialTheme.typography.labelMedium)
+						Text(stringResource(StringsRes.string.feature_player_from_bookmark_15_seconds_on_each_side), style = MaterialTheme.typography.labelMedium)
 						FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
 							bookmarkTimesMs.sorted().take(12).forEach { point ->
 								AssistChip(
@@ -187,14 +191,14 @@ fun ClipsPanel(
 					OutlinedTextField(
 						value = current.title,
 						onValueChange = { draft = current.copy(title = it) },
-						label = { Text("標題") },
+						label = { Text(stringResource(StringsRes.string.feature_player_title)) },
 						singleLine = true,
 						modifier = Modifier.fillMaxWidth(),
 					)
 					OutlinedTextField(
 						value = current.maxMinutesText,
 						onValueChange = { draft = current.copy(maxMinutesText = it.filter(Char::isDigit).take(2)) },
-						label = { Text("最長（分鐘，上限 10）") },
+						label = { Text(stringResource(StringsRes.string.feature_player_maximum_length_in_minutes_up_to_10)) },
 						singleLine = true,
 						keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
 						modifier = Modifier.fillMaxWidth(),
@@ -202,7 +206,7 @@ fun ClipsPanel(
 					val start = current.startMs
 					val end = current.endMs
 					if (start != null && end != null && end > start) {
-						Text("長度 ${ClipRangePolicy.formatMs(end - start)}", style = MaterialTheme.typography.bodySmall)
+						Text(stringResource(StringsRes.string.feature_player_length, (ClipRangePolicy.formatMs(end - start)).toString()), style = MaterialTheme.typography.bodySmall)
 					}
 					problem?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 					TextButton(
@@ -212,9 +216,9 @@ fun ClipsPanel(
 							if (previewing) preview.stop()
 							else if (uri != null && start != null && end != null) preview.play(uri.toUri(), start, end)
 						},
-					) { Text(if (previewing) "停止試聽" else "試聽這一段") }
+					) { Text(if (previewing) UiStrings.get(StringsRes.string.feature_player_stop_preview, "停止試聽") else UiStrings.get(StringsRes.string.feature_player_preview_clip, "試聽這一段")) }
 					Text(
-						"會另存成新檔，原錄音不變。分享後，該短檔會離開本 App，由你選的應用程式處理。",
+						stringResource(StringsRes.string.feature_player_saved_as_a_separate_file_sharing_sends),
 						style = MaterialTheme.typography.bodySmall,
 						color = MaterialTheme.colorScheme.onSurfaceVariant,
 					)
@@ -229,7 +233,7 @@ fun ClipsPanel(
 							viewModel.export(current.startMs!!, current.endMs!!, total, current.title, current.maxMs, shareAfterSave = false)
 							draft = null
 						},
-					) { Text("儲存") }
+					) { Text(stringResource(StringsRes.string.feature_player_save)) }
 					TextButton(
 						enabled = problem == null && !viewModel.exporting,
 						onClick = {
@@ -237,10 +241,10 @@ fun ClipsPanel(
 							viewModel.export(current.startMs!!, current.endMs!!, total, current.title, current.maxMs, shareAfterSave = true)
 							draft = null
 						},
-					) { Text("儲存並分享") }
+					) { Text(stringResource(StringsRes.string.feature_player_save_and_share)) }
 				}
 			},
-			dismissButton = { TextButton(onClick = { preview.stop(); draft = null }) { Text("取消") } },
+			dismissButton = { TextButton(onClick = { preview.stop(); draft = null }) { Text(stringResource(StringsRes.string.feature_player_cancel)) } },
 		)
 	}
 }
@@ -264,7 +268,7 @@ internal fun ClipsList(
 					var text by remember(clip.id) { mutableStateOf(clip.title) }
 					Row(verticalAlignment = Alignment.CenterVertically) {
 						OutlinedTextField(value = text, onValueChange = { text = it }, singleLine = true, modifier = Modifier.weight(1f))
-						TextButton(onClick = { onRename(clip, text); editingId = null }) { Text("儲存") }
+						TextButton(onClick = { onRename(clip, text); editingId = null }) { Text(stringResource(StringsRes.string.feature_player_save)) }
 					}
 				} else {
 					Text(clip.title, style = MaterialTheme.typography.bodyMedium)
@@ -275,13 +279,13 @@ internal fun ClipsList(
 						style = MaterialTheme.typography.labelMedium,
 						modifier = Modifier.weight(1f),
 					)
-					TextButton(onClick = { onPreview(clip) }) { Text("試聽") }
-					TextButton(onClick = { onSeek(clip) }) { Text("原處") }
-					TextButton(onClick = { editingId = clip.id }) { Text("改名") }
-					IconButton(onClick = { onShare(clip) }, modifier = Modifier.semantics { contentDescription = "分享片段 ${clip.title}" }) {
+					TextButton(onClick = { onPreview(clip) }) { Text(stringResource(StringsRes.string.feature_player_preview)) }
+					TextButton(onClick = { onSeek(clip) }) { Text(stringResource(StringsRes.string.feature_player_go_to_source)) }
+					TextButton(onClick = { editingId = clip.id }) { Text(stringResource(StringsRes.string.feature_player_rename)) }
+					IconButton(onClick = { onShare(clip) }, modifier = Modifier.semantics { contentDescription = UiStrings.get(StringsRes.string.feature_player_share_clip_alt, "分享片段 %1\$s", clip.title) }) {
 						Icon(Icons.Default.Share, contentDescription = null)
 					}
-					IconButton(onClick = { confirmDelete = clip }, modifier = Modifier.semantics { contentDescription = "刪除片段 ${clip.title}" }) {
+					IconButton(onClick = { confirmDelete = clip }, modifier = Modifier.semantics { contentDescription = UiStrings.get(StringsRes.string.feature_player_delete_clip_alt, "刪除片段 %1\$s", clip.title) }) {
 						Icon(Icons.Default.Delete, contentDescription = null)
 					}
 				}
@@ -291,10 +295,10 @@ internal fun ClipsList(
 	confirmDelete?.let { clip ->
 		AlertDialog(
 			onDismissRequest = { confirmDelete = null },
-			title = { Text("刪除片段？") },
-			text = { Text("只會刪除這個片段檔，原錄音不受影響。") },
-			confirmButton = { TextButton({ onDelete(clip); confirmDelete = null }) { Text("刪除") } },
-			dismissButton = { TextButton({ confirmDelete = null }) { Text("取消") } },
+			title = { Text(stringResource(StringsRes.string.feature_player_delete_clip)) },
+			text = { Text(stringResource(StringsRes.string.feature_player_only_the_clip_file_will_be_deleted)) },
+			confirmButton = { TextButton({ onDelete(clip); confirmDelete = null }) { Text(stringResource(StringsRes.string.feature_player_delete)) } },
+			dismissButton = { TextButton({ confirmDelete = null }) { Text(stringResource(StringsRes.string.feature_player_cancel)) } },
 		)
 	}
 }

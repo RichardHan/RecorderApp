@@ -1,5 +1,8 @@
 package com.eva.cloudtranscribe.live
 
+import com.eva.cloudtranscribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import com.eva.cloudtranscribe.engine.SpeakerOwnerPrompt
 import kotlinx.serialization.Serializable
 
@@ -59,11 +62,11 @@ data class LiveCloudSettings(
 	)
 
 	fun validateSummary(hasSummaryKey: Boolean, hasTranscribeKey: Boolean): String? = when {
-		summaryBaseUrl.isBlank() -> "尚未設定摘要 Endpoint"
-		!summaryBaseUrl.trim().startsWith("https://", ignoreCase = true) -> "摘要 Endpoint 必須是 https://"
-		summaryModel.isBlank() -> "尚未設定摘要模型"
-		summaryReuseTranscribeKey && !hasTranscribeKey -> "選擇沿用轉錄 Key，但轉錄 Key 尚未設定"
-		!summaryReuseTranscribeKey && !hasSummaryKey -> "尚未設定摘要 API Key"
+		summaryBaseUrl.isBlank() -> UiStrings.get(StringsRes.string.data_cloudtranscribe_summary_endpoint_missing, "尚未設定摘要 Endpoint")
+		!summaryBaseUrl.trim().startsWith("https://", ignoreCase = true) -> UiStrings.get(StringsRes.string.data_cloudtranscribe_use_https_for_the_summary_endpoint, "摘要 Endpoint 必須是 https://")
+		summaryModel.isBlank() -> UiStrings.get(StringsRes.string.data_cloudtranscribe_summary_model_missing, "尚未設定摘要模型")
+		summaryReuseTranscribeKey && !hasTranscribeKey -> UiStrings.get(StringsRes.string.data_cloudtranscribe_save_a_transcription_key_before_reusing_it, "選擇沿用轉錄 Key，但轉錄 Key 尚未設定")
+		!summaryReuseTranscribeKey && !hasSummaryKey -> UiStrings.get(StringsRes.string.data_cloudtranscribe_summary_api_key_missing, "尚未設定摘要 API Key")
 		else -> null
 	}
 

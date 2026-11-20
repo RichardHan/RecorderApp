@@ -1,5 +1,9 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -42,11 +46,11 @@ internal fun RecordingQaCard(
 
 	Card {
 		Column(Modifier.padding(12.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-			Text("問這段錄音", style = MaterialTheme.typography.titleSmall)
+			Text(stringResource(StringsRes.string.feature_player_ask_about_this_recording), style = MaterialTheme.typography.titleSmall)
 			OutlinedTextField(
 				value = question,
 				onValueChange = { question = it.take(RecordingQa.MAX_QUESTION_CHARS) },
-				label = { Text("例如：報價什麼時候要交？") },
+				label = { Text(stringResource(StringsRes.string.feature_player_for_example_when_is_the_quote_due)) },
 				enabled = viewModel.blockedReason == null && !viewModel.asking,
 				modifier = Modifier.fillMaxWidth(),
 			)
@@ -54,14 +58,14 @@ internal fun RecordingQaCard(
 				Button(
 					enabled = viewModel.blockedReason == null && !viewModel.asking && question.isNotBlank(),
 					onClick = { if (confirmed) viewModel.ask(question) else confirm = true },
-				) { Text(if (viewModel.asking) "回答中…" else "送出") }
-				if (viewModel.asking) TextButton(onClick = viewModel::cancel) { Text("取消") }
+				) { Text(if (viewModel.asking) UiStrings.get(StringsRes.string.feature_player_answering, "回答中…") else UiStrings.get(StringsRes.string.feature_player_send, "送出")) }
+				if (viewModel.asking) TextButton(onClick = viewModel::cancel) { Text(stringResource(StringsRes.string.feature_player_cancel)) }
 			}
 			viewModel.blockedReason?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 			viewModel.message?.let { msg ->
 				Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
 					Text(msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
-					TextButton(onClick = viewModel::dismissMessage) { Text("知道了") }
+					TextButton(onClick = viewModel::dismissMessage) { Text(stringResource(StringsRes.string.feature_player_got_it)) }
 				}
 			}
 			viewModel.history.forEach { record -> QaAnswer(record, onSeekTo, onDelete = { viewModel.delete(record) }) }
@@ -70,23 +74,23 @@ internal fun RecordingQaCard(
 
 	if (confirm) AlertDialog(
 		onDismissRequest = { confirm = false },
-		title = { Text("送出問題？") },
+		title = { Text(stringResource(StringsRes.string.feature_player_send_question)) },
 		text = {
-			Text("每問一題會呼叫一次目前設定的摘要服務（使用已儲存的 API Key），並送出這份逐字稿文字（${viewModel.scope ?: "逐字稿"}），可能產生 token 費用。" +
-				"不會送音訊。回答只根據逐字稿，找不到會直接說找不到。")
+			Text(stringResource(StringsRes.string.feature_player_each_question_sends_this_transcript_to_the, (viewModel.scope ?: UiStrings.get(StringsRes.string.feature_player_transcript, "逐字稿")).toString()) +
+				UiStrings.get(StringsRes.string.feature_player_only_text_is_sent_the_answer_uses, "不會送音訊。回答只根據逐字稿，找不到會直接說找不到。"))
 		},
-		confirmButton = { TextButton({ confirm = false; confirmed = true; viewModel.ask(question) }) { Text("送出") } },
-		dismissButton = { TextButton({ confirm = false }) { Text("取消") } },
+		confirmButton = { TextButton({ confirm = false; confirmed = true; viewModel.ask(question) }) { Text(stringResource(StringsRes.string.feature_player_send)) } },
+		dismissButton = { TextButton({ confirm = false }) { Text(stringResource(StringsRes.string.feature_player_cancel)) } },
 	)
 }
 
 @Composable
 private fun QaAnswer(record: QaRecord, onSeekTo: ((Long) -> Unit)?, onDelete: () -> Unit) {
 	Column(Modifier.fillMaxWidth().padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-		Text("問：${record.question}", style = MaterialTheme.typography.labelLarge)
+		Text(stringResource(StringsRes.string.feature_player_question, (record.question).toString()), style = MaterialTheme.typography.labelLarge)
 		SelectionContainer { Text(record.answer, style = MaterialTheme.typography.bodyMedium) }
 		record.coverageNote?.let { Text("⚠ $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-		if (record.sourceUnverified) Text("未能驗證來源", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+		if (record.sourceUnverified) Text(stringResource(StringsRes.string.feature_player_source_unverified), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
 		if (record.citations.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
 			record.citations.forEach { c ->
 				val start = c.startMs
@@ -97,6 +101,6 @@ private fun QaAnswer(record: QaRecord, onSeekTo: ((Long) -> Unit)?, onDelete: ()
 				)
 			}
 		}
-		TextButton(onClick = onDelete) { Text("刪除這筆問答") }
+		TextButton(onClick = onDelete) { Text(stringResource(StringsRes.string.feature_player_delete_question_and_answer)) }
 	}
 }

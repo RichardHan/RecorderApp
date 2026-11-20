@@ -1,5 +1,8 @@
 package com.eva.cloudtranscribe.model
 
+import com.eva.cloudtranscribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 /** One line of a saved transcript; [startMs]/[endMs] are only set when the record holds real audio timestamps. */
 data class PlaybackLine(val text: String, val startMs: Long? = null, val endMs: Long? = null)
 
@@ -41,8 +44,8 @@ object PlaybackTranscripts {
 		lines.indexOfFirst { l -> l.startMs != null && l.endMs != null && positionMs >= l.startMs && positionMs < l.endMs }
 
 	fun label(r: TranscriptRecord): String {
-		val src = if (r.source == TranscriptSource.CLOUD) "雲端" else "離線"
-		val partial = when (r.status) { RunStatus.SUCCESS -> ""; RunStatus.PARTIAL -> "・部分"; else -> "・${r.status.name}" }
+		val src = if (r.source == TranscriptSource.CLOUD) UiStrings.get(StringsRes.string.data_cloudtranscribe_cloud, "雲端") else UiStrings.get(StringsRes.string.data_cloudtranscribe_offline, "離線")
+		val partial = when (r.status) { RunStatus.SUCCESS -> ""; RunStatus.PARTIAL -> UiStrings.get(StringsRes.string.data_cloudtranscribe_partial, "・部分"); else -> "・${r.status.name}" }
 		return "$src・${r.provenance.model}$partial"
 	}
 }

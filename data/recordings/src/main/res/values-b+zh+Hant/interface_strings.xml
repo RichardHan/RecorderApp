@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+	<string name="data_recordings_clip">片段 %1$s–%2$s</string>
+	<string name="data_recordings_clip_alt">片段</string>
+	<string name="data_recordings_clips_must_be_at_least_one_second">片段至少要 1 秒</string>
+	<string name="data_recordings_end_time_must_be_after_start_time">結束時間必須晚於開始時間</string>
+	<string name="data_recordings_exported_file_missing">匯出檔不存在</string>
+	<string name="data_recordings_maximum_clip_length_minutes">片段最長 %1$s 分鐘</string>
+	<string name="data_recordings_time_outside_the_recording">時間超出錄音範圍</string>
+</resources>

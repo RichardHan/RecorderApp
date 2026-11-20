@@ -1,5 +1,9 @@
 package com.eva.feature_settings.composables.cloudai
 
+import com.eva.feature_settings.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -99,13 +103,13 @@ internal class SlackSyncSettingsViewModel @Inject constructor(
 	/** Sends one fixed sentence with no recording content. */
 	fun sendTest() {
 		if (testing) return
-		val url = webhookStore.read() ?: run { testResult = "尚未儲存 Webhook"; return }
+		val url = webhookStore.read() ?: run { testResult = UiStrings.get(StringsRes.string.feature_settings_no_webhook_saved, "尚未儲存 Webhook"); return }
 		testing = true
 		testResult = null
 		viewModelScope.launch {
 			try {
 				val result = SlackSender(UrlConnectionSlackTransport(), maxInlineWaitSeconds = 0L).send(url, SlackMessages.TEST_TEXT)
-				testResult = if (result == SlackSendResult.Sent) "測試訊息已送出，請到 Slack 頻道確認。" else SlackSendPolicy.describe(result)
+				testResult = if (result == SlackSendResult.Sent) UiStrings.get(StringsRes.string.feature_settings_test_message_sent_check_your_slack_channel, "測試訊息已送出，請到 Slack 頻道確認。") else SlackSendPolicy.describe(result)
 			} finally {
 				testing = false
 			}
@@ -129,15 +133,15 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 	var confirmTest by remember { mutableStateOf(false) }
 
 	val status = when {
-		current.isActive -> "已開啟" + current.channelLabel.takeIf { it.isNotBlank() }?.let { "・$it" }.orEmpty()
-		hasWebhook -> "已設定 Webhook"
-		else -> "尚未設定"
+		current.isActive -> UiStrings.get(StringsRes.string.feature_settings_enabled, "已開啟") + current.channelLabel.takeIf { it.isNotBlank() }?.let { "・$it" }.orEmpty()
+		hasWebhook -> UiStrings.get(StringsRes.string.feature_settings_webhook_configured, "已設定 Webhook")
+		else -> UiStrings.get(StringsRes.string.feature_settings_not_configured, "尚未設定")
 	}
-	SettingsCard("Slack 同步", status, "ai-slack") {
+	SettingsCard(UiStrings.get(StringsRes.string.feature_settings_slack_sync, "Slack 同步"), status, "ai-slack") {
 		InfoLine(
-			"開啟後把即時重點送到指定頻道。不上傳音訊、不讀取 Slack。",
-			"開啟後，錄音中會把本機產生的即時重點送到你用 Incoming Webhook 指定的 Slack 頻道。不會上傳音訊，也不會讀取 Slack。" +
-				"Webhook 的限制：送出後不能編輯，也無法可靠地開討論串。所以「持續送」的做法是：開始一則、之後最多每 N 分鐘一則「新增的重點」、結束一則。",
+			UiStrings.get(StringsRes.string.feature_settings_send_live_highlights_to_the_selected_channel, "開啟後把即時重點送到指定頻道。不上傳音訊、不讀取 Slack。"),
+			UiStrings.get(StringsRes.string.feature_settings_during_recording_this_device_sends_text_highlights, "開啟後，錄音中會把本機產生的即時重點送到你用 Incoming Webhook 指定的 Slack 頻道。不會上傳音訊，也不會讀取 Slack。") +
+				UiStrings.get(StringsRes.string.feature_settings_webhook_messages_cannot_be_edited_or_reliably, "Webhook 的限制：送出後不能編輯，也無法可靠地開討論串。所以「持續送」的做法是：開始一則、之後最多每 N 分鐘一則「新增的重點」、結束一則。"),
 		)
 
 		Row(
@@ -147,20 +151,20 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 		) {
 			SelectionContainer(Modifier.weight(1f)) {
 				Text(
-					if (savedWebhookUrl != null) "Webhook：$savedWebhookUrl" else "Webhook：尚未設定",
+					if (savedWebhookUrl != null) "Webhook：$savedWebhookUrl" else UiStrings.get(StringsRes.string.feature_settings_no_webhook_configured, "Webhook：尚未設定"),
 					style = MaterialTheme.typography.bodyMedium,
 				)
 			}
 			if (savedWebhookUrl != null) TextButton(onClick = {
 				val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 				clipboard.setPrimaryClip(ClipData.newPlainText("Slack Webhook", savedWebhookUrl))
-				Toast.makeText(context, "已複製", Toast.LENGTH_SHORT).show()
-			}) { Text("複製") }
+				Toast.makeText(context, UiStrings.get(StringsRes.string.feature_settings_copied, "已複製"), Toast.LENGTH_SHORT).show()
+			}) { Text(stringResource(StringsRes.string.feature_settings_copy)) }
 		}
 		OutlinedTextField(
 			value = urlInput,
 			onValueChange = { urlInput = it; urlError = null },
-			label = { Text(if (hasWebhook) "Webhook URL" else "貼上 Webhook URL") },
+			label = { Text(if (hasWebhook) "Webhook URL" else UiStrings.get(StringsRes.string.feature_settings_paste_webhook_url, "貼上 Webhook URL")) },
 			singleLine = true,
 			keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
 			modifier = Modifier.fillMaxWidth(),
@@ -169,38 +173,38 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 			Button(enabled = urlInput.isNotBlank(), onClick = {
 				if (!viewModel.saveWebhook(urlInput)) {
-					urlError = "需要 https://hooks.slack.com/services/… 開頭的 Incoming Webhook URL"
+					urlError = UiStrings.get(StringsRes.string.feature_settings_use_an_incoming_webhook_url_starting_with, "需要 https://hooks.slack.com/services/… 開頭的 Incoming Webhook URL")
 				}
-			}) { Text("儲存 Webhook") }
-			if (hasWebhook) OutlinedButton(onClick = viewModel::clearWebhook) { Text("清除") }
+			}) { Text(stringResource(StringsRes.string.feature_settings_save_webhook)) }
+			if (hasWebhook) OutlinedButton(onClick = viewModel::clearWebhook) { Text(stringResource(StringsRes.string.feature_settings_clear)) }
 		}
 		Text(
-			if (current.channelLabel.isNotBlank()) "頻道顯示名稱：${current.channelLabel}" else "頻道顯示名稱：尚未設定",
+			if (current.channelLabel.isNotBlank()) UiStrings.get(StringsRes.string.feature_settings_channel_display_name, "頻道顯示名稱：%1\$s", current.channelLabel) else UiStrings.get(StringsRes.string.feature_settings_no_channel_display_name_configured, "頻道顯示名稱：尚未設定"),
 			style = MaterialTheme.typography.bodyMedium,
 		)
 		OutlinedTextField(
 			value = label,
 			onValueChange = { label = it.take(SlackSyncSettings.MAX_LABEL) },
-			label = { Text("頻道顯示名稱（只存在本機，例如 #meeting-notes）") },
+			label = { Text(stringResource(StringsRes.string.feature_settings_channel_display_name_local_only_e_g)) },
 			singleLine = true,
 			modifier = Modifier.fillMaxWidth(),
 		)
-		if (label != current.channelLabel) TextButton(onClick = { viewModel.update { it.copy(channelLabel = label) } }) { Text("儲存名稱") }
+		if (label != current.channelLabel) TextButton(onClick = { viewModel.update { it.copy(channelLabel = label) } }) { Text(stringResource(StringsRes.string.feature_settings_save_name)) }
 
-		SettingSwitch("開啟 Slack 同步", current.isActive) { on ->
+		SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_enable_slack_sync_alt, "開啟 Slack 同步"), current.isActive) { on ->
 			if (on) consent = true else viewModel.disable()
 		}
-		if (!hasWebhook) Text("要先儲存 Webhook 才能開啟。", style = MaterialTheme.typography.bodySmall)
+		if (!hasWebhook) Text(stringResource(StringsRes.string.feature_settings_save_a_webhook_before_enabling_sync), style = MaterialTheme.typography.bodySmall)
 
-		Text("要送的內容", style = MaterialTheme.typography.titleSmall)
-		SettingSwitch("錄音開始通知", current.sendStart) { v -> viewModel.update { it.copy(sendStart = v) } }
-		SettingSwitch("即時重點更新", current.sendKeyPoints, "合併去重後每批最多 3 點；需開啟即時雲端摘要") { v -> viewModel.update { it.copy(sendKeyPoints = v) } }
-		SettingSwitch("結束時的重點總結", current.sendEnd, "等錄音後的雲端摘要完成再送一則精簡總結") { v -> viewModel.update { it.copy(sendEnd = v) } }
-		SettingSwitch("送出前遮蔽個資", current.maskSensitive, "電子郵件與長數字") { v -> viewModel.update { it.copy(maskSensitive = v) } }
-		Text("即時重點更新間隔", style = MaterialTheme.typography.bodyMedium)
+		Text(stringResource(StringsRes.string.feature_settings_content_to_send_alt), style = MaterialTheme.typography.titleSmall)
+		SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_recording_start_notification, "錄音開始通知"), current.sendStart) { v -> viewModel.update { it.copy(sendStart = v) } }
+		SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_live_highlight_updates, "即時重點更新"), current.sendKeyPoints, UiStrings.get(StringsRes.string.feature_settings_up_to_three_unique_highlights_per_batch, "合併去重後每批最多 3 點；需開啟即時雲端摘要")) { v -> viewModel.update { it.copy(sendKeyPoints = v) } }
+		SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_final_highlights, "結束時的重點總結"), current.sendEnd, UiStrings.get(StringsRes.string.feature_settings_send_a_brief_recap_when_the_cloud, "等錄音後的雲端摘要完成再送一則精簡總結")) { v -> viewModel.update { it.copy(sendEnd = v) } }
+		SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_mask_personal_data_before_sending, "送出前遮蔽個資"), current.maskSensitive, UiStrings.get(StringsRes.string.feature_settings_emails_and_long_numbers, "電子郵件與長數字")) { v -> viewModel.update { it.copy(maskSensitive = v) } }
+		Text(stringResource(StringsRes.string.feature_settings_live_highlight_interval), style = MaterialTheme.typography.bodyMedium)
 		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 			SlackThrottle.OPTIONS_MINUTES.forEach { minutes ->
-				val label = if (minutes == 0) "關閉" else "${minutes} 分鐘"
+				val label = if (minutes == 0) UiStrings.get(StringsRes.string.feature_settings_close, "關閉") else UiStrings.get(StringsRes.string.feature_settings_minutes, "%1\$s 分鐘", minutes)
 				FilterChip(
 					selected = current.normalizedIntervalMinutes == minutes,
 					onClick = { viewModel.update { it.copy(minIntervalMinutes = minutes) } },
@@ -210,39 +214,39 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 		}
 
 		OutlinedButton(enabled = hasWebhook && !viewModel.testing, onClick = { confirmTest = true }) {
-			Text(if (viewModel.testing) "傳送中…" else "測試傳送")
+			Text(if (viewModel.testing) UiStrings.get(StringsRes.string.feature_settings_sending, "傳送中…") else UiStrings.get(StringsRes.string.feature_settings_send_test, "測試傳送"))
 		}
 		viewModel.testResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-		lastError?.let { Text("最近一次同步：$it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-		InfoLine("即時重點只合併去重、不另外壓縮。結束訊息會等錄音後的雲端摘要；失敗或逾時則改用精簡的即時重點。")
+		lastError?.let { Text(stringResource(StringsRes.string.feature_settings_last_sync, (it).toString()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+		InfoLine(UiStrings.get(StringsRes.string.feature_settings_live_highlights_are_deduplicated_the_final_message, "即時重點只合併去重、不另外壓縮。結束訊息會等錄音後的雲端摘要；失敗或逾時則改用精簡的即時重點。"))
 	}
 
 	if (consent) AlertDialog(
 		onDismissRequest = { consent = false },
-		title = { Text("開啟 Slack 同步？") },
+		title = { Text(stringResource(StringsRes.string.feature_settings_enable_slack_sync)) },
 		text = {
 			Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-				Text("目的地：${current.channelLabel.ifBlank { "（你建立 Webhook 時選的頻道）" }}")
-				Text("會送出：" + listOfNotNull(
-					"錄音開始通知".takeIf { current.sendStart },
-					"新增的即時重點（每 ${current.normalizedIntervalMinutes} 分鐘一批，最多 3 點）".takeIf { current.sendKeyPoints && current.normalizedIntervalMinutes > 0 },
-					"結束時的重點總結（等雲端摘要）".takeIf { current.sendEnd },
-				).joinToString("、").ifEmpty { "（目前沒有勾選任何內容）" })
-				Text("與會者說的話轉成的文字重點會離開這台手機，進入該 Slack 工作區。不會上傳音訊檔。")
-				Text("隨時可以在這裡關閉或清除 Webhook；已送到 Slack 的訊息無法由 App 刪除。")
+				Text(stringResource(StringsRes.string.feature_settings_destination, (current.channelLabel.ifBlank { UiStrings.get(StringsRes.string.feature_settings_channel_selected_when_you_created_the_webhook, "（你建立 Webhook 時選的頻道）") }).toString()))
+				Text(stringResource(StringsRes.string.feature_settings_content_to_send) + listOfNotNull(
+					UiStrings.get(StringsRes.string.feature_settings_recording_start_notification, "錄音開始通知").takeIf { current.sendStart },
+					UiStrings.get(StringsRes.string.feature_settings_new_live_highlights_every_minutes_up_to, "新增的即時重點（每 %1\$s 分鐘一批，最多 3 點）", current.normalizedIntervalMinutes).takeIf { current.sendKeyPoints && current.normalizedIntervalMinutes > 0 },
+					UiStrings.get(StringsRes.string.feature_settings_final_highlights_after_the_cloud_summary, "結束時的重點總結（等雲端摘要）").takeIf { current.sendEnd },
+				).joinToString("、").ifEmpty { UiStrings.get(StringsRes.string.feature_settings_no_content_selected, "（目前沒有勾選任何內容）") })
+				Text(stringResource(StringsRes.string.feature_settings_text_derived_from_participants_speech_will_leave))
+				Text(stringResource(StringsRes.string.feature_settings_you_can_disable_sync_or_remove_the))
 			}
 		},
 		confirmButton = {
-			TextButton(enabled = hasWebhook, onClick = { consent = false; viewModel.enableWithConsent() }) { Text("同意並啟用") }
+			TextButton(enabled = hasWebhook, onClick = { consent = false; viewModel.enableWithConsent() }) { Text(stringResource(StringsRes.string.feature_settings_agree_and_enable)) }
 		},
-		dismissButton = { TextButton(onClick = { consent = false }) { Text("取消") } },
+		dismissButton = { TextButton(onClick = { consent = false }) { Text(stringResource(StringsRes.string.feature_settings_cancel)) } },
 	)
 	if (confirmTest) AlertDialog(
 		onDismissRequest = { confirmTest = false },
-		title = { Text("送出測試訊息？") },
-		text = { Text("會送一則固定文字「${SlackMessages.TEST_TEXT}」到已儲存的 Webhook，不含任何錄音內容。") },
-		confirmButton = { TextButton(onClick = { confirmTest = false; viewModel.sendTest() }) { Text("送出") } },
-		dismissButton = { TextButton(onClick = { confirmTest = false }) { Text("取消") } },
+		title = { Text(stringResource(StringsRes.string.feature_settings_send_a_test_message)) },
+		text = { Text(stringResource(StringsRes.string.feature_settings_sends_the_fixed_text_to_the_saved, (SlackMessages.TEST_TEXT).toString())) },
+		confirmButton = { TextButton(onClick = { confirmTest = false; viewModel.sendTest() }) { Text(stringResource(StringsRes.string.feature_settings_send)) } },
+		dismissButton = { TextButton(onClick = { confirmTest = false }) { Text(stringResource(StringsRes.string.feature_settings_cancel)) } },
 	)
 }
 

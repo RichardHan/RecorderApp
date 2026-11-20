@@ -1,0 +1,10 @@
+<resources>
+	<string name="channel_recorder_name">Active recorder</string>
+	<string name="channel_recorder_desc">Controls for the recording in progress</string>
+	<string name="channel_recording_name">Saved recordings</string>
+	<string name="channel_recording_desc">Recording completion and cancellation</string>
+	<string name="channel_player_name">Playback</string>
+	<string name="channel_player_desc">Audio playback controls</string>
+	<string name="channel_worker_name">Background tasks</string>
+	<string name="channel_worker_desc">Progress for background work</string>
+</resources>

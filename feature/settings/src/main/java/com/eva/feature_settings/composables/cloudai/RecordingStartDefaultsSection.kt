@@ -1,5 +1,9 @@
 package com.eva.feature_settings.composables.cloudai
 
+import com.eva.feature_settings.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -76,25 +80,25 @@ internal fun RecordingStartDefaultsSection(viewModel: RecordingStartDefaultsView
 	val cloudDefaultOn = cloud.isActive
 	val slackDefaultOn = slackSettings.isActive && hasWebhook
 	val status = buildList {
-		add("本機字幕" + if (local.isEnabled) "開" else "關")
-		add("雲端即時" + if (cloudDefaultOn) "開" else "關")
-		add("Slack" + if (slackDefaultOn) "開" else "關")
+		add(UiStrings.get(StringsRes.string.feature_settings_local_captions, "本機字幕") + " " + if (local.isEnabled) UiStrings.get(StringsRes.string.feature_settings_on, "開") else UiStrings.get(StringsRes.string.feature_settings_off, "關"))
+		add(UiStrings.get(StringsRes.string.feature_settings_live_cloud, "雲端即時") + " " + if (cloudDefaultOn) UiStrings.get(StringsRes.string.feature_settings_on, "開") else UiStrings.get(StringsRes.string.feature_settings_off, "關"))
+		add("Slack " + if (slackDefaultOn) UiStrings.get(StringsRes.string.feature_settings_on, "開") else UiStrings.get(StringsRes.string.feature_settings_off, "關"))
 	}.joinToString("・")
 
-	SettingsCard("錄音開始時預設", status, "ai-rec-defaults") {
+	SettingsCard(UiStrings.get(StringsRes.string.feature_settings_defaults_for_new_recordings, "錄音開始時預設"), status, "ai-rec-defaults") {
 		InfoLine(
-			"每次新錄音開始時套用；錄音中可在畫面隨時開關，不會改這裡的預設。",
-			"本機字幕預設關閉（較耗手機資源）。雲端即時與 Slack 預設跟隨下方的啟用設定。本機模型在字幕關閉時仍可選取。",
+			UiStrings.get(StringsRes.string.feature_settings_applies_at_the_start_of_each_recording, "每次新錄音開始時套用；錄音中可在畫面隨時開關，不會改這裡的預設。"),
+			UiStrings.get(StringsRes.string.feature_settings_local_captions_are_off_by_default_to, "本機字幕預設關閉（較耗手機資源）。雲端即時與 Slack 預設跟隨下方的啟用設定。本機模型在字幕關閉時仍可選取。"),
 		)
 		SettingSwitch(
-			"本機字幕",
+			UiStrings.get(StringsRes.string.feature_settings_local_captions, "本機字幕"),
 			local.isEnabled,
-			"Sherpa／Vosk 即時辨識；預設關閉",
+			UiStrings.get(StringsRes.string.feature_settings_sherpa_vosk_live_recognition_off_by_default, "Sherpa／Vosk 即時辨識；預設關閉"),
 		) { viewModel.setLocalDefault(it) }
 		SettingSwitch(
-			"雲端即時",
+			UiStrings.get(StringsRes.string.feature_settings_live_cloud, "雲端即時"),
 			cloudDefaultOn,
-			if (cloudDefaultOn) "定期上傳音訊並整理重點" else "跟隨「即時雲端模式」",
+			if (cloudDefaultOn) UiStrings.get(StringsRes.string.feature_settings_upload_audio_periodically_and_generate_highlights, "定期上傳音訊並整理重點") else UiStrings.get(StringsRes.string.feature_settings_follow_live_cloud_settings, "跟隨「即時雲端模式」"),
 		) { on ->
 			if (on && cloud.consentAcceptedAtMillis == null) confirmCloud = true
 			else viewModel.setCloudDefault(on)
@@ -103,8 +107,8 @@ internal fun RecordingStartDefaultsSection(viewModel: RecordingStartDefaultsView
 			"Slack",
 			slackDefaultOn,
 			when {
-				!hasWebhook || !slackSettings.isActive -> "未設定（需 Webhook 與同意）"
-				else -> "有新重點時同步"
+				!hasWebhook || !slackSettings.isActive -> UiStrings.get(StringsRes.string.feature_settings_not_configured_webhook_and_consent_required, "未設定（需 Webhook 與同意）")
+				else -> UiStrings.get(StringsRes.string.feature_settings_sync_new_highlights, "有新重點時同步")
 			},
 		) { on ->
 			if (!hasWebhook) return@SettingSwitch
@@ -126,13 +130,13 @@ internal fun RecordingStartDefaultsSection(viewModel: RecordingStartDefaultsView
 	)
 	if (confirmSlack) AlertDialog(
 		onDismissRequest = { confirmSlack = false },
-		title = { Text("開啟 Slack 同步？") },
-		text = { Text("錄音開始後會依你的 Slack 設定送出開始通知與即時重點。只送出本機產生的文字，不會上傳錄音。") },
+		title = { Text(stringResource(StringsRes.string.feature_settings_enable_slack_sync)) },
+		text = { Text(stringResource(StringsRes.string.feature_settings_recording_start_notifications_and_live_highlights_follow)) },
 		confirmButton = {
 			TextButton(onClick = { confirmSlack = false; viewModel.setSlackDefault(true, consentNow = true) }) {
-				Text("我了解，開啟")
+				Text(stringResource(StringsRes.string.feature_settings_accept_and_enable))
 			}
 		},
-		dismissButton = { TextButton(onClick = { confirmSlack = false }) { Text("取消") } },
+		dismissButton = { TextButton(onClick = { confirmSlack = false }) { Text(stringResource(StringsRes.string.feature_settings_cancel)) } },
 	)
 }

@@ -1,5 +1,9 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -57,13 +61,13 @@ fun ChaptersPanel(
 
 	Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.medium, modifier = modifier) {
 		Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-			Text("章節", style = MaterialTheme.typography.titleSmall)
+			Text(stringResource(StringsRes.string.feature_player_chapters), style = MaterialTheme.typography.titleSmall)
 			if (viewModel.possiblyStale) {
-				Text("逐字稿已更新，章節可能已過期（不會自動重算）", style = MaterialTheme.typography.bodySmall,
+				Text(stringResource(StringsRes.string.feature_player_transcript_updated_generate_chapters_again_to_refresh), style = MaterialTheme.typography.bodySmall,
 					color = MaterialTheme.colorScheme.secondary)
 			}
 			if (viewModel.chapters.isEmpty()) {
-				Text("尚無章節。章節只在使用者手動產生時建立。", style = MaterialTheme.typography.bodySmall)
+				Text(stringResource(StringsRes.string.feature_player_no_chapters_yet_generate_chapters_when_you), style = MaterialTheme.typography.bodySmall)
 			} else {
 				ChaptersList(
 					rows = viewModel.chapters.map { ChapterRowUi(it.id, it.title, it.startMs) },
@@ -77,15 +81,15 @@ fun ChaptersPanel(
 				enabled = viewModel.canGenerate && !viewModel.generating,
 				onClick = { confirm = true },
 				modifier = Modifier.fillMaxWidth(),
-			) { Text(if (viewModel.generating) "產生章節中…" else "產生章節") }
-			if (viewModel.generating) TextButton(onClick = viewModel::cancelGeneration) { Text("取消產生") }
+			) { Text(if (viewModel.generating) UiStrings.get(StringsRes.string.feature_player_generating_chapters, "產生章節中…") else UiStrings.get(StringsRes.string.feature_player_generate_chapters_alt, "產生章節")) }
+			if (viewModel.generating) TextButton(onClick = viewModel::cancelGeneration) { Text(stringResource(StringsRes.string.feature_player_cancel_generation)) }
 			viewModel.blockedReason?.let {
 				Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 			}
 			viewModel.message?.let { msg ->
 				Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
 					Text(msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-					TextButton(onClick = viewModel::dismissMessage) { Text("知道了") }
+					TextButton(onClick = viewModel::dismissMessage) { Text(stringResource(StringsRes.string.feature_player_got_it)) }
 				}
 			}
 		}
@@ -94,18 +98,18 @@ fun ChaptersPanel(
 	if (confirm) {
 		AlertDialog(
 			onDismissRequest = { confirm = false },
-			title = { Text("產生章節？") },
+			title = { Text(stringResource(StringsRes.string.feature_player_generate_chapters)) },
 			text = {
-				Text("會把目前設定的摘要服務（含模型與已儲存的 API Key）送出一份帶句子編號的完整逐字稿，可能產生 token 費用。" +
-					"模型只會回傳句子編號與標題，時間由本機換算，不會捏造；失敗或取消不會儲存任何章節。")
+				Text(stringResource(StringsRes.string.feature_player_send_the_full_transcript_with_sentence_numbers_alt) +
+					UiStrings.get(StringsRes.string.feature_player_the_model_returns_sentence_numbers_and_titles, "模型只會回傳句子編號與標題，時間由本機換算，不會捏造；失敗或取消不會儲存任何章節。"))
 			},
 			confirmButton = {
 				TextButton({
 					confirm = false
 					viewModel.generate()
-				}) { Text("送出並產生") }
+				}) { Text(stringResource(StringsRes.string.feature_player_send_and_generate)) }
 			},
-			dismissButton = { TextButton({ confirm = false }) { Text("取消") } },
+			dismissButton = { TextButton({ confirm = false }) { Text(stringResource(StringsRes.string.feature_player_cancel)) } },
 		)
 	}
 }
@@ -129,14 +133,14 @@ internal fun ChaptersList(
 					var text by remember(row.id) { mutableStateOf(row.title) }
 					OutlinedTextField(value = text, onValueChange = { text = it }, singleLine = true,
 						modifier = Modifier.weight(1f))
-					TextButton(onClick = { onRename(row.id, text); editingId = null }) { Text("儲存") }
+					TextButton(onClick = { onRename(row.id, text); editingId = null }) { Text(stringResource(StringsRes.string.feature_player_save)) }
 				} else {
 					Text(row.title, style = MaterialTheme.typography.bodyMedium,
 						modifier = Modifier.weight(1f).clickable { onSeek(row.startMs) }.padding(vertical = 8.dp))
 					IconButton(onClick = { editingId = row.id }) { Text("✎") }
 				}
 				IconButton(onClick = { onDelete(row.id) }) {
-					Icon(Icons.Default.Delete, contentDescription = "刪除章節")
+					Icon(Icons.Default.Delete, contentDescription = stringResource(StringsRes.string.feature_player_delete_chapter))
 				}
 			}
 		}

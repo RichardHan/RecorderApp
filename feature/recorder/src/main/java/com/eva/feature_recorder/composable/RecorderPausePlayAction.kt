@@ -1,5 +1,9 @@
 package com.eva.feature_recorder.composable
 
+import com.eva.feature_recorder.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -64,7 +68,7 @@ internal fun RecorderPausePlayAction(
 		if (showPausedAction) {
 			LabeledRoundButton(
 				icon = painterResource(R.drawable.ic_close),
-				label = "捨棄",
+				label = UiStrings.get(StringsRes.string.feature_recorder_discard, "捨棄"),
 				enabled = enabled,
 				onClick = {
 					onPause()
@@ -74,7 +78,7 @@ internal fun RecorderPausePlayAction(
 		} else {
 			LabeledRoundButton(
 				icon = painterResource(R.drawable.ic_boomark_add),
-				label = "標記",
+				label = UiStrings.get(StringsRes.string.feature_recorder_mark, "標記"),
 				enabled = enabled,
 				onClick = onAddBookMark,
 			)
@@ -87,7 +91,7 @@ internal fun RecorderPausePlayAction(
 		)
 		LabeledRoundButton(
 			icon = painterResource(R.drawable.ic_check_plain),
-			label = "儲存",
+			label = UiStrings.get(StringsRes.string.feature_recorder_save, "儲存"),
 			enabled = enabled,
 			onClick = {
 				onPause()
@@ -114,11 +118,11 @@ private fun PrimaryPauseResume(
 		) {
 			Icon(
 				painter = painterResource(if (paused) R.drawable.ic_play else R.drawable.ic_pause),
-				contentDescription = if (paused) "繼續" else "暫停",
+				contentDescription = if (paused) UiStrings.get(StringsRes.string.feature_recorder_resume, "繼續") else UiStrings.get(StringsRes.string.feature_recorder_pause, "暫停"),
 				modifier = Modifier.size(32.dp),
 			)
 		}
-		if (paused) Text("繼續", style = MaterialTheme.typography.labelSmall)
+		if (paused) Text(stringResource(StringsRes.string.feature_recorder_resume), style = MaterialTheme.typography.labelSmall)
 		else Spacer(Modifier.height(16.dp))
 	}
 }

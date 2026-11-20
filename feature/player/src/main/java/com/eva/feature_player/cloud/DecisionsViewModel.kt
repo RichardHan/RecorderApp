@@ -1,5 +1,8 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -84,7 +87,7 @@ class DecisionsViewModel @Inject constructor(
 					}
 				}
 				provider.decisionsAsFlow(id)
-					.catch { message = "無法讀取決議：${it.message ?: "未知錯誤"}"; emit(emptyList()) }
+					.catch { message = UiStrings.get(StringsRes.string.feature_player_could_not_load_decisions, "無法讀取決議：%1\$s", it.message ?: UiStrings.get(StringsRes.string.feature_player_unknown_error, "未知錯誤")); emit(emptyList()) }
 					.collect { decisions = it }
 			}
 		}
@@ -97,7 +100,7 @@ class DecisionsViewModel @Inject constructor(
 		val transcript = transcript ?: return
 		val sentences = DecisionPlanner.sentences(PlaybackTranscripts.lines(transcript))
 		if (sentences.isEmpty()) {
-			message = "這份逐字稿沒有可用的內容"
+			message = UiStrings.get(StringsRes.string.feature_player_no_usable_text_in_this_transcript, "這份逐字稿沒有可用的內容")
 			return
 		}
 		job?.cancel()
@@ -108,7 +111,7 @@ class DecisionsViewModel @Inject constructor(
 				val settings = settingsRepo.current()
 				val key = keys.read()
 				if (settings.baseUrl.isBlank() || key.isNullOrBlank()) {
-					message = "尚未設定雲端摘要服務或 API Key"
+					message = UiStrings.get(StringsRes.string.feature_player_set_a_cloud_summary_service_and_api, "尚未設定雲端摘要服務或 API Key")
 					return@launch
 				}
 				val client = CloudAiClients.create(settings, key, UrlConnectionTransport(), settings.summaryModel)
@@ -117,22 +120,22 @@ class DecisionsViewModel @Inject constructor(
 					is CallOutcome.Text -> {
 						val drafts = DecisionPlanner.parse(outcome.text, sentences)
 						if (drafts == null) {
-							message = "回應不是有效的決議清單（格式錯誤、索引越界或含時間／說話者欄位），未儲存任何內容"
+							message = UiStrings.get(StringsRes.string.feature_player_invalid_decision_list_nothing_was_saved, "回應不是有效的決議清單（格式錯誤、索引越界或含時間／說話者欄位），未儲存任何內容")
 							return@launch
 						}
 						val revision = DecisionPlanner.revisionOf(transcript.id, transcript.updatedAtMillis)
 						provider.replaceExtracted(recordingId, DecisionsRules.toModels(recordingId, drafts, revision, System.currentTimeMillis()))
 						possiblyStale = this@DecisionsViewModel.transcript?.updatedAtMillis != transcript.updatedAtMillis
-						message = if (drafts.isEmpty()) "逐字稿裡沒有找到明確的決議" else "已抽出 ${drafts.size} 項決議"
+						message = if (drafts.isEmpty()) UiStrings.get(StringsRes.string.feature_player_no_explicit_decisions_found_in_the_transcript, "逐字稿裡沒有找到明確的決議") else UiStrings.get(StringsRes.string.feature_player_extracted_decisions, "已抽出 %1\$s 項決議", drafts.size)
 					}
-					is CallOutcome.Failure -> message = "抽出決議失敗：${outcome.message}"
-					CallOutcome.ContentFiltered -> message = "內容被服務過濾，未儲存"
-					CallOutcome.Empty -> message = "服務回應為空，未儲存"
+					is CallOutcome.Failure -> message = UiStrings.get(StringsRes.string.feature_player_could_not_extract_decisions, "抽出決議失敗：%1\$s", outcome.message)
+					CallOutcome.ContentFiltered -> message = UiStrings.get(StringsRes.string.feature_player_content_filtered_nothing_was_saved_alt, "內容被服務過濾，未儲存")
+					CallOutcome.Empty -> message = UiStrings.get(StringsRes.string.feature_player_empty_response_nothing_was_saved_alt, "服務回應為空，未儲存")
 				}
 			} catch (e: CancellationException) {
 				throw e
 			} catch (e: Exception) {
-				message = "抽出決議失敗：${e.message ?: e.javaClass.simpleName}"
+				message = UiStrings.get(StringsRes.string.feature_player_could_not_extract_decisions, "抽出決議失敗：%1\$s", e.message ?: e.javaClass.simpleName)
 			} finally {
 				extracting = false
 			}
@@ -144,7 +147,7 @@ class DecisionsViewModel @Inject constructor(
 		job?.cancel()
 		job = null
 		extracting = false
-		message = "已取消，未儲存任何決議"
+		message = UiStrings.get(StringsRes.string.feature_player_canceled_no_decisions_were_saved, "已取消，未儲存任何決議")
 	}
 
 	fun add(text: String) {
@@ -165,9 +168,9 @@ class DecisionsViewModel @Inject constructor(
 internal object DecisionsRules {
 
 	fun blockedReason(transcript: TranscriptRecord?): String? = when {
-		transcript == null -> "這段錄音還沒有可用的逐字稿"
-		transcript.status == RunStatus.RUNNING || transcript.status == RunStatus.QUEUED -> "逐字稿還在轉錄中，完成後才能抽出決議"
-		DecisionPlanner.sentences(PlaybackTranscripts.lines(transcript)).isEmpty() -> "這份逐字稿沒有可用的內容"
+		transcript == null -> UiStrings.get(StringsRes.string.feature_player_no_transcript_available_for_this_recording, "這段錄音還沒有可用的逐字稿")
+		transcript.status == RunStatus.RUNNING || transcript.status == RunStatus.QUEUED -> UiStrings.get(StringsRes.string.feature_player_wait_for_transcription_to_finish_before_extracting, "逐字稿還在轉錄中，完成後才能抽出決議")
+		DecisionPlanner.sentences(PlaybackTranscripts.lines(transcript)).isEmpty() -> UiStrings.get(StringsRes.string.feature_player_no_usable_text_in_this_transcript, "這份逐字稿沒有可用的內容")
 		else -> null
 	}
 

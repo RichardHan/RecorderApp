@@ -1,5 +1,8 @@
 package com.eva.feature_editor.composables
 
+import com.eva.feature_editor.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.EaseIn
@@ -86,14 +89,14 @@ internal fun TransformsSheetContent(
 			when (type) {
 				TransformType.IDLE -> Image(
 					painter = painterResource(R.drawable.ic_transformation),
-					contentDescription = "Transformation",
+					contentDescription = UiStrings.get(StringsRes.string.feature_editor_transformation, "Transformation"),
 					colorFilter = ColorFilter.tint(color = MaterialTheme.colorScheme.secondary),
 					modifier = Modifier.size(128.dp)
 				)
 
 				TransformType.READY_FOR_EXPORT -> Image(
 					painter = painterResource(R.drawable.ic_success),
-					contentDescription = "success icon",
+					contentDescription = UiStrings.get(StringsRes.string.feature_editor_success_icon, "success icon"),
 					colorFilter = ColorFilter.tint(color = MaterialTheme.colorScheme.secondary),
 					modifier = Modifier.size(128.dp)
 				)

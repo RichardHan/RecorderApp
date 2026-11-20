@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+	<string name="data_worker_clearing_trash">Clearing Trash</string>
+	<string name="data_worker_downloading">Downloading</string>
+	<string name="data_worker_extracting_model_large_models_may_take_several">Extracting model (large models may take several minutes)</string>
+	<string name="data_worker_preparing_download">Preparing download</string>
+	<string name="data_worker_removing_expired_recordings">Removing expired recordings</string>
+	<string name="data_worker_verifying_files">Verifying files</string>
+</resources>

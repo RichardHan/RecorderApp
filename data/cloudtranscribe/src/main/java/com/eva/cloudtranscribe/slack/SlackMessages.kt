@@ -1,5 +1,8 @@
 package com.eva.cloudtranscribe.slack
 
+import com.eva.cloudtranscribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import com.eva.cloudtranscribe.live.LiveCloudSettings
 import java.time.Instant
 import java.time.ZoneId
@@ -25,7 +28,7 @@ object SlackMessages {
 	private val PLACEHOLDERS = setOf(
 		LiveCloudSettings.NO_KEY_POINTS,
 		"${LiveCloudSettings.NO_KEY_POINTS}。",
-		"（尚無）",
+		UiStrings.get(StringsRes.string.data_cloudtranscribe_none_yet, "（尚無）"),
 	)
 
 	/** Key-point bullets of a live summary; "目前無重點" and blanks yield an empty list. */
@@ -50,7 +53,7 @@ object SlackMessages {
 	fun startText(startedAtMillis: Long, zone: ZoneId = ZoneId.systemDefault()): String {
 		val time = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(zone).format(Instant.ofEpochMilli(startedAtMillis))
 		val offset = zone.rules.getOffset(Instant.ofEpochMilli(startedAtMillis)).id.let { if (it == "Z") "+00:00" else it }
-		return "🎙️ RecorderApp：開始錄音（$time，${zone.id} UTC$offset）。狀態：進行中。"
+		return UiStrings.get(StringsRes.string.data_cloudtranscribe_recorderapp_recording_started_utc_in_progress, "🎙️ RecorderApp：開始錄音（%1\$s，%2\$s UTC%3\$s）。狀態：進行中。", time, zone.id, offset)
 	}
 
 	const val MID_MAX_ITEMS = 3
@@ -61,7 +64,7 @@ object SlackMessages {
 		if (items.isEmpty()) return null
 		return truncate(
 			buildString {
-				appendLine("📝 新重點：")
+				appendLine(UiStrings.get(StringsRes.string.data_cloudtranscribe_new_highlights, "📝 新重點："))
 				items.forEach { appendLine("• $it") }
 			}.trimEnd(),
 		)
@@ -91,7 +94,7 @@ object SlackMessages {
 	private val LONG_NUMBER = Regex("(?<![0-9])[0-9][0-9 -]{6,}[0-9](?![0-9])")
 
 	/** Optional local masking of e-mail addresses and long digit runs (phone / account numbers). */
-	fun mask(text: String): String = text.replace(EMAIL, "[已隱藏]").replace(LONG_NUMBER, "[已隱藏]")
+	fun mask(text: String): String = text.replace(EMAIL, UiStrings.get(StringsRes.string.data_cloudtranscribe_hidden, "[已隱藏]")).replace(LONG_NUMBER, UiStrings.get(StringsRes.string.data_cloudtranscribe_hidden, "[已隱藏]"))
 
 	fun payload(text: String): String = JsonObject(mapOf("text" to JsonPrimitive(text))).toString()
 
@@ -143,11 +146,11 @@ object SlackSendPolicy {
 
 	/** User-facing text for a result; never includes the webhook URL. */
 	fun describe(result: SlackSendResult): String = when (result) {
-		SlackSendResult.Sent -> "已送出"
-		SlackSendResult.Suppressed -> "已停止傳送"
-		is SlackSendResult.RetryAfter -> "Slack 要求稍候（${result.seconds} 秒後重試）"
-		is SlackSendResult.Retry -> "暫時失敗，稍後重試（${result.reason}）"
-		is SlackSendResult.Permanent -> "Slack 拒絕（${result.reason}），請檢查 Webhook 設定"
+		SlackSendResult.Sent -> UiStrings.get(StringsRes.string.data_cloudtranscribe_sent, "已送出")
+		SlackSendResult.Suppressed -> UiStrings.get(StringsRes.string.data_cloudtranscribe_delivery_stopped, "已停止傳送")
+		is SlackSendResult.RetryAfter -> UiStrings.get(StringsRes.string.data_cloudtranscribe_slack_requested_a_delay_retrying_in_seconds, "Slack 要求稍候（%1\$s 秒後重試）", result.seconds)
+		is SlackSendResult.Retry -> UiStrings.get(StringsRes.string.data_cloudtranscribe_temporary_failure_retrying_later, "暫時失敗，稍後重試（%1\$s）", result.reason)
+		is SlackSendResult.Permanent -> UiStrings.get(StringsRes.string.data_cloudtranscribe_slack_rejected_the_request_check_the_webhook, "Slack 拒絕（%1\$s），請檢查 Webhook 設定", result.reason)
 	}
 }
 

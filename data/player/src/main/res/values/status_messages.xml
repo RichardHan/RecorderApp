@@ -1,0 +1,4 @@
+<resources>
+	<string name="data_player_message_controller_is_not_set">Controller is not set</string>
+	<string name="data_player_message_player_is_not_set">Player is not set</string>
+</resources>

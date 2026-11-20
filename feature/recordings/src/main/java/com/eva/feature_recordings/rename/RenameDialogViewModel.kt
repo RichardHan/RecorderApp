@@ -1,5 +1,7 @@
 package com.eva.feature_recordings.rename
 
+import com.eva.utils.UiStrings
+
 import android.app.RecoverableSecurityException
 import android.os.Build
 import android.util.Log
@@ -80,7 +82,7 @@ internal class RenameDialogViewModel @Inject constructor(
 	private fun loadEntry() = viewModelScope.launch {
 		when (val result = recordingsProvider.getVoiceRecordingAsResourceFromId(recordingId)) {
 			is Resource.Error -> {
-				val message = result.error.message ?: result.message ?: "Recording not found"
+				val message = result.error.message ?: result.message ?: UiStrings.get(com.eva.feature_recordings.R.string.feature_recordings_message_recording_not_found, "Recording not found")
 				_state.update { state ->
 					state.copy(errorString = message, isRenameAllowed = false)
 				}
@@ -103,7 +105,7 @@ internal class RenameDialogViewModel @Inject constructor(
 		val newName = _state.value.textFieldState.text.trim()
 
 		if (newName.isEmpty() || newName.isBlank()) {
-			_state.update { state -> state.copy(errorString = "Cannot have blank values") }
+			_state.update { state -> state.copy(errorString = UiStrings.get(com.eva.feature_recordings.R.string.feature_recordings_message_cannot_have_blank_values, "Cannot have blank values")) }
 			return
 		}
 
@@ -116,7 +118,7 @@ internal class RenameDialogViewModel @Inject constructor(
 						val error = result.error
 						if (error is SecurityException) {
 							// show the toast
-							val message = result.message ?: "Access not allowed"
+							val message = result.message ?: UiStrings.get(com.eva.feature_recordings.R.string.feature_recordings_message_access_not_allowed, "Access not allowed")
 							_uiEvents.emit(UIEvents.ShowToast(message))
 
 							// then handle security exception
@@ -131,7 +133,7 @@ internal class RenameDialogViewModel @Inject constructor(
 					}
 
 					is Resource.Success -> {
-						val message = result.message ?: "Renamed recording successfully"
+						val message = result.message ?: UiStrings.get(com.eva.feature_recordings.R.string.feature_recordings_message_renamed_recording_successfully, "Renamed recording successfully")
 						_uiEvents.emit(UIEvents.ShowToast(message))
 						_uiEvents.emit(UIEvents.PopScreen)
 					}

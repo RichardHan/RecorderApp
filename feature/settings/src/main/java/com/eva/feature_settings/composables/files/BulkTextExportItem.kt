@@ -1,5 +1,9 @@
 package com.eva.feature_settings.composables.files
 
+import com.eva.feature_settings.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -62,14 +66,14 @@ internal class BulkTextExportViewModel @Inject constructor(
 							summary = runCatching { BulkTextExport.summaryText(store.summaries(r.id)) }.getOrNull(),
 						)
 					}
-					val out = context.contentResolver.openOutputStream(target, "wt") ?: error("無法開啟檔案")
+					val out = context.contentResolver.openOutputStream(target, "wt") ?: error(UiStrings.get(StringsRes.string.feature_settings_could_not_open_file, "無法開啟檔案"))
 					entries.size to BulkTextExport.write(entries, out)
 				}
-				message = "已匯出 $total 段錄音（$folders 段有文字資料）"
+				message = UiStrings.get(StringsRes.string.feature_settings_exported_recordings_with_text, "已匯出 %1\$s 段錄音（%2\$s 段有文字資料）", total, folders)
 			} catch (e: kotlinx.coroutines.CancellationException) {
 				throw e
 			} catch (e: Exception) {
-				message = "匯出失敗：${e.message ?: e.javaClass.simpleName}（未完成的檔案請自行刪除）"
+				message = UiStrings.get(StringsRes.string.feature_settings_export_failed_delete_the_incomplete_file_if, "匯出失敗：%1\$s（未完成的檔案請自行刪除）", e.message ?: e.javaClass.simpleName)
 			} finally {
 				busy = false
 			}
@@ -78,7 +82,7 @@ internal class BulkTextExportViewModel @Inject constructor(
 }
 
 internal fun defaultBulkFileName(today: LocalDate): String =
-	"RecorderApp-文字匯出-${today.format(DateTimeFormatter.BASIC_ISO_DATE)}.zip"
+	UiStrings.get(StringsRes.string.feature_settings_recorderapp_text_export_zip, "RecorderApp-文字匯出-%1\$s.zip", today.format(DateTimeFormatter.BASIC_ISO_DATE))
 
 @Composable
 internal fun BulkTextExportItem(modifier: Modifier = Modifier, viewModel: BulkTextExportViewModel = hiltViewModel()) {
@@ -87,10 +91,10 @@ internal fun BulkTextExportItem(modifier: Modifier = Modifier, viewModel: BulkTe
 	}
 	Column(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
 		OutlinedButton(onClick = { launcher.launch(defaultBulkFileName(LocalDate.now())) }, enabled = !viewModel.busy) {
-			Text(if (viewModel.busy) "匯出中…" else "匯出全部逐字稿與摘要（ZIP）")
+			Text(if (viewModel.busy) UiStrings.get(StringsRes.string.feature_settings_exporting, "匯出中…") else UiStrings.get(StringsRes.string.feature_settings_export_all_transcripts_and_summaries_zip, "匯出全部逐字稿與摘要（ZIP）"))
 		}
 		Text(
-			"只包含文字（逐字稿、最新摘要、索引），不含音檔、API Key 或設定；存到你選的位置，不會上傳。",
+			stringResource(StringsRes.string.feature_settings_includes_transcripts_latest_summaries_and_an_index),
 			style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
 		)
 		viewModel.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }

@@ -1,5 +1,6 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -33,7 +34,7 @@ class TranscriptSearchComposeTest {
 		compose.waitForIdle()
 		compose.onNodeWithTag("transcript-line-2").assertIsDisplayed()
 		compose.onNodeWithTag("transcript-search-lines").performScrollToIndex(50)
-		compose.onNodeWithText("下一筆").performClick()
+		compose.onNodeWithText(compose.activity.getString(R.string.transcript_search_next)).performClick()
 		compose.waitForIdle()
 		compose.onNodeWithTag("transcript-line-2").assertIsDisplayed()
 	}

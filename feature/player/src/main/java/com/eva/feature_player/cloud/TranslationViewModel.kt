@@ -1,5 +1,8 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -70,7 +73,7 @@ class TranslationViewModel @Inject constructor(
 				val settings = settingsRepo.current()
 				val key = keys.read()
 				if (settings.baseUrl.isBlank() || key.isNullOrBlank()) {
-					message = "尚未設定雲端摘要服務或 API Key"
+					message = UiStrings.get(StringsRes.string.feature_player_set_a_cloud_summary_service_and_api, "尚未設定雲端摘要服務或 API Key")
 					return@launch
 				}
 				val client = CloudAiClients.create(settings, key, UrlConnectionTransport(), settings.summaryModel)
@@ -88,11 +91,11 @@ class TranslationViewModel @Inject constructor(
 				)
 				withContext(Dispatchers.IO) { store.saveTranslation(saved) }
 				translations = listOf(saved) + translations.filterNot { it.targetLang == saved.targetLang }
-				message = "已翻譯成${language.label}"
+				message = UiStrings.get(StringsRes.string.feature_player_translated_into, "已翻譯成%1\$s", language.label)
 			} catch (e: CancellationException) {
 				throw e
 			} catch (e: Exception) {
-				message = "翻譯失敗：${e.message ?: e.javaClass.simpleName}，未儲存"
+				message = UiStrings.get(StringsRes.string.feature_player_translation_failed_nothing_was_saved, "翻譯失敗：%1\$s，未儲存", e.message ?: e.javaClass.simpleName)
 			} finally {
 				working = false
 				progress = null
@@ -105,7 +108,7 @@ class TranslationViewModel @Inject constructor(
 		job = null
 		working = false
 		progress = null
-		message = "已取消，未儲存任何譯文"
+		message = UiStrings.get(StringsRes.string.feature_player_canceled_no_translation_was_saved, "已取消，未儲存任何譯文")
 	}
 
 	fun delete(language: String) {
@@ -126,9 +129,9 @@ internal object TranslationRules {
 	}
 
 	fun blockedReason(record: TranscriptRecord?): String? = when {
-		record == null -> "沒有可翻譯的逐字稿"
-		record.status == RunStatus.RUNNING || record.status == RunStatus.QUEUED -> "逐字稿還在轉錄中，完成後才能翻譯"
-		TranscriptTranslation.sentences(PlaybackTranscripts.lines(record)).isEmpty() -> "逐字稿是空的"
+		record == null -> UiStrings.get(StringsRes.string.feature_player_no_transcript_to_translate, "沒有可翻譯的逐字稿")
+		record.status == RunStatus.RUNNING || record.status == RunStatus.QUEUED -> UiStrings.get(StringsRes.string.feature_player_wait_for_transcription_to_finish_before_translating, "逐字稿還在轉錄中，完成後才能翻譯")
+		TranscriptTranslation.sentences(PlaybackTranscripts.lines(record)).isEmpty() -> UiStrings.get(StringsRes.string.feature_player_the_transcript_is_empty, "逐字稿是空的")
 		else -> null
 	}
 
@@ -140,13 +143,13 @@ internal object TranslationRules {
 	): Result {
 		val all = mutableListOf<TranslatedLine>()
 		chunks.forEachIndexed { index, chunk ->
-			val part = "第 ${index + 1}/${chunks.size} 段"
+			val part = UiStrings.get(StringsRes.string.feature_player_segment_of, "第 %1\$s/%2\$s 段", index + 1, chunks.size)
 			when (val outcome = complete(TranscriptTranslation.prompt(chunk, language))) {
 				is CallOutcome.Text -> all += TranscriptTranslation.parse(outcome.text, chunk)
-					?: return Result.Failed("$part 的回應沒有逐句對齊（缺少或多出句子），未儲存任何譯文")
-				is CallOutcome.Failure -> return Result.Failed("$part 翻譯失敗：${outcome.message}，未儲存")
-				CallOutcome.ContentFiltered -> return Result.Failed("$part 被服務過濾，未儲存")
-				CallOutcome.Empty -> return Result.Failed("$part 回應為空，未儲存")
+					?: return Result.Failed(UiStrings.get(StringsRes.string.feature_player_returned_missing_or_extra_sentences_no_translation, "%1\$s 的回應沒有逐句對齊（缺少或多出句子），未儲存任何譯文", part))
+				is CallOutcome.Failure -> return Result.Failed(UiStrings.get(StringsRes.string.feature_player_translation_failed_for_nothing_was_saved, "%1\$s 翻譯失敗：%2\$s，未儲存", part, outcome.message))
+				CallOutcome.ContentFiltered -> return Result.Failed(UiStrings.get(StringsRes.string.feature_player_the_service_filtered_nothing_was_saved, "%1\$s 被服務過濾，未儲存", part))
+				CallOutcome.Empty -> return Result.Failed(UiStrings.get(StringsRes.string.feature_player_empty_response_for_nothing_was_saved, "%1\$s 回應為空，未儲存", part))
 			}
 		}
 		return Result.Done(all)

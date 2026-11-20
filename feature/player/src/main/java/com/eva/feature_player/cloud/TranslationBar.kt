@@ -1,5 +1,9 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -45,26 +49,26 @@ internal fun TranslationBar(
 		Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
 			if (viewModel.working) {
 				val p = viewModel.progress
-				Text("翻譯中…" + (p?.let { " ${it.first}/${it.second}" } ?: ""), style = MaterialTheme.typography.labelMedium)
-				TextButton(onClick = viewModel::cancel) { Text("取消翻譯") }
+				Text(stringResource(StringsRes.string.feature_player_translating) + (p?.let { " ${it.first}/${it.second}" } ?: ""), style = MaterialTheme.typography.labelMedium)
+				TextButton(onClick = viewModel::cancel) { Text(stringResource(StringsRes.string.feature_player_cancel_translation)) }
 			} else {
-				TextButton(enabled = blocked == null, onClick = { pick = true }) { Text("翻譯") }
+				TextButton(enabled = blocked == null, onClick = { pick = true }) { Text(stringResource(StringsRes.string.feature_player_translate_alt)) }
 			}
 			if (current != null) {
 				available.forEach { t ->
 					val lang = TranslationLanguage.entries.firstOrNull { it.tag == t.targetLang }
 					FilterChip(t.targetLang == current.targetLang, { onSelectLang(t.targetLang) }, { Text(lang?.label ?: t.targetLang) })
 				}
-				FilterChip(view == TranslationView.ORIGINAL, { onView(TranslationView.ORIGINAL) }, { Text("原文") })
-				FilterChip(view == TranslationView.TRANSLATION, { onView(TranslationView.TRANSLATION) }, { Text("譯文") })
-				FilterChip(view == TranslationView.BILINGUAL, { onView(TranslationView.BILINGUAL) }, { Text("雙語") })
-				TextButton(onClick = { viewModel.delete(current.targetLang); onSelectLang(null); onView(TranslationView.ORIGINAL) }) { Text("刪除譯文") }
+				FilterChip(view == TranslationView.ORIGINAL, { onView(TranslationView.ORIGINAL) }, { Text(stringResource(StringsRes.string.feature_player_original)) })
+				FilterChip(view == TranslationView.TRANSLATION, { onView(TranslationView.TRANSLATION) }, { Text(stringResource(StringsRes.string.feature_player_translation)) })
+				FilterChip(view == TranslationView.BILINGUAL, { onView(TranslationView.BILINGUAL) }, { Text(stringResource(StringsRes.string.feature_player_bilingual)) })
+				TextButton(onClick = { viewModel.delete(current.targetLang); onSelectLang(null); onView(TranslationView.ORIGINAL) }) { Text(stringResource(StringsRes.string.feature_player_delete_translation)) }
 			}
 		}
 		if (current != null && view != TranslationView.ORIGINAL) {
 			Text(
-				(if (TranslationRules.stale(current, record)) "原文已更新，譯文可能過期（不會自動重翻）。" else "") +
-					"譯文僅供參考、唯讀；時間與跳轉都以原文為準。",
+				(if (TranslationRules.stale(current, record)) UiStrings.get(StringsRes.string.feature_player_source_updated_translate_again_to_refresh_the, "原文已更新，譯文可能過期（不會自動重翻）。") else "") +
+					UiStrings.get(StringsRes.string.feature_player_read_only_translation_for_reference_timestamps_and, "譯文僅供參考、唯讀；時間與跳轉都以原文為準。"),
 				style = MaterialTheme.typography.labelSmall,
 				color = MaterialTheme.colorScheme.secondary,
 			)
@@ -72,14 +76,14 @@ internal fun TranslationBar(
 		viewModel.message?.let { msg ->
 			Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
 				Text(msg, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-				TextButton(onClick = viewModel::dismissMessage) { Text("知道了") }
+				TextButton(onClick = viewModel::dismissMessage) { Text(stringResource(StringsRes.string.feature_player_got_it)) }
 			}
 		}
 	}
 
 	if (pick) AlertDialog(
 		onDismissRequest = { pick = false },
-		title = { Text("翻譯成？") },
+		title = { Text(stringResource(StringsRes.string.feature_player_translate_into_which_language)) },
 		text = {
 			Column {
 				TranslationLanguage.entries.forEach { lang ->
@@ -88,16 +92,16 @@ internal fun TranslationBar(
 			}
 		},
 		confirmButton = {},
-		dismissButton = { TextButton({ pick = false }) { Text("取消") } },
+		dismissButton = { TextButton({ pick = false }) { Text(stringResource(StringsRes.string.feature_player_cancel)) } },
 	)
 	confirmLang?.let { lang ->
 		AlertDialog(
 			onDismissRequest = { confirmLang = null },
-			title = { Text("翻譯成${lang.label}？") },
+			title = { Text(stringResource(StringsRes.string.feature_player_translate_into, (lang.label).toString())) },
 			text = {
-				Text("會把這份逐字稿的文字（逐句編號、分段）送到你設定的摘要服務，使用已儲存的 API Key；音訊檔不會因翻譯再傳一次。" +
-					"翻譯是另一次文字請求，有 token／額度成本。任何一段沒有逐句對齊就整次失敗、不儲存。" +
-					(if (lang == TranslationLanguage.ZH_HANT) "若原文已是繁體中文，譯文可能沒有明顯差異。" else ""))
+				Text(stringResource(StringsRes.string.feature_player_the_numbered_transcript_segments_will_be_sent) +
+					UiStrings.get(StringsRes.string.feature_player_translation_is_a_separate_request_and_uses, "翻譯是另一次文字請求，有 token／額度成本。任何一段沒有逐句對齊就整次失敗、不儲存。") +
+					(if (lang == TranslationLanguage.ZH_HANT) UiStrings.get(StringsRes.string.feature_player_if_the_original_is_already_in_traditional, "若原文已是繁體中文，譯文可能沒有明顯差異。") else ""))
 			},
 			confirmButton = {
 				TextButton({
@@ -105,9 +109,9 @@ internal fun TranslationBar(
 					viewModel.translate(record, lang)
 					onSelectLang(lang.tag)
 					onView(TranslationView.BILINGUAL)
-				}) { Text("送出翻譯") }
+				}) { Text(stringResource(StringsRes.string.feature_player_translate)) }
 			},
-			dismissButton = { TextButton({ confirmLang = null }) { Text("取消") } },
+			dismissButton = { TextButton({ confirmLang = null }) { Text(stringResource(StringsRes.string.feature_player_cancel)) } },
 		)
 	}
 }

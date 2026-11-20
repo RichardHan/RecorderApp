@@ -1,5 +1,8 @@
 package com.eva.cloudtranscribe.qa
 
+import com.eva.cloudtranscribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import com.eva.cloudtranscribe.model.PlaybackLine
 import java.util.Locale
 import kotlinx.serialization.Serializable
@@ -16,8 +19,8 @@ data class QaContext(val segments: List<QaSegment>, val totalSegments: Int) {
 		get() {
 			if (!truncated) return null
 			val lastEnd = segments.lastOrNull()?.let { it.endMs ?: it.startMs }
-			return if (lastEnd != null) "只用了前 ${RecordingQa.clock(lastEnd)}（第 1–${segments.size} 段，共 $totalSegments 段）"
-			else "只用了前 ${segments.size} 段（共 $totalSegments 段）"
+			return if (lastEnd != null) UiStrings.get(StringsRes.string.data_cloudtranscribe_only_was_used_segments_1_of, "只用了前 %1\$s（第 1–%2\$s 段，共 %3\$s 段）", RecordingQa.clock(lastEnd), segments.size, totalSegments)
+			else UiStrings.get(StringsRes.string.data_cloudtranscribe_only_the_first_of_segments_were_used, "只用了前 %1\$s 段（共 %2\$s 段）", segments.size, totalSegments)
 		}
 }
 

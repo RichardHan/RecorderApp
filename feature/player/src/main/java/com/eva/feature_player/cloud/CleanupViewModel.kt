@@ -1,5 +1,8 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -106,8 +109,8 @@ class CleanupViewModel internal constructor(
 			possiblyStale = stored != null && (selected == null || stored.sourceRevision != TranscriptCleanup.revisionOf(selected.id, selected.updatedAtMillis))
 			val settings = settingsRepo.current()
 			blockedReason = when {
-				selected == null || sentences.isEmpty() -> "這段錄音還沒有可清稿的逐字稿"
-				settings.baseUrl.isBlank() || keys.read().isNullOrBlank() -> "尚未設定雲端摘要服務或 API Key（設定 > 雲端）"
+				selected == null || sentences.isEmpty() -> UiStrings.get(StringsRes.string.feature_player_no_transcript_available_to_clean, "這段錄音還沒有可清稿的逐字稿")
+				settings.baseUrl.isBlank() || keys.read().isNullOrBlank() -> UiStrings.get(StringsRes.string.feature_player_configure_the_summary_service_and_api_key, "尚未設定雲端摘要服務或 API Key（設定 > 雲端）")
 				else -> null
 			}
 		}
@@ -129,7 +132,7 @@ class CleanupViewModel internal constructor(
 			try {
 				val settings = settingsRepo.current()
 				val key = keys.read()
-				if (settings.baseUrl.isBlank() || key.isNullOrBlank()) { message = "尚未設定雲端摘要服務或 API Key"; return@launch }
+				if (settings.baseUrl.isBlank() || key.isNullOrBlank()) { message = UiStrings.get(StringsRes.string.feature_player_set_a_cloud_summary_service_and_api, "尚未設定雲端摘要服務或 API Key"); return@launch }
 				val client = clientFactory.create(settings, key)
 				val cleaned = mutableListOf<CleanedSentence>()
 				for ((i, batch) in batches.withIndex()) {
@@ -137,10 +140,10 @@ class CleanupViewModel internal constructor(
 					val outcome = withContext(Dispatchers.IO) { client.complete(TranscriptCleanup.prompt(batch, level)) }
 					val parsed = when (outcome) {
 						is CallOutcome.Text -> TranscriptCleanup.parse(outcome.text, batch, level)
-							?: run { message = "第 ${i + 1} 段回應對不上原句（編號不符或內容變長），整次未儲存"; return@launch }
-						is CallOutcome.Failure -> { message = "清稿失敗：${outcome.message}，整次未儲存"; return@launch }
-						CallOutcome.ContentFiltered -> { message = "內容被服務過濾，整次未儲存"; return@launch }
-						CallOutcome.Empty -> { message = "服務回應為空，整次未儲存"; return@launch }
+							?: run { message = UiStrings.get(StringsRes.string.feature_player_part_could_not_be_matched_to_its, "第 %1\$s 段回應對不上原句（編號不符或內容變長），整次未儲存", i + 1); return@launch }
+						is CallOutcome.Failure -> { message = UiStrings.get(StringsRes.string.feature_player_cleanup_failed_nothing_was_saved, "清稿失敗：%1\$s，整次未儲存", outcome.message); return@launch }
+						CallOutcome.ContentFiltered -> { message = UiStrings.get(StringsRes.string.feature_player_content_filtered_nothing_was_saved, "內容被服務過濾，整次未儲存"); return@launch }
+						CallOutcome.Empty -> { message = UiStrings.get(StringsRes.string.feature_player_empty_response_nothing_was_saved, "服務回應為空，整次未儲存"); return@launch }
 					}
 					cleaned += parsed
 				}
@@ -151,11 +154,11 @@ class CleanupViewModel internal constructor(
 				)
 				withContext(Dispatchers.IO) { cleanups.save(record) }
 				if (recordingId == id && intensity == level) { cleanup = record; possiblyStale = transcript?.updatedAtMillis != source.updatedAtMillis }
-				message = "清稿完成（原逐字稿未變更）"
+				message = UiStrings.get(StringsRes.string.feature_player_cleaned_copy_saved_original_transcript_kept, "清稿完成（原逐字稿未變更）")
 			} catch (e: CancellationException) {
 				throw e
 			} catch (e: Exception) {
-				message = "清稿失敗：${e.message ?: e.javaClass.simpleName}，整次未儲存"
+				message = UiStrings.get(StringsRes.string.feature_player_cleanup_failed_nothing_was_saved, "清稿失敗：%1\$s，整次未儲存", e.message ?: e.javaClass.simpleName)
 			} finally {
 				generating = false
 				progress = null
@@ -168,7 +171,7 @@ class CleanupViewModel internal constructor(
 		job = null
 		generating = false
 		progress = null
-		message = "已取消，未儲存任何清稿"
+		message = UiStrings.get(StringsRes.string.feature_player_canceled_no_cleaned_copy_was_saved, "已取消，未儲存任何清稿")
 	}
 
 	fun delete() {
@@ -178,7 +181,7 @@ class CleanupViewModel internal constructor(
 			withContext(Dispatchers.IO) { cleanups.delete(id, level) }
 			cleanup = null
 			possiblyStale = false
-			message = "已刪除清稿（原逐字稿不受影響）"
+			message = UiStrings.get(StringsRes.string.feature_player_cleaned_copy_deleted_original_transcript_kept, "已刪除清稿（原逐字稿不受影響）")
 		}
 	}
 }

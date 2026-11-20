@@ -1,5 +1,8 @@
 package com.eva.feature_settings.composables.files
 
+import com.eva.utils.UiStrings
+import com.eva.feature_settings.R as StringsRes
+
 import android.os.Build
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -77,7 +80,7 @@ internal fun FileSettingsTabContent(
 		}
 		item {
 			ArtistNameSelector(
-				artistName = settings.artistName ?: "None",
+				artistName = settings.artistName ?: UiStrings.get(StringsRes.string.feature_settings_none, "None"),
 				onNameChanged = {
 					onEvent(FileSettingsChangeEvent.OnSetArtistName(it))
 				},

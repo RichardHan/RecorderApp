@@ -1,5 +1,8 @@
 package com.eva.feature_categories.create_category
 
+import com.eva.utils.UiStrings
+import com.eva.feature_categories.R as StringsRes
+
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -70,7 +73,7 @@ internal class CreateCategoryViewModel @Inject constructor(
 
 		when (val result = categoryProvider.getCategoryFromId(categoryId)) {
 			is Resource.Error -> {
-				_uiEvents.emit(UIEvents.ShowSnackBar("Cannot Find a category Fallback to create"))
+				_uiEvents.emit(UIEvents.ShowSnackBar(UiStrings.get(StringsRes.string.feature_categories_cannot_find_a_category_fallback_to_create, "Cannot Find a category Fallback to create")))
 			}
 
 			is Resource.Success -> {
@@ -97,7 +100,7 @@ internal class CreateCategoryViewModel @Inject constructor(
 		val categoryName = state.textValue.text
 
 		if (categoryName.isBlank()) {
-			_createState.update { it.copy(error = "Cannot have empty values") }
+			_createState.update { it.copy(error = UiStrings.get(StringsRes.string.feature_categories_message_cannot_have_empty_values, "Cannot have empty values")) }
 			return
 		}
 
@@ -108,8 +111,8 @@ internal class CreateCategoryViewModel @Inject constructor(
 			when (val result = categoryProvider.updateCategory(model)) {
 				is Resource.Error -> {
 
-					val message = result.message ?: "Cannot perform edit"
-					val snackBarMessage = result.error.message ?: "Cannot update category"
+					val message = result.message ?: UiStrings.get(StringsRes.string.feature_categories_message_cannot_perform_edit, "Cannot perform edit")
+					val snackBarMessage = result.error.message ?: UiStrings.get(StringsRes.string.feature_categories_message_cannot_update_category, "Cannot update category")
 
 					_createState.update { it.copy(error = message) }
 					_uiEvents.emit(UIEvents.ShowSnackBar(snackBarMessage))
@@ -131,7 +134,7 @@ internal class CreateCategoryViewModel @Inject constructor(
 		val categoryName = state.textValue.text
 
 		if (categoryName.isBlank()) {
-			_createState.update { it.copy(error = "Cannot have empty values") }
+			_createState.update { it.copy(error = UiStrings.get(StringsRes.string.feature_categories_message_cannot_have_empty_values, "Cannot have empty values")) }
 			return
 		}
 		viewModelScope.launch {

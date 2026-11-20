@@ -1,5 +1,7 @@
 package com.eva.use_case.usecases
 
+import com.eva.utils.UiStrings
+
 import com.eva.recordings.domain.provider.VoiceRecordingsProvider
 import com.eva.utils.Resource
 import kotlinx.coroutines.flow.Flow
@@ -13,7 +15,7 @@ class RenameRecordingUseCase(private val recordingsProvider: VoiceRecordingsProv
 			val trimmedName = newName.trim()
 
 			if (trimmedName.isEmpty()) {
-				emit(Resource.Error(Exception("New name cannot be empty")))
+				emit(Resource.Error(Exception(UiStrings.get(com.eva.use_case.R.string.data_use_case_message_new_name_cannot_be_empty, "New name cannot be empty"))))
 				return@flow
 			}
 			// emit the first loading

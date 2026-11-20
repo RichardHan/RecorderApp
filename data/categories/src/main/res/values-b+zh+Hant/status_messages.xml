@@ -1,0 +1,5 @@
+<resources>
+	<string name="data_categories_message_some_exception">發生錯誤</string>
+	<string name="data_categories_message_sql_exception">資料庫錯誤</string>
+	<string name="data_categories_message_unknown_error_occurred">發生未知錯誤</string>
+</resources>

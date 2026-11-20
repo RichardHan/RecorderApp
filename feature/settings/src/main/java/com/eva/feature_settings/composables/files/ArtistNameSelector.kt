@@ -1,5 +1,8 @@
 package com.eva.feature_settings.composables.files
 
+import com.eva.feature_settings.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -74,7 +77,7 @@ internal fun ArtistNameSelector(
 		leadingContent = {
 			Icon(
 				painter = painterResource(R.drawable.ic_music_artist),
-				contentDescription = "Update artist name"
+				contentDescription = UiStrings.get(StringsRes.string.feature_settings_update_artist_name, "Update artist name")
 			)
 		},
 		supportingContent = { Text(text = artistName) },

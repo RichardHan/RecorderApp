@@ -1,5 +1,8 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -109,7 +112,7 @@ class FollowUpViewModel @Inject constructor(
 	fun generate() {
 		if (generating) return
 		val material = materials ?: run {
-			message = "請先產生並接受摘要，或加入待辦，才能寫跟催草稿"
+			message = UiStrings.get(StringsRes.string.feature_player_complete_a_summary_or_add_action_items_alt, "請先產生並接受摘要，或加入待辦，才能寫跟催草稿")
 			return
 		}
 		val revision = currentRevision
@@ -122,7 +125,7 @@ class FollowUpViewModel @Inject constructor(
 				val settings = settingsRepo.current()
 				val key = keys.read()
 				if (settings.baseUrl.isBlank() || key.isNullOrBlank()) {
-					message = "尚未設定雲端摘要服務或 API Key"
+					message = UiStrings.get(StringsRes.string.feature_player_set_a_cloud_summary_service_and_api, "尚未設定雲端摘要服務或 API Key")
 					return@launch
 				}
 				val client = CloudAiClients.create(settings, key, UrlConnectionTransport(), settings.summaryModel)
@@ -132,24 +135,24 @@ class FollowUpViewModel @Inject constructor(
 					is CallOutcome.Text -> {
 						val accepted = FollowUpPlanner.accept(outcome.text)
 						if (accepted == null) {
-							message = "服務沒有回傳可用的草稿，原本的草稿保留不變"
+							message = UiStrings.get(StringsRes.string.feature_player_the_service_returned_no_usable_draft_your, "服務沒有回傳可用的草稿，原本的草稿保留不變")
 							return@launch
 						}
 						val draft = FollowUpDraft(recordingId, accepted, System.currentTimeMillis(), revision)
 						withContext(Dispatchers.IO) { drafts.save(draft) }
 						savedDraft = draft
 						draftText = accepted
-						message = "已產生草稿。請核對內容後再複製或分享；App 不會自動寄出。"
+						message = UiStrings.get(StringsRes.string.feature_player_draft_ready_review_it_before_copying_or, "已產生草稿。請核對內容後再複製或分享；App 不會自動寄出。")
 					}
 
-					is CallOutcome.Failure -> message = "產生失敗：${outcome.message}"
-					CallOutcome.ContentFiltered -> message = "內容被服務過濾，原本的草稿保留不變"
-					CallOutcome.Empty -> message = "服務回應為空，原本的草稿保留不變"
+					is CallOutcome.Failure -> message = UiStrings.get(StringsRes.string.feature_player_generation_failed, "產生失敗：%1\$s", outcome.message)
+					CallOutcome.ContentFiltered -> message = UiStrings.get(StringsRes.string.feature_player_content_filtered_your_existing_draft_was_kept, "內容被服務過濾，原本的草稿保留不變")
+					CallOutcome.Empty -> message = UiStrings.get(StringsRes.string.feature_player_empty_response_your_existing_draft_was_kept, "服務回應為空，原本的草稿保留不變")
 				}
 			} catch (e: CancellationException) {
 				throw e
 			} catch (e: Exception) {
-				message = "產生失敗：${e.message ?: e.javaClass.simpleName}"
+				message = UiStrings.get(StringsRes.string.feature_player_generation_failed, "產生失敗：%1\$s", e.message ?: e.javaClass.simpleName)
 			} finally {
 				generating = false
 			}
@@ -161,7 +164,7 @@ class FollowUpViewModel @Inject constructor(
 		job?.cancel()
 		job = null
 		generating = false
-		message = "已取消，草稿沒有變更"
+		message = UiStrings.get(StringsRes.string.feature_player_canceled_your_draft_was_kept, "已取消，草稿沒有變更")
 	}
 
 	fun saveLocally() {
@@ -171,7 +174,7 @@ class FollowUpViewModel @Inject constructor(
 		viewModelScope.launch {
 			withContext(Dispatchers.IO) { drafts.save(draft) }
 			savedDraft = draft
-			message = "草稿已存在本機"
+			message = UiStrings.get(StringsRes.string.feature_player_draft_saved_on_device, "草稿已存在本機")
 		}
 	}
 
@@ -180,7 +183,7 @@ class FollowUpViewModel @Inject constructor(
 			withContext(Dispatchers.IO) { drafts.delete(recordingId) }
 			savedDraft = null
 			draftText = ""
-			message = "已丟棄草稿"
+			message = UiStrings.get(StringsRes.string.feature_player_draft_discarded, "已丟棄草稿")
 		}
 	}
 
@@ -189,8 +192,8 @@ class FollowUpViewModel @Inject constructor(
 		val text = draftText.trim()
 		if (text.isEmpty()) return
 		val clipboard = context.getSystemService<ClipboardManager>() ?: return
-		clipboard.setPrimaryClip(ClipData.newPlainText("跟催草稿", text))
-		message = "已複製（尚未寄出，請自行貼到要傳的地方）"
+		clipboard.setPrimaryClip(ClipData.newPlainText(UiStrings.get(StringsRes.string.feature_player_follow_up_draft, "跟催草稿"), text))
+		message = UiStrings.get(StringsRes.string.feature_player_copied_paste_the_draft_where_you_want, "已複製（尚未寄出，請自行貼到要傳的地方）")
 	}
 
 	/** Opens the system share sheet; the user picks the app and sends it there themselves. */
@@ -201,11 +204,11 @@ class FollowUpViewModel @Inject constructor(
 			type = "text/plain"
 			putExtra(Intent.EXTRA_TEXT, text)
 		}
-		val chooser = Intent.createChooser(send, "分享跟催草稿").apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+		val chooser = Intent.createChooser(send, UiStrings.get(StringsRes.string.feature_player_share_follow_up_draft, "分享跟催草稿")).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
 		try {
 			context.startActivity(chooser)
 		} catch (_: ActivityNotFoundException) {
-			message = "沒有可分享的應用程式"
+			message = UiStrings.get(StringsRes.string.feature_player_no_app_available_to_share_this_clip, "沒有可分享的應用程式")
 		}
 	}
 }

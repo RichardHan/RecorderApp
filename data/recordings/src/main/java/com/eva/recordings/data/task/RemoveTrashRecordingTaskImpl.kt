@@ -1,5 +1,7 @@
 package com.eva.recordings.data.task
 
+import com.eva.utils.UiStrings
+
 import android.os.Build
 import android.util.Log
 import androidx.core.net.toUri
@@ -27,7 +29,7 @@ class RemoveTrashRecordingTaskImpl(val provider: TrashRecordingsProvider) :
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) return@withContext Result.success(Unit)
 		// if its api 29 then handle removing items via this class
 		val trashedFiles = provider.getTrashedVoiceRecordings() as? Resource.Success
-			?: return@withContext Result.failure(Exception("Cannot fetch trash recordings"))
+			?: return@withContext Result.failure(Exception(UiStrings.get(com.eva.recordings.R.string.data_recordings_message_cannot_fetch_trash_recordings, "Cannot fetch trash recordings")))
 
 		val trashModels = evaluateItemsToRemove(trashedFiles.data).toList()
 		Log.d(TAG, "READY TO REMOVE :${trashModels.size} MODELS")

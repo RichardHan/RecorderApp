@@ -1,5 +1,8 @@
 package com.eva.feature_player.clips
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.Context
@@ -65,7 +68,7 @@ class ClipsViewModel @Inject constructor(
 		listJob?.cancel()
 		listJob = clipsProvider.clipsAsFlow(id)
 			.onEach { clips = it }
-			.catch { message = "無法讀取片段清單" }
+			.catch { message = UiStrings.get(StringsRes.string.feature_player_could_not_load_clips, "無法讀取片段清單") }
 			.launchIn(viewModelScope)
 		viewModelScope.launch {
 			sourceUri = fileProvider.getAudioFileFromId(id).getOrNull()?.fileUri
@@ -92,12 +95,12 @@ class ClipsViewModel @Inject constructor(
 		exportJob = viewModelScope.launch {
 			try {
 				val source = fileProvider.getAudioFileFromId(id).getOrElse {
-					message = "找不到原錄音，可能已被刪除或移走"
+					message = UiStrings.get(StringsRes.string.feature_player_original_recording_missing_or_moved, "找不到原錄音，可能已被刪除或移走")
 					return@launch
 				}
 				val config = AudioClipConfig(start = startMs.milliseconds, end = endMs.milliseconds)
 				val exported = transformer.transformAudio(source, listOf(config to AudioEditAction.CROP)).getOrElse {
-					message = "匯出失敗：${it.message ?: "未知錯誤"}"
+					message = UiStrings.get(StringsRes.string.feature_player_export_failed, "匯出失敗：%1\$s", it.message ?: UiStrings.get(StringsRes.string.feature_player_unknown_error, "未知錯誤"))
 					return@launch
 				}
 				val saved = clipsProvider.saveExportedClip(
@@ -108,13 +111,13 @@ class ClipsViewModel @Inject constructor(
 					mimeType = source.mimeType,
 					exportedFile = exported,
 				).getOrElse {
-					message = "儲存片段失敗（儲存空間可能不足）"
+					message = UiStrings.get(StringsRes.string.feature_player_could_not_save_clip_check_available_storage, "儲存片段失敗（儲存空間可能不足）")
 					return@launch
 				}
-				message = "已儲存片段，原錄音沒有變更"
+				message = UiStrings.get(StringsRes.string.feature_player_clip_saved_original_recording_kept, "已儲存片段，原錄音沒有變更")
 				if (shareAfterSave) share(saved)
 			} catch (e: CancellationException) {
-				message = "已取消匯出"
+				message = UiStrings.get(StringsRes.string.feature_player_export_canceled, "已取消匯出")
 				throw e
 			} finally {
 				exporting = false
@@ -134,7 +137,7 @@ class ClipsViewModel @Inject constructor(
 	fun delete(clip: RecordingClipModel) {
 		viewModelScope.launch {
 			clipsProvider.delete(clip)
-			message = "已刪除片段（原錄音保留）"
+			message = UiStrings.get(StringsRes.string.feature_player_clip_deleted_original_recording_kept, "已刪除片段（原錄音保留）")
 		}
 	}
 
@@ -142,7 +145,7 @@ class ClipsViewModel @Inject constructor(
 	fun share(clip: RecordingClipModel) {
 		val file = File(clip.filePath)
 		if (!file.exists()) {
-			message = "片段檔已不存在"
+			message = UiStrings.get(StringsRes.string.feature_player_clip_file_missing, "片段檔已不存在")
 			return
 		}
 		try {
@@ -154,14 +157,14 @@ class ClipsViewModel @Inject constructor(
 				clipData = ClipData.newRawUri(clip.title, uri)
 				addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
 			}
-			val chooser = Intent.createChooser(send, "分享片段").apply {
+			val chooser = Intent.createChooser(send, UiStrings.get(StringsRes.string.feature_player_share_clip, "分享片段")).apply {
 				addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
 			}
 			context.startActivity(chooser)
 		} catch (_: ActivityNotFoundException) {
-			message = "沒有可分享的應用程式"
+			message = UiStrings.get(StringsRes.string.feature_player_no_app_available_to_share_this_clip, "沒有可分享的應用程式")
 		} catch (e: Exception) {
-			message = "無法分享：${e.message ?: "未知錯誤"}"
+			message = UiStrings.get(StringsRes.string.feature_player_could_not_share, "無法分享：%1\$s", e.message ?: UiStrings.get(StringsRes.string.feature_player_unknown_error, "未知錯誤"))
 		}
 	}
 

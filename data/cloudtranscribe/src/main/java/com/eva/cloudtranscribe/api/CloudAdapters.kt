@@ -1,5 +1,8 @@
 package com.eva.cloudtranscribe.api
 
+import com.eva.cloudtranscribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import com.eva.cloudtranscribe.model.CloudSettings
 import com.eva.cloudtranscribe.model.ProviderType
 import com.eva.cloudtranscribe.model.ReasoningEffort
@@ -41,7 +44,7 @@ interface CloudAiClient {
 
 object CloudAiClients {
 	fun transcriber(settings: CloudSettings, apiKey: String, transport: HttpTransport): CloudAiClient {
-		if (!settings.speakerDiarization) return create(settings, apiKey, transport, settings.transcribeModel)
+		if (!settings.speakerDiarization) return create(settings.copy(reasoningEffort = settings.transcriptionEffort), apiKey, transport, settings.transcribeModel)
 		val endpoint = java.net.URI.create(settings.baseUrl.trim())
 		require(endpoint.scheme.equals("https", ignoreCase = true) && endpoint.host != null &&
 			endpoint.userInfo == null && endpoint.rawQuery == null && endpoint.rawFragment == null) { "Invalid HTTPS endpoint" }
@@ -67,11 +70,11 @@ private fun classifyHttp(code: Int, body: String, apiKey: String): CallOutcome.F
 private inline fun safeCall(apiKey: String, block: () -> CallOutcome): CallOutcome = try {
 	block()
 } catch (e: IOException) {
-	CallOutcome.Failure("網路錯誤: ${Redactor.redact(e.message ?: e.javaClass.simpleName, apiKey)}", retryable = true)
+	CallOutcome.Failure(UiStrings.get(StringsRes.string.data_cloudtranscribe_network_error_alt, "網路錯誤: %1\$s", Redactor.redact(e.message ?: e.javaClass.simpleName, apiKey)), retryable = true)
 } catch (e: kotlinx.serialization.SerializationException) {
-	CallOutcome.Failure("回應格式錯誤: ${Redactor.redact(e.message, apiKey)}", retryable = true)
+	CallOutcome.Failure(UiStrings.get(StringsRes.string.data_cloudtranscribe_invalid_response, "回應格式錯誤: %1\$s", Redactor.redact(e.message, apiKey)), retryable = true)
 } catch (e: IllegalArgumentException) {
-	CallOutcome.Failure("設定錯誤: ${Redactor.redact(e.message, apiKey)}", retryable = false)
+	CallOutcome.Failure(UiStrings.get(StringsRes.string.data_cloudtranscribe_configuration_error, "設定錯誤: %1\$s", Redactor.redact(e.message, apiKey)), retryable = false)
 }
 
 /**

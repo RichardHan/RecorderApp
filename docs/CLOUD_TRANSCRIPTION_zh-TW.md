@@ -5,14 +5,14 @@
 2. 介面格式：
    - **OpenAI 相容服務**：Endpoint 填到 `/chat/completions` 前面，例如 `https://api.example.com/v1`（範例網址，請替換為你的服務網址）。App 會呼叫 `POST {Endpoint}/chat/completions`。
    - **Gemini 原生**：Endpoint 例如 `https://generativelanguage.googleapis.com/v1beta`，呼叫 `models/{模型}:generateContent`。
-3. 轉錄模型預設 `gemini-3.8-flash`，可改成任何模型 ID（例如你提到的 `gemini-3.5-transcribe`；App 不保證該 ID 存在，以服務端為準）。摘要模型可分開設定。
+3. 在「OpenAI 相容服務」下點選轉錄模式：Gemini 4 Argon（新安裝預設）、Gemini 3.8 Flash 或 Gemini 3.5 Transcribe（區分說話者）。也可輸入自訂模型 ID。摘要模型獨立設定，預設為 Gemini 3.8 Flash。
 4. 貼上 API Key →「儲存 Key」。Key 以 Android Keystore 加密保存，可在設定畫面查看完整內容並選取複製；不會寫入記錄檔、備份或 APK，可隨時「移除 Key」。
 5. 按「儲存設定」。
 
 ## 手動雲端重轉
 播放畫面右上「⋮」→「逐字稿／雲端重轉／摘要」→「雲端重新轉錄」→ 確認上傳。
 - 錄音在手機上轉成 MP3（16 kHz、單聲道、64 kbps），預設每 300 秒一段、同時 2 段（可設 1–6）。
-- 每段以 `input_audio`（base64、format=mp3）送出，`max_tokens=16384`、`stream=false`、逾時 120 秒；`reasoning_effort` 預設 low，模型名稱含 `transcribe` 或 `flash-lite` 時不送。
+- OpenAI 相容轉錄每段以 `input_audio`（base64、format=mp3）送出，`max_tokens=16384`、`stream=false`、逾時 120 秒；`reasoning_effort` 預設 low，Argon 轉錄及模型名稱含 `transcribe` 或 `flash-lite` 時不送。
 - 失敗只重試**同一服務**最多 3 次，不會改用別家。可隨時「取消」；已完成段落有斷點，按「重試未完成段」只重送失敗段。
 - 原始錄音與離線逐字稿不會被修改，每次雲端重轉另存一份，並記錄服務主機、模型、effort、分段設定。
 

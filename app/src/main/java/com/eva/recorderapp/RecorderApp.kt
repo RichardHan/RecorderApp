@@ -12,6 +12,7 @@ import androidx.core.content.getSystemService
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.eva.interactions.domain.AppShortcutFacade
+import com.eva.utils.UiStrings
 import com.eva.utils.NotificationConstants
 import com.eva.worker.RemoveTrashRecordingWorker
 import com.eva.worker.UpdateRecordingPathWorker
@@ -38,6 +39,7 @@ class RecorderApp : Application(), Configuration.Provider {
 
 	override fun onCreate() {
 		super.onCreate()
+		UiStrings.resolve = { id, args -> if (args.isEmpty()) getString(id) else getString(id, *args) }
 
 		enableComposeStackTrace()
 		enableStrictMode()
@@ -54,42 +56,47 @@ class RecorderApp : Application(), Configuration.Provider {
 	}
 
 
+	override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+		super.onConfigurationChanged(newConfig)
+		createNotificationChannels()
+	}
+
 	private fun createNotificationChannels() {
 		val channel1 = NotificationChannel(
 			NotificationConstants.RECORDER_CHANNEL_ID,
-			NotificationConstants.RECORDER_CHANNEL_NAME,
+			getString(R.string.channel_recorder_name),
 			NotificationManager.IMPORTANCE_HIGH
 		).apply {
-			description = NotificationConstants.RECORDER_CHANNEL_DESC
+			description = getString(R.string.channel_recorder_desc)
 			setShowBadge(false)
 			lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
 		}
 
 		val channel2 = NotificationChannel(
 			NotificationConstants.RECORDING_CHANNEL_ID,
-			NotificationConstants.RECORDING_CHANNEL_NAME,
+			getString(R.string.channel_recording_name),
 			NotificationManager.IMPORTANCE_DEFAULT
 		).apply {
-			description = NotificationConstants.RECORDING_CHANNEL_DESC
+			description = getString(R.string.channel_recording_desc)
 			setShowBadge(false)
 			lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
 		}
 
 		val channel3 = NotificationChannel(
 			NotificationConstants.PLAYER_CHANNEL_ID,
-			NotificationConstants.PLAYER_CHANNEL_NAME,
+			getString(R.string.channel_player_name),
 			NotificationManager.IMPORTANCE_MIN
 		).apply {
-			description = NotificationConstants.PLAYER_CHANNEL_DESC
+			description = getString(R.string.channel_player_desc)
 			lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
 		}
 
 		val channel4 = NotificationChannel(
 			NotificationConstants.WORKER_CHANNEL_ID,
-			NotificationConstants.WORKER_CHANNEL_NAME,
+			getString(R.string.channel_worker_name),
 			NotificationManager.IMPORTANCE_HIGH
 		).apply {
-			description = NotificationConstants.WORKER_CHANNEL_DESC
+			description = getString(R.string.channel_worker_desc)
 			lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
 		}
 

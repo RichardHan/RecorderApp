@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+	<string name="cloud_transcription_mode">LiteLLM 轉錄模式</string>
+	<string name="cloud_mode_argon">最準確 · Gemini 4 Argon（預設）</string>
+	<string name="cloud_mode_speakers">最快 · Gemini 3.5 Transcribe</string>
+	<string name="cloud_mode_flash">最便宜 · Gemini 3.8 Flash</string>
+	<string name="cloud_mode_speakers_hint">此模式會區分說話者。每個音訊分段獨立辨識，編號可能隨分段改變。</string>
+	<string name="cloud_mode_audio_test">此模式需要音訊。儲存設定後，請從錄音的播放畫面執行雲端重新轉錄。</string>
+	<string name="cloud_mode_benchmark">依 9 分 40 秒雙人中英轉錄實測比較。</string>
+</resources>

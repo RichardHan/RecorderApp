@@ -1,13 +1,16 @@
 package com.eva.feature_recordings.recap
 
+import com.eva.feature_recordings.R as StringsRes
+import com.eva.utils.UiStrings
+
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 enum class RecapPeriod(val label: String, val days: Int) {
-	TODAY("今天", 0),
-	WEEK("最近 7 天", 7),
-	MONTH("最近 30 天", 30),
+	TODAY(UiStrings.get(StringsRes.string.feature_recordings_today, "今天"), 0),
+	WEEK(UiStrings.get(StringsRes.string.feature_recordings_last_7_days, "最近 7 天"), 7),
+	MONTH(UiStrings.get(StringsRes.string.feature_recordings_last_30_days, "最近 30 天"), 30),
 }
 
 data class RecapRecording(val id: Long, val title: String, val recordedAtMillis: Long, val durationMs: Long)
@@ -67,23 +70,23 @@ object RecentRecap {
 		DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(zone).format(Instant.ofEpochMilli(millis))
 
 	fun toMarkdown(recap: Recap, period: RecapPeriod, zone: ZoneId): String = buildString {
-		append("# 近期回顧（").append(period.label).append("）\n")
-		if (recap.entries.isEmpty()) { append("\n這段期間沒有錄音\n"); return@buildString }
+		append(UiStrings.get(StringsRes.string.feature_recordings_recent_review_alt, "# 近期回顧（")).append(period.label).append("）\n")
+		if (recap.entries.isEmpty()) { append(UiStrings.get(StringsRes.string.feature_recordings_nno_recordings_during_this_period_n, "\n這段期間沒有錄音\n")); return@buildString }
 		for (e in recap.entries) {
 			append("\n## ").append(e.recording.title).append('\n')
 			append(date(e.recording.recordedAtMillis, zone)).append("・").append(duration(e.recording.durationMs)).append('\n')
 			when {
-				e.failed -> append("\n（讀取失敗）\n")
-				e.points == null -> append("\n（尚無摘要）\n")
-				e.points.isEmpty() -> append("\n（沒有重點）\n")
+				e.failed -> append(UiStrings.get(StringsRes.string.feature_recordings_n_could_not_load_n, "\n（讀取失敗）\n"))
+				e.points == null -> append(UiStrings.get(StringsRes.string.feature_recordings_n_no_summary_yet_n, "\n（尚無摘要）\n"))
+				e.points.isEmpty() -> append(UiStrings.get(StringsRes.string.feature_recordings_n_no_highlights_n, "\n（沒有重點）\n"))
 				else -> { append('\n'); e.points.forEach { append("- ").append(it).append('\n') } }
 			}
 			if (e.openItems.isNotEmpty()) {
-				append("\n未完成待辦：\n")
+				append(UiStrings.get(StringsRes.string.feature_recordings_nopen_tasks_n, "\n未完成待辦：\n"))
 				e.openItems.forEach { append("- [ ] ").append(it).append('\n') }
-				if (e.moreOpenItems > 0) append("- 另有 ").append(e.moreOpenItems).append(" 條\n")
+				if (e.moreOpenItems > 0) append(UiStrings.get(StringsRes.string.feature_recordings_plus, "- 另有 ")).append(e.moreOpenItems).append(UiStrings.get(StringsRes.string.feature_recordings_more_items_n, " 條\n"))
 			}
 		}
-		if (recap.moreRecordings > 0) append("\n另有 ").append(recap.moreRecordings).append(" 段錄音未列出\n")
+		if (recap.moreRecordings > 0) append(UiStrings.get(StringsRes.string.feature_recordings_nplus, "\n另有 ")).append(recap.moreRecordings).append(UiStrings.get(StringsRes.string.feature_recordings_other_recordings_omitted_n, " 段錄音未列出\n"))
 	}
 }

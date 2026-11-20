@@ -208,6 +208,16 @@ class AdapterTests {
 		assertFalse(t.body.contains(KEY))
 	}
 
+	@Test fun newSettingsSendArgonAudioAndKeepFlashForSummaries() {
+		val settings = CloudSettings(baseUrl = "https://gateway.example/v1")
+		assertEquals("gemini-3.8-flash", settings.summaryModel)
+		val transport = Capture(HttpResponse(200, """{"choices":[]}"""))
+		CloudAiClients.transcriber(settings, KEY, transport).transcribe("p", AudioPayload(byteArrayOf(1)))
+		val body = Json.parseToJsonElement(transport.body).jsonObject
+		assertEquals("gemini-4-argon", body["model"]!!.jsonPrimitive.content)
+		assertFalse(body.containsKey("reasoning_effort"))
+	}
+
 	@Test fun liteLlmSpeakerModeRoutesAudioAndKeepsSpeakerTurns() {
 		val transport = Capture(HttpResponse(200, """{"candidates":[{"content":{"parts":[
 			{"text":"Hi","audioTranscription":{"text":"Hi","speakerLabel":"spk:3"}},
@@ -224,7 +234,7 @@ class AdapterTests {
 		assertEquals("audio/mpeg", audio["mimeType"]!!.jsonPrimitive.content)
 		assertEquals("AQ==", audio["data"]!!.jsonPrimitive.content)
 		assertEquals("true", body["generationConfig"]!!.jsonObject["audioTranscriptionConfig"]!!.jsonObject["diarization"]!!.jsonPrimitive.content)
-		val flash = settings.copy(transcribeModel = CloudSettings.DEFAULT_MODEL, speakerDiarization = false)
+		val flash = settings.copy(transcribeModel = CloudSettings.FLASH_MODEL, speakerDiarization = false)
 		assertTrue(CloudAiClients.transcriber(flash, KEY, transport) is OpenAiCompatibleClient)
 		assertTrue(CloudAiClients.create(settings, KEY, transport, settings.summaryModel) is OpenAiCompatibleClient)
 	}

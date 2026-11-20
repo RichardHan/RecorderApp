@@ -1,5 +1,7 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
@@ -37,11 +39,11 @@ fun PlayerSidePanel(
 	var tab by rememberSaveable(recordingId) { mutableIntStateOf(0) }
 	Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
 		Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-			FilterChip(selected = tab == 0, onClick = { tab = 0 }, label = { Text("逐字稿") })
-			FilterChip(selected = tab == 1, onClick = { tab = 1 }, label = { Text("章節") })
-			FilterChip(selected = tab == 2, onClick = { tab = 2 }, label = { Text("片段") })
+			FilterChip(selected = tab == 0, onClick = { tab = 0 }, label = { Text(stringResource(StringsRes.string.feature_player_transcript)) })
+			FilterChip(selected = tab == 1, onClick = { tab = 1 }, label = { Text(stringResource(StringsRes.string.feature_player_chapters)) })
+			FilterChip(selected = tab == 2, onClick = { tab = 2 }, label = { Text(stringResource(StringsRes.string.feature_player_clip)) })
 			FilterChip(selected = tab == 3, onClick = { tab = 3 }, label = { Text(stringResource(R.string.cleanup_tab)) })
-			FilterChip(selected = tab == 4, onClick = { tab = 4 }, label = { Text("決議") })
+			FilterChip(selected = tab == 4, onClick = { tab = 4 }, label = { Text(stringResource(StringsRes.string.feature_player_decisions)) })
 		}
 		when (tab) {
 			1 -> ChaptersPanel(

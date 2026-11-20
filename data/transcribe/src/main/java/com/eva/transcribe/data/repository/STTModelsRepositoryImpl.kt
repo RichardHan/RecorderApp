@@ -1,5 +1,8 @@
 package com.eva.transcribe.data.repository
 
+import com.eva.transcribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import android.util.Log
 import androidx.core.net.toFile
 import androidx.core.net.toUri
@@ -70,7 +73,7 @@ internal class STTModelsRepositoryImpl(
     override suspend fun deleteSTTModelFile(model: STTModel): Result<STTModel> {
         return try {
             val path = model.localModelURI
-                ?: return Result.failure(Exception("Model is not downloaded"))
+                ?: return Result.failure(Exception(UiStrings.get(StringsRes.string.data_transcribe_message_model_is_not_downloaded, "Model is not downloaded")))
 
             withContext(Dispatchers.IO) {
                 Log.d(TAG, "DELETING THE MODEL FOLDER :${model.modelId}")
@@ -99,7 +102,7 @@ internal class STTModelsRepositoryImpl(
         return try {
             val readModel = dao.readModelById(modelId)
                 ?: return Result.failure(STTModelEntryUpdateFailedException())
-            if (readModel.locale == "en-IN") return Result.failure(IllegalStateException("English (India) 已移除，請在轉錄設定重新選擇模型；舊模型檔案未刪除"))
+            if (readModel.locale == "en-IN") return Result.failure(IllegalStateException(UiStrings.get(StringsRes.string.data_transcribe_english_india_was_removed_select_a_model, "English (India) 已移除，請在轉錄設定重新選擇模型；舊模型檔案未刪除")))
             Result.success(readModel.toModel())
         } catch (e: Exception) {
             if (e is CancellationException) throw e

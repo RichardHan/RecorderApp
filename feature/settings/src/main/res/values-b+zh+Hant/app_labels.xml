@@ -1,0 +1,25 @@
+<resources>
+	<string name="feature_settings_audio">音訊</string>
+	<string name="feature_settings_files">檔案</string>
+	<string name="feature_settings_transcribe">轉錄</string>
+	<string name="feature_settings_cloud">雲端</string>
+	<string name="feature_settings_downloading_model">模型下載中</string>
+	<string name="feature_settings_cannot_delete_the_model_now">目前無法刪除模型</string>
+	<string name="feature_settings_deleting_model_files">正在刪除模型檔案</string>
+	<string name="feature_settings_success">成功</string>
+	<string name="feature_settings_cannot_download_the_model_now">目前無法下載模型</string>
+	<string name="feature_settings_starting_your_download_shortly">即將開始下載</string>
+	<string name="feature_settings_unable_to_load_transcription_models">無法載入轉錄模型</string>
+	<string name="feature_settings_google_drive_authorization_failed">Google 雲端硬碟授權失敗</string>
+	<string name="feature_settings_downloadable">可下載</string>
+	<string name="feature_settings_downloading">下載中</string>
+	<string name="feature_settings_ready">已就緒</string>
+	<string name="feature_settings_update_available">可更新</string>
+	<string name="feature_settings_none">無</string>
+	<string name="feature_settings_names">人名</string>
+	<string name="feature_settings_terms_and_abbreviations">專有名詞、縮寫</string>
+	<string name="feature_settings_api_endpoint">API 端點</string>
+	<string name="feature_settings_api_key">API 金鑰</string>
+	<string name="feature_settings_reasoning_effort">推理強度</string>
+	<string name="feature_settings_app_language">應用程式語言</string>
+</resources>

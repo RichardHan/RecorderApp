@@ -1,5 +1,8 @@
 package com.eva.feature_onboarding.composables
 
+import com.eva.feature_onboarding.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -86,7 +89,7 @@ private fun StackedImages(
 	) {
 		Image(
 			painter = painterResource(R.drawable.ic_recorder),
-			contentDescription = "Recorder",
+			contentDescription = UiStrings.get(StringsRes.string.feature_onboarding_recorder, "Recorder"),
 			colorFilter = ColorFilter.tint(color),
 			modifier = Modifier
 				.size(size)
@@ -94,7 +97,7 @@ private fun StackedImages(
 		)
 		Image(
 			painter = painterResource(R.drawable.ic_music_player),
-			contentDescription = "Player",
+			contentDescription = UiStrings.get(StringsRes.string.feature_onboarding_player, "Player"),
 			colorFilter = ColorFilter.tint(color),
 			modifier = Modifier
 				.size(size)
@@ -102,7 +105,7 @@ private fun StackedImages(
 		)
 		Image(
 			painter = painterResource(R.drawable.ic_music_edit),
-			contentDescription = "Edit",
+			contentDescription = UiStrings.get(StringsRes.string.feature_onboarding_edit, "Edit"),
 			colorFilter = ColorFilter.tint(color),
 			modifier = Modifier
 				.size(size)
@@ -110,7 +113,7 @@ private fun StackedImages(
 		)
 		Image(
 			painter = painterResource(R.drawable.ic_list),
-			contentDescription = "Organize",
+			contentDescription = UiStrings.get(StringsRes.string.feature_onboarding_organize, "Organize"),
 			colorFilter = ColorFilter.tint(color),
 			modifier = Modifier
 				.size(size)

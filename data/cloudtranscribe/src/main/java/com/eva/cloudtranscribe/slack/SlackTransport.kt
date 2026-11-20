@@ -1,5 +1,8 @@
 package com.eva.cloudtranscribe.slack
 
+import com.eva.cloudtranscribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -73,9 +76,9 @@ class SlackSender(
 			}
 			SlackSendPolicy.classify(response.code, response.body, response.retryAfter)
 		} catch (e: IOException) {
-			SlackSendResult.Retry("網路錯誤")
+			SlackSendResult.Retry(UiStrings.get(StringsRes.string.data_cloudtranscribe_network_error, "網路錯誤"))
 		} catch (e: IllegalArgumentException) {
-			SlackSendResult.Permanent("Webhook 網址無效")
+			SlackSendResult.Permanent(UiStrings.get(StringsRes.string.data_cloudtranscribe_invalid_webhook_url, "Webhook 網址無效"))
 		} finally {
 			lastPostAt = clock()
 		}

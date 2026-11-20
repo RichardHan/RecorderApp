@@ -1,5 +1,8 @@
 package com.eva.feature_editor.composables
 
+import com.eva.feature_editor.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Redo
@@ -73,7 +76,7 @@ internal fun EditorTopBar(
                         leadingIcon = {
                             Icon(
                                 Icons.AutoMirrored.Filled.Undo,
-                                contentDescription = "Undo Action"
+                                contentDescription = UiStrings.get(StringsRes.string.feature_editor_undo_action, "Undo Action")
                             )
                         },
                         onClick = onUndoAction,
@@ -84,7 +87,7 @@ internal fun EditorTopBar(
                         leadingIcon = {
                             Icon(
                                 Icons.AutoMirrored.Filled.Redo,
-                                contentDescription = "Redo Action"
+                                contentDescription = UiStrings.get(StringsRes.string.feature_editor_redo_action, "Redo Action")
                             )
                         },
                         onClick = onRedoAction,

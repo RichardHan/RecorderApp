@@ -3,7 +3,7 @@
   <string name="live_cloud_meeting_notes_label">Pre-meeting notes / agenda (optional, focuses live key points)</string>
   <string name="live_cloud_meeting_notes_hint">Agenda items, names, technical terms. Reference only — never treated as something said. Sent with the live key-point prompt; the post-recording summary does not use it yet.</string>
   <string name="live_cloud_meeting_notes_clear">Clear notes</string>
-  <string name="cloud_api_key_saved">已設定（Android Keystore 加密儲存）</string>
-  <string name="cloud_api_key_missing">尚未設定</string>
-  <string name="cloud_api_key_saved_label">已儲存的 API Key（可選取複製）</string>
+  <string name="cloud_api_key_saved">Saved in Android Keystore</string>
+  <string name="cloud_api_key_missing">Not configured</string>
+  <string name="cloud_api_key_saved_label">Saved API key (select to copy)</string>
 </resources>

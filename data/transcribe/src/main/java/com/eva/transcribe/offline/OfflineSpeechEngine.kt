@@ -1,5 +1,8 @@
 package com.eva.transcribe.offline
 
+import com.eva.transcribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import android.util.Log
 import androidx.core.net.toFile
 import androidx.core.net.toUri
@@ -55,11 +58,11 @@ class OfflineSpeechEngine @Inject constructor(
 			runCatching {
 				val model = repository.readModelByLanguage(modelId).getOrThrow()
 				check(OfflineEngines.isSherpa(model.engine)) { "Not a sherpa-onnx model: ${model.engine}" }
-				check(model.state == STTModelState.DOWNLOADED || model.state == STTModelState.UPDATE_AVAILABLE) { "模型尚未下載" }
+				check(model.state == STTModelState.DOWNLOADED || model.state == STTModelState.UPDATE_AVAILABLE) { UiStrings.get(StringsRes.string.data_transcribe_model_not_downloaded, "模型尚未下載") }
 				if (loadedModelId == modelId && recognizer != null) { users++; return@runCatching model }
-				check(users == 0) { "另一個離線模型（$loadedModelId）正在使用中，請先停止錄音或其他離線轉錄" }
+				check(users == 0) { UiStrings.get(StringsRes.string.data_transcribe_another_offline_model_is_in_use_stop, "另一個離線模型（%1\$s）正在使用中，請先停止錄音或其他離線轉錄", loadedModelId) }
 				releaseLocked()
-				val dir = model.localModelURI?.toUri()?.toFile() ?: error("模型路徑不存在")
+				val dir = model.localModelURI?.toUri()?.toFile() ?: error(UiStrings.get(StringsRes.string.data_transcribe_model_path_missing, "模型路徑不存在"))
 				checkMemory(dir)
 				val t = System.currentTimeMillis()
 				recognizer = OfflineRecognizer(config = buildConfig(model.engine, dir, numThreads))
@@ -74,7 +77,7 @@ class OfflineSpeechEngine @Inject constructor(
 	/** Decodes one utterance (16 kHz mono float samples). Waits for any other decode/load. */
 	suspend fun decode(samples: FloatArray): String = withContext(Dispatchers.Default) {
 		lock.withLock {
-			val r = recognizer ?: error("離線模型未載入")
+			val r = recognizer ?: error(UiStrings.get(StringsRes.string.data_transcribe_offline_model_not_loaded, "離線模型未載入"))
 			val stream = r.createStream()
 			try {
 				stream.acceptWaveform(samples, 16_000)
@@ -82,7 +85,7 @@ class OfflineSpeechEngine @Inject constructor(
 				val result = r.getResult(stream)
 				val text = cleanQwenText(result.text)
 				// never silently truncate: Qwen3 stops at maxNewTokens, flag it visibly
-				if (result.tokens.size >= QWEN_MAX_NEW_TOKENS) "$text［…可能截斷］" else text
+				if (result.tokens.size >= QWEN_MAX_NEW_TOKENS) UiStrings.get(StringsRes.string.data_transcribe_possibly_truncated, "%1\$s［…可能截斷］", text) else text
 			} finally {
 				stream.release()
 			}
@@ -104,9 +107,9 @@ class OfflineSpeechEngine @Inject constructor(
 		val info = android.app.ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
 		val needed = requiredRamBytes(modelBytes)
 		Log.i(TAG, "model=${modelBytes / 1_048_576}MB avail=${info.availMem / 1_048_576}MB need=${needed / 1_048_576}MB")
-		check(android.os.Process.is64Bit() || modelBytes < LARGE_MODEL_BYTES) { "此模型僅支援 64 位元裝置" }
+		check(android.os.Process.is64Bit() || modelBytes < LARGE_MODEL_BYTES) { UiStrings.get(StringsRes.string.data_transcribe_this_model_requires_a_64_bit_device, "此模型僅支援 64 位元裝置") }
 		check(com.eva.transcribe.resources.ResourcePolicy.ramEnough(info.availMem, info.lowMemory, needed, android.os.Process.is64Bit(), modelBytes) == true) {
-			"可用記憶體不足：需要約 ${needed / 1_048_576} MB，目前可用 ${info.availMem / 1_048_576} MB。請關閉其他 App 或改用較小模型（錄音不受影響）"
+			UiStrings.get(StringsRes.string.data_transcribe_about_mb_of_ram_needed_mb_available, "可用記憶體不足：需要約 %1\$s MB，目前可用 %2\$s MB。請關閉其他 App 或改用較小模型（錄音不受影響）", needed / 1_048_576, info.availMem / 1_048_576)
 		}
 	}
 

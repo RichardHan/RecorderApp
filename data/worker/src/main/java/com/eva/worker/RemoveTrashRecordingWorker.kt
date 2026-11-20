@@ -1,5 +1,7 @@
 package com.eva.worker
 
+import com.eva.utils.UiStrings
+
 import android.app.Notification
 import android.content.Context
 import android.content.pm.ServiceInfo
@@ -59,8 +61,8 @@ class RemoveTrashRecordingWorker @AssistedInject constructor(
 		return NotificationCompat
 			.Builder(context, NotificationConstants.RECORDER_CHANNEL_ID)
 			.setSmallIcon(R.drawable.ic_broom)
-			.setContentTitle("Clearing Trash")
-			.setContentText("Removing expired recordings")
+			.setContentTitle(UiStrings.get(R.string.data_worker_clearing_trash, "Clearing Trash"))
+			.setContentText(UiStrings.get(R.string.data_worker_removing_expired_recordings, "Removing expired recordings"))
 			.setAutoCancel(true)
 			.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 			.setPriority(NotificationCompat.PRIORITY_DEFAULT)

@@ -81,9 +81,9 @@ Rules:
   files.
 - Follow the existing `domain/`-interface + `data/`-implementation + `di/`-binding pattern when
   adding repositories or providers.
-- New user-facing strings go in `src/main/res/values/`; localized copies exist in `values-bn`
-  (Bengali) and `values-hi` (Hindi) — the app ships only `en`, `bn`, `hi`
-  (`androidResources.localeFilters` in `app/build.gradle.kts`).
+- Provide English UI strings in `src/main/res/values/` and Traditional Chinese in
+  `values-b+zh+Hant/`. Keep the supported locales in `app/build.gradle.kts` and
+  `app/src/main/res/xml/locale_configs.xml` in sync.
 - Compose compiler stability: domain models are listed in the root `stability_config.conf`. When you
   add a new domain model that Compose reads, add its package there.
 - New module? Apply the convention plugins from `build-logic` (e.g.

@@ -1,5 +1,8 @@
 package com.eva.feature_recordings.search.ask
 
+import com.eva.feature_recordings.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -44,12 +47,12 @@ internal class AskAcrossViewModel @Inject constructor(
 			try {
 				val s = settingsRepo.current()
 				if (s.baseUrl.isBlank() || s.summaryModel.isBlank() || !keys.hasKey.value) {
-					message = "尚未設定雲端摘要服務或 API Key"; return@launch
+					message = UiStrings.get(StringsRes.string.feature_recordings_set_a_cloud_summary_service_and_api, "尚未設定雲端摘要服務或 API Key"); return@launch
 				}
 				val sources = withContext(Dispatchers.IO) {
 					AskAcross.pick(candidates) { id -> transcripts.lines(id)?.joinToString("\n") { it.text } }
 				}
-				if (sources.isEmpty()) { message = "這些搜尋結果沒有可用的逐字稿"; return@launch }
+				if (sources.isEmpty()) { message = UiStrings.get(StringsRes.string.feature_recordings_these_results_have_no_usable_transcripts, "這些搜尋結果沒有可用的逐字稿"); return@launch }
 				plan = AskPlan(sources, AskAcross.sentChars(sources), Redactor.hostOf(s.baseUrl) ?: s.baseUrl, s.summaryModel)
 			} finally { busy = false }
 		}
@@ -66,16 +69,16 @@ internal class AskAcrossViewModel @Inject constructor(
 			try {
 				val s = settingsRepo.current()
 				val key = keys.read()
-				if (key.isNullOrBlank()) { message = "尚未設定 API Key"; return@launch }
+				if (key.isNullOrBlank()) { message = UiStrings.get(StringsRes.string.feature_recordings_api_key_missing, "尚未設定 API Key"); return@launch }
 				val client = CloudAiClients.create(s, key, UrlConnectionTransport(), s.summaryModel)
 				when (val out = withContext(Dispatchers.IO) { client.complete(AskAcross.prompt(question, p.sources)) }) {
 					is CallOutcome.Text -> answer = out.text.trim()
-					CallOutcome.Empty -> message = "服務沒有回傳內容"
-					CallOutcome.ContentFiltered -> message = "回答被服務的內容政策擋下"
-					is CallOutcome.Failure -> message = "提問失敗：${out.message}"
+					CallOutcome.Empty -> message = UiStrings.get(StringsRes.string.feature_recordings_the_service_returned_no_content, "服務沒有回傳內容")
+					CallOutcome.ContentFiltered -> message = UiStrings.get(StringsRes.string.feature_recordings_the_service_blocked_the_answer_under_its, "回答被服務的內容政策擋下")
+					is CallOutcome.Failure -> message = UiStrings.get(StringsRes.string.feature_recordings_question_failed, "提問失敗：%1\$s", out.message)
 				}
 			} catch (e: CancellationException) { throw e } catch (e: Exception) {
-				message = "提問失敗：${e.message ?: e::class.simpleName}"
+				message = UiStrings.get(StringsRes.string.feature_recordings_question_failed, "提問失敗：%1\$s", e.message ?: e::class.simpleName)
 			} finally { busy = false }
 		}
 	}

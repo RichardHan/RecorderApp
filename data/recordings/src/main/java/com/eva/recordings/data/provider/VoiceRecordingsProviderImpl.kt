@@ -1,5 +1,7 @@
 package com.eva.recordings.data.provider
 
+import com.eva.utils.UiStrings
+
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.ContentValues
@@ -182,7 +184,7 @@ internal class VoiceRecordingsProviderImpl(
 					message = context.getString(R.string.rename_recording_success)
 				)
 			} catch (e: SecurityException) {
-				Resource.Error(e, "SECURITY EXCEPTION")
+				Resource.Error(e, UiStrings.get(com.eva.recordings.R.string.data_recordings_message_security_exception, "SECURITY EXCEPTION"))
 			} catch (e: CancellationException) {
 				throw e
 			} catch (e: Exception) {
@@ -219,7 +221,7 @@ internal class VoiceRecordingsProviderImpl(
 				else Resource.Error(NoRecordingsModifiedOrDeletedException())
 
 			} catch (e: SecurityException) {
-				Resource.Error(e, "Cannot delete file don't have access")
+				Resource.Error(e, UiStrings.get(com.eva.recordings.R.string.data_recordings_message_cannot_delete_file_don_t_have_access, "Cannot delete file don't have access"))
 			} catch (e: CancellationException) {
 				throw e
 			} catch (e: Exception) {
@@ -280,7 +282,7 @@ internal class VoiceRecordingsProviderImpl(
 				Log.e(LOGGER_TAG, "DON'T HAVE OWNER ACCESS", e)
 				emit(Resource.Error(e, message = "Don't have access to modify the file metadata"))
 			} catch (e: SQLException) {
-				emit(Resource.Error(e, "SQL EXCEPTION"))
+				emit(Resource.Error(e, UiStrings.get(com.eva.recordings.R.string.data_recordings_message_sql_exception, "SQL EXCEPTION")))
 			} catch (e: Exception) {
 				e.printStackTrace()
 				emit(Resource.Error(e))

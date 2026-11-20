@@ -1,7 +1,9 @@
 <resources>
-	<string name="cloud_transcription_mode">LiteLLM 轉錄模式</string>
-	<string name="cloud_mode_speakers">Gemini 3.5 Transcribe · 區分說話者</string>
-	<string name="cloud_mode_flash">Gemini 3.8 Flash · 中英逐字稿</string>
-	<string name="cloud_mode_speakers_hint">每個音訊分段獨立辨識說話者，編號可能隨分段改變。</string>
-	<string name="cloud_mode_audio_test">此模式需要音訊。儲存設定後，請從錄音的播放畫面執行雲端重新轉錄。</string>
+	<string name="cloud_transcription_mode">LiteLLM transcription mode</string>
+	<string name="cloud_mode_argon">Most accurate · Gemini 4 Argon (default)</string>
+	<string name="cloud_mode_speakers">Fastest · Gemini 3.5 Transcribe</string>
+	<string name="cloud_mode_flash">Lowest cost · Gemini 3.8 Flash</string>
+	<string name="cloud_mode_speakers_hint">Speaker numbers are assigned independently in each audio segment and can change between segments.</string>
+	<string name="cloud_mode_audio_test">This mode requires audio. Save your settings, then run cloud transcription from the recording player.</string>
+	<string name="cloud_mode_benchmark">Based on a 9-minute, 40-second bilingual two-speaker test.</string>
 </resources>

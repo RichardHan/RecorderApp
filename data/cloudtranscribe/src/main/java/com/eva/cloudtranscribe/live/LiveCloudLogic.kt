@@ -1,5 +1,8 @@
 package com.eva.cloudtranscribe.live
 
+import com.eva.cloudtranscribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 /** Decides when a key-point summary may run. Pure; all times are recorded-audio milliseconds. */
 object SummaryGate {
 	/**
@@ -113,7 +116,7 @@ object LiveMerge {
 			// a failed chunk whose range was later covered by a successful one is not shown
 			if (ok.none { it.startMs <= sp.startMs && it.endMs >= sp.endMs })
 				out += if (sp.suspicious) MergedLine(sp.startMs, com.eva.cloudtranscribe.engine.RepetitionGuard.preview(sp.text), MergedLine.Kind.CLOUD_SUSPICIOUS)
-				else MergedLine(sp.startMs, sp.error ?: "雲端轉錄失敗", MergedLine.Kind.CLOUD_FAILED)
+				else MergedLine(sp.startMs, sp.error ?: UiStrings.get(StringsRes.string.data_cloudtranscribe_cloud_transcription_failed, "雲端轉錄失敗"), MergedLine.Kind.CLOUD_FAILED)
 		}
 		TranscriptMerge.provisional(spans, timedOffline).forEach {
 			out += if (com.eva.cloudtranscribe.engine.RepetitionGuard.isPathological(it.text))

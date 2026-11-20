@@ -1,5 +1,8 @@
 package com.eva.transcribe.data
 
+import com.eva.transcribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import android.content.Context
 import android.net.Uri
 import android.util.Log
@@ -130,7 +133,7 @@ internal class ModelDownloadMangerImpl(
             val needed = com.eva.transcribe.resources.ResourcePolicy.archiveBytes(modelResult.archiveSize, manifest?.sumOf { it.sizeBytes })
             val existingPartial = if (isTarBz2) (fs.metadataOrNull(zipCacheFile)?.size ?: 0L) else 0L
             val free = (if (isTarBz2) context.filesDir.usableSpace else minOf(context.filesDir.usableSpace, context.cacheDir.usableSpace)) + existingPartial
-            if (free < needed) throw IOException("儲存空間不足：需要約 ${needed / 1_048_576} MB，可用 ${free / 1_048_576} MB")
+            if (free < needed) throw IOException(UiStrings.get(StringsRes.string.data_transcribe_insufficient_storage_about_mb_needed_mb_available, "儲存空間不足：需要約 %1\$s MB，可用 %2\$s MB", needed / 1_048_576, free / 1_048_576))
 
             if (isTarBz2) downloadArchiveResumable(modelResult.downloadURI, zipCacheFile, modelResult.archiveSize) { progress ->
                 onDownloadState(ModelDownloadState.DownloadProgress(progress))
@@ -142,7 +145,7 @@ internal class ModelDownloadMangerImpl(
             val actualChecksum = calculateSha256Hash(zipCacheFile) { p -> onDownloadState(ModelDownloadState.Processing(ModelDownloadState.Stage.VERIFYING, p)) }
             if (!actualChecksum.equals(expectedChecksum, ignoreCase = true)) {
                 keepPartial = false // corrupt: never resume from it
-                throw IllegalStateException("模型檔 SHA-256 驗證失敗（已刪除下載檔，請重試）")
+                throw IllegalStateException(UiStrings.get(StringsRes.string.data_transcribe_model_checksum_mismatch_the_download_was_deleted, "模型檔 SHA-256 驗證失敗（已刪除下載檔，請重試）"))
             }
 
 
@@ -268,7 +271,7 @@ internal class ModelDownloadMangerImpl(
                 val free = context.filesDir.usableSpace
                 // keep >= MIN_FREE_AFTER_DOWNLOAD left so the phone (and recordings) are not starved
                 if (free < com.eva.transcribe.resources.ResourcePolicy.downloadBytes(true, total, total, already, false))
-                    throw IOException("儲存空間不足：還需下載 ${remaining / 1_048_576} MB，並保留 ${MIN_FREE_AFTER_DOWNLOAD / 1_048_576} MB；可用 ${free / 1_048_576} MB")
+                    throw IOException(UiStrings.get(StringsRes.string.data_transcribe_need_mb_for_the_download_plus_mb, "儲存空間不足：還需下載 %1\$s MB，並保留 %2\$s MB；可用 %3\$s MB", remaining / 1_048_576, MIN_FREE_AFTER_DOWNLOAD / 1_048_576, free / 1_048_576))
 
                 var finishedBytes = manifest.filter { fs.metadataOrNull(partialDir.resolve(it.path))?.size == it.sizeBytes }.sumOf { it.sizeBytes }
                 var lastProgress = -1
@@ -433,7 +436,7 @@ internal class ModelDownloadMangerImpl(
             }.execute { response ->
                 val code = response.status.value
                 if (code == 416 && expectedSize > 0 && offset == expectedSize) return@execute
-                if (!response.status.isSuccess()) throw IOException("模型下載失敗：HTTP $code")
+                if (!response.status.isSuccess()) throw IOException(UiStrings.get(StringsRes.string.data_transcribe_model_download_failed_http, "模型下載失敗：HTTP %1\$s", code))
                 val append = ModelDownloadProgress.resumeAppends(offset, code)
                 if (!append) offset = 0L
                 val channel = response.bodyAsChannel()
@@ -447,7 +450,7 @@ internal class ModelDownloadMangerImpl(
                         if (read < 0) break
                         if (read == 0) continue
                         offset += read
-                        if (total > 0 && offset > total) throw IOException("下載檔比預期大，已中止")
+                        if (total > 0 && offset > total) throw IOException(UiStrings.get(StringsRes.string.data_transcribe_download_exceeded_expected_size_and_was_stopped, "下載檔比預期大，已中止"))
                         out.write(buffer, 0, read)
                         val p = ModelDownloadProgress.percent(offset, total)
                         if (p != last) { last = p; onProgress(p) }
@@ -456,7 +459,7 @@ internal class ModelDownloadMangerImpl(
             }
             val size = fs.metadataOrNull(part)?.size ?: 0L
             if (expectedSize > 0 && size != expectedSize)
-                throw IOException("下載中斷：已下載 ${size / 1_048_576} / ${expectedSize / 1_048_576} MB，重試會從中斷處續傳")
+                throw IOException(UiStrings.get(StringsRes.string.data_transcribe_download_interrupted_at_mb_retry_to_resume, "下載中斷：已下載 %1\$s / %2\$s MB，重試會從中斷處續傳", size / 1_048_576, expectedSize / 1_048_576))
         }
 
     private suspend fun extractModelArchive(zipFile: Path, destination: Path) = withContext(Dispatchers.IO) {

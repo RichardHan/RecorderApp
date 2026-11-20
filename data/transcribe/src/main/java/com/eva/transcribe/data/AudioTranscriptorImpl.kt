@@ -1,5 +1,7 @@
 package com.eva.transcribe.data
 
+import com.eva.utils.UiStrings
+
 import android.util.Log
 import androidx.core.net.toFile
 import androidx.core.net.toUri
@@ -41,7 +43,7 @@ internal class AudioTranscriptorImpl(
                     // if this is already present only reset the recognizer
                     _recognizer?.reset()
                     Log.w(TAG, "RECOGNIZER ALREADY PRESENT RESTING")
-                    return@withContext Result.failure(Exception("Recognizer is already set"))
+                    return@withContext Result.failure(Exception(UiStrings.get(com.eva.transcribe.R.string.data_transcribe_message_recognizer_is_already_set, "Recognizer is already set")))
                 }
                 val sttModelResult = repository.readModelByLanguage(modelId)
                 val sttModel = sttModelResult.getOrElse { err ->
@@ -50,7 +52,7 @@ internal class AudioTranscriptorImpl(
                 }
                 val modelFile = sttModel.localModelURI?.toUri()?.toFile() ?: run {
                     Log.d(TAG, "MODEL IS NOT DOWNLOADED")
-                    return@withContext Result.failure(Exception("Model absent download it to use"))
+                    return@withContext Result.failure(Exception(UiStrings.get(com.eva.transcribe.R.string.data_transcribe_message_model_absent_download_it_to_use, "Model absent download it to use")))
                 }
                 Log.d(TAG, "PREPARING MODEL AND RECOGNIZER | PATH :${modelFile.absolutePath}")
                 val model = Model(modelFile.absolutePath).also { _model = it }

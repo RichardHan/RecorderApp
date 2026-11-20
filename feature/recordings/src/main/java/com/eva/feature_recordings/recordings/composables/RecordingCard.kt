@@ -1,5 +1,7 @@
 package com.eva.feature_recordings.recordings.composables
 
+import com.eva.utils.UiStrings
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -200,13 +202,13 @@ private fun Modifier.recordingCardCombinedClick(
 
 	val clickModifier = if (isSelectable) clickable(
 		onClick = onItemSelectUpdatedState,
-		onClickLabel = "Item Selected"
+		onClickLabel = UiStrings.get(com.eva.feature_recordings.R.string.feature_recordings_message_item_selected, "Item Selected")
 	)
 	else combinedClickable(
 		onClick = onItemClickUpdatedState,
 		onLongClick = onItemSelectUpdatedState,
-		onClickLabel = "Item Clicked",
-		onLongClickLabel = "Item Selected"
+		onClickLabel = UiStrings.get(com.eva.feature_recordings.R.string.feature_recordings_message_item_clicked, "Item Clicked"),
+		onLongClickLabel = UiStrings.get(com.eva.feature_recordings.R.string.feature_recordings_message_item_selected, "Item Selected")
 	)
 
 	clip(clipShape).then(clickModifier)

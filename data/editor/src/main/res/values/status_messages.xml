@@ -1,0 +1,4 @@
+<resources>
+	<string name="data_editor_message_invalid_file_location">Invalid file location</string>
+	<string name="data_editor_message_wrong_file_provided">Wrong file provided</string>
+</resources>

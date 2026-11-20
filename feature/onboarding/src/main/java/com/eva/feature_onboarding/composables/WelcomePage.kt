@@ -1,5 +1,8 @@
 package com.eva.feature_onboarding.composables
 
+import com.eva.feature_onboarding.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,7 +43,7 @@ internal fun WelcomePage(
 		Image(
 			painter = painterResource(R.drawable.ic_microphone),
 			colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.secondary),
-			contentDescription = "probable logo",
+			contentDescription = UiStrings.get(StringsRes.string.feature_onboarding_probable_logo, "probable logo"),
 			modifier = Modifier.size(128.dp),
 		)
 		Spacer(modifier = Modifier.height(12.dp))

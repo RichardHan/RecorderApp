@@ -1,5 +1,7 @@
 package com.eva.feature_player.composable
 
+import com.eva.feature_player.R as StringsRes
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.SharedTransitionScope
@@ -213,7 +215,7 @@ internal fun AudioPlayerScreenTopBar(
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text(text = "逐字稿／雲端重轉／摘要") },
+                                text = { Text(text = stringResource(StringsRes.string.feature_player_transcripts_cloud_transcription_and_summaries)) },
                                 onClick = {
                                     showDropDown = false
                                     onCloudTranscripts()
