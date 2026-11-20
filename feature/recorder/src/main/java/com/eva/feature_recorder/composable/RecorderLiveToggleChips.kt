@@ -25,8 +25,9 @@ import com.eva.cloudtranscribe.live.LiveToggleKind
 import com.eva.recorder.domain.live.RecorderLiveToggleUi
 
 /**
- * Compact 本機字幕 / 雲端即時 / Slack chips. Mid-recording on/off applies immediately and does not
- * write settings defaults. First-time cloud enable shows the existing consent/cost dialog.
+ * Compact 本機字幕 / 雲端即時 / Slack chips. Mid-recording on/off applies immediately and is also
+ * written back as the next-recording start default. First-time cloud or Slack enable shows
+ * the existing consent dialog; missing consent is never bypassed.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -37,9 +38,11 @@ internal fun RecorderLiveToggleChips(
 	onToggleSlack: (Boolean) -> Unit,
 	onNeedLocalModel: () -> Unit,
 	onAcceptCloudConsent: () -> Unit,
+	onAcceptSlackConsent: () -> Unit = {},
 	modifier: Modifier = Modifier,
 ) {
 	var confirmCloud by rememberSaveable { mutableStateOf(false) }
+	var confirmSlack by rememberSaveable { mutableStateOf(false) }
 	var needModel by rememberSaveable { mutableStateOf(false) }
 
 	if (needModel) {
@@ -79,6 +82,22 @@ internal fun RecorderLiveToggleChips(
 		)
 	}
 
+	if (confirmSlack) {
+		AlertDialog(
+			onDismissRequest = { confirmSlack = false },
+			title = { Text("開啟 Slack 同步？") },
+			text = { Text("錄音開始後會依你的 Slack 設定送出開始通知與即時重點。只送出本機產生的文字，不會上傳錄音。") },
+			confirmButton = {
+				TextButton(onClick = { confirmSlack = false; onAcceptSlackConsent() }) {
+					Text("我了解，開啟")
+				}
+			},
+			dismissButton = {
+				TextButton(onClick = { confirmSlack = false }) { Text("取消") }
+			},
+		)
+	}
+
 	Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
 		FlowRow(
 			horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
@@ -113,7 +132,11 @@ internal fun RecorderLiveToggleChips(
 				selected = ui.slackOn,
 				enabled = ui.slackEnabled,
 				hint = ui.slackHint,
-				onClick = { if (ui.slackEnabled) onToggleSlack(!ui.slackOn) },
+				onClick = {
+					if (!ui.slackEnabled) return@LiveToggleChip
+					if (!ui.slackOn && !ui.inputs.slackHasConsent) confirmSlack = true
+					else onToggleSlack(!ui.slackOn)
+				},
 			)
 		}
 		val caption = listOfNotNull(

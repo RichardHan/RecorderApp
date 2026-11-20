@@ -16,8 +16,10 @@ data class LiveToggleInputs(
 	val cloudEnhanceContextQuality: Boolean = true,
 	/** Settings default: Slack is opted in and a webhook exists. */
 	val slackDefaultOn: Boolean = false,
-	/** Webhook saved and Slack consent given. */
+	/** Webhook is saved (consent is separate; missing consent must not be bypassed). */
 	val slackConfigured: Boolean = false,
+	/** User has agreed to Slack sync; turning off clears this, so re-enabling asks again. */
+	val slackHasConsent: Boolean = false,
 )
 
 /** Per-recording (or upcoming) on/off for the three live features. */
@@ -47,11 +49,14 @@ sealed class LiveToggleAction {
 	data object Disabled : LiveToggleAction()
 	data object NeedsLocalModel : LiveToggleAction()
 	data object NeedsCloudConsent : LiveToggleAction()
+	data object NeedsSlackConsent : LiveToggleAction()
 }
 
 /**
  * Pure policy for the recorder's 「本機字幕 / 雲端即時 / Slack」 chips.
- * Per-recording on/off never writes settings; each new recording starts from [LiveToggleInputs] defaults.
+ * An applied toggle should be written back to the 「錄音開始時預設」 settings so the next
+ * recording starts from the last-used state. Missing cloud/Slack consent or configuration
+ * still blocks turning on, including a remembered "on" default.
  */
 object RecorderLiveTogglePolicy {
 	const val HINT_SLACK_NEEDS_CLOUD = "需開雲端即時才有新重點"
@@ -67,7 +72,7 @@ object RecorderLiveTogglePolicy {
 	private fun resolve(inputs: LiveToggleInputs, pending: LiveTogglePending?, inRecording: Boolean): LiveToggleSnapshot {
 		val local = (pending?.localOn ?: inputs.localDefaultOn) && inputs.hasLocalModel
 		val cloud = (pending?.cloudOn ?: inputs.cloudDefaultOn) && inputs.cloudConfigured && inputs.cloudHasConsent
-		val slack = (pending?.slackOn ?: inputs.slackDefaultOn) && inputs.slackConfigured
+		val slack = (pending?.slackOn ?: inputs.slackDefaultOn) && inputs.slackConfigured && inputs.slackHasConsent
 		return LiveToggleSnapshot(localOn = local, cloudOn = cloud, slackOn = slack, inRecording = inRecording)
 	}
 
@@ -106,6 +111,7 @@ object RecorderLiveTogglePolicy {
 		}
 		LiveToggleKind.SLACK -> {
 			if (!inputs.slackConfigured) LiveToggleAction.Disabled to snapshot
+			else if (wantOn && !inputs.slackHasConsent) LiveToggleAction.NeedsSlackConsent to snapshot
 			else LiveToggleAction.Applied to snapshot.copy(slackOn = wantOn)
 		}
 	}
@@ -113,4 +119,11 @@ object RecorderLiveTogglePolicy {
 	/** After the user accepts the existing live-cloud consent dialog, turn cloud on for this session/pending. */
 	fun afterCloudConsent(inputs: LiveToggleInputs, snapshot: LiveToggleSnapshot): LiveToggleSnapshot =
 		if (inputs.cloudConfigured) snapshot.copy(cloudOn = true) else snapshot
+
+	/** After the user accepts Slack consent, turn Slack on if a webhook is configured. */
+	fun afterSlackConsent(inputs: LiveToggleInputs, snapshot: LiveToggleSnapshot): LiveToggleSnapshot =
+		if (inputs.slackConfigured) snapshot.copy(slackOn = true) else snapshot
+
+	/** Applied chip toggles are written back as the next-recording start default. */
+	fun shouldPersistDefault(action: LiveToggleAction): Boolean = action == LiveToggleAction.Applied
 }

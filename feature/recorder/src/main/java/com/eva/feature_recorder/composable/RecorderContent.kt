@@ -49,6 +49,7 @@ internal fun RecorderContent(
 	onToggleLocalLive: (Boolean) -> Unit = {},
 	onToggleCloudLive: (Boolean) -> Unit = {},
 	onAcceptCloudConsent: () -> Unit = {},
+	onAcceptSlackConsent: () -> Unit = {},
 	/** Off in previews/tests (needs Hilt). */
 	showNotes: Boolean = false,
 ) {
@@ -83,6 +84,7 @@ internal fun RecorderContent(
 				onToggleSlack = onToggleSlackSync,
 				onNeedLocalModel = onNavigateToSettings,
 				onAcceptCloudConsent = onAcceptCloudConsent,
+				onAcceptSlackConsent = onAcceptSlackConsent,
 			)
 			RecorderInputLevelBar(
 				points = recordingPointsCallback,

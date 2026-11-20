@@ -83,8 +83,8 @@ internal fun RecordingStartDefaultsSection(viewModel: RecordingStartDefaultsView
 
 	SettingsCard("錄音開始時預設", status, "ai-rec-defaults") {
 		InfoLine(
-			"每次新錄音開始時套用；錄音中可在畫面隨時開關，不會改這裡的預設。",
-			"本機字幕預設關閉（較耗手機資源）。雲端即時與 Slack 預設跟隨下方的啟用設定。本機模型在字幕關閉時仍可選取。",
+			"每次新錄音開始時套用。錄音中在畫面開關，也會更新這裡的預設，下次從上次的狀態開始。",
+			"第一次開啟雲端即時需同意費用；Slack 需已設定 Webhook 並同意。沒有同意時，不會因為記住的狀態而自動開啟。本機模型在字幕關閉時仍可選取。",
 		)
 		SettingSwitch(
 			"本機字幕",

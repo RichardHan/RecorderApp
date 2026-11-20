@@ -48,6 +48,7 @@ internal fun VoiceRecorderScreen(
 	onToggleLocalLive: (Boolean) -> Unit = {},
 	onToggleCloudLive: (Boolean) -> Unit = {},
 	onAcceptCloudConsent: () -> Unit = {},
+	onAcceptSlackConsent: () -> Unit = {},
 	showNotes: Boolean = false,
 ) {
 
@@ -103,6 +104,7 @@ internal fun VoiceRecorderScreen(
 				onToggleLocalLive = onToggleLocalLive,
 				onToggleCloudLive = onToggleCloudLive,
 				onAcceptCloudConsent = onAcceptCloudConsent,
+				onAcceptSlackConsent = onAcceptSlackConsent,
 				showNotes = showNotes,
 				modifier = Modifier.fillMaxSize()
 			)

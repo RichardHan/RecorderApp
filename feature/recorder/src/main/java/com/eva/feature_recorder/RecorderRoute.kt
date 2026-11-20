@@ -83,6 +83,7 @@ fun NavGraphBuilder.recorderRoute(navController: NavHostController) =
 				onToggleLocalLive = viewModel::setLocalLive,
 				onToggleCloudLive = viewModel::setCloudLive,
 				onAcceptCloudConsent = viewModel::acceptCloudConsent,
+				onAcceptSlackConsent = viewModel::acceptSlackConsent,
 				recorderTimer = { recorderTimer },
 				deferredRecordingPoints = { recordingPoints },
 				onRecorderAction = viewModel::onAction,

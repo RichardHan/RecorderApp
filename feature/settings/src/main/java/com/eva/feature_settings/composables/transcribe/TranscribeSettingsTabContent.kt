@@ -88,7 +88,7 @@ internal fun TranscribeSettingsTabContent(
         item {
             ListItem(
                 headlineContent = { Text("錄音開始時預設開啟本機字幕") },
-                supportingContent = { Text("錄音中可在畫面隨時開關，不會改這裡的預設。模型在關閉時仍可選取。") },
+                supportingContent = { Text("錄音中開關也會更新這裡的預設，下次錄音沿用。模型在關閉時仍可選取。") },
                 trailingContent = {
                     Switch(
                         checked = isTranscriptionActive,

@@ -76,7 +76,7 @@ internal class RecorderViewModel @Inject constructor(
     /** Opt-in Slack sync status for the indicator on this screen. */
     val slackStatus: StateFlow<com.eva.cloudtranscribe.slack.SlackSyncStatus> = slackSync.status
 
-    /** Turns Slack sync off/on for the current recording only (never enables it without the global opt-in). */
+    /** Turns Slack sync off/on for this recording and writes the start default (requires webhook + consent). */
     fun setSlackSyncForThisRecording(enabled: Boolean) {
         viewModelScope.launch { liveToggles.toggle(com.eva.cloudtranscribe.live.LiveToggleKind.SLACK, enabled) }
     }
@@ -87,12 +87,12 @@ internal class RecorderViewModel @Inject constructor(
         viewModelScope.launch { liveToggles.refreshInputs() }
     }
 
-    /** Per-recording 本機字幕; does not write the settings default. */
+    /** 本機字幕 for this recording; also updates the start default. */
     fun setLocalLive(enabled: Boolean) {
         viewModelScope.launch { liveToggles.toggle(com.eva.cloudtranscribe.live.LiveToggleKind.LOCAL, enabled) }
     }
 
-    /** Per-recording 雲端即時; does not write the settings default (consent is persisted separately). */
+    /** 雲端即時 for this recording; also updates the start default. First-time on still needs cost consent. */
     fun setCloudLive(enabled: Boolean) {
         viewModelScope.launch { liveToggles.toggle(com.eva.cloudtranscribe.live.LiveToggleKind.CLOUD, enabled) }
     }
@@ -101,11 +101,15 @@ internal class RecorderViewModel @Inject constructor(
         viewModelScope.launch { liveToggles.acceptCloudConsent() }
     }
 
+    fun acceptSlackConsent() {
+        viewModelScope.launch { liveToggles.acceptSlackConsent() }
+    }
+
     fun refreshLiveToggles() {
         viewModelScope.launch { liveToggles.refreshInputs() }
     }
 
-    /** Kept for older call sites; settings default is no longer written from the recorder chip. */
+    /** Kept for older call sites; now also writes the start default, same as [setLocalLive]. */
     fun setLiveTranscription(enabled: Boolean) = setLocalLive(enabled)
 
     private val _uiEvents = MutableSharedFlow<UIEvents>()
