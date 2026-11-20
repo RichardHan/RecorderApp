@@ -14,7 +14,10 @@ import java.io.File
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
@@ -130,6 +133,7 @@ class TranscriptExportViewModel @Inject constructor(
 internal fun TranscriptExportButton(
 	record: TranscriptRecord,
 	extras: () -> TranscriptExportExtras = { TranscriptExportExtras() },
+	compact: Boolean = false,
 	viewModel: TranscriptExportViewModel = hiltViewModel(key = "transcript-export-${record.recordingId}"),
 ) {
 	var confirm by remember(record.id) { mutableStateOf(false) }
@@ -141,7 +145,17 @@ internal fun TranscriptExportButton(
 		}
 	}
 	if (viewModel.interrupted) Text(stringResource(R.string.transcript_export_failed))
-	OutlinedButton(onClick = { confirm = true }, enabled = !viewModel.busy) { Text(stringResource(R.string.transcript_export_button)) }
+	val exportLabel = stringResource(R.string.transcript_export_button)
+	if (compact) {
+		IconButton(onClick = { confirm = true }, enabled = !viewModel.busy) {
+			Icon(
+				painter = painterResource(id = com.eva.ui.R.drawable.ic_export),
+				contentDescription = exportLabel,
+			)
+		}
+	} else {
+		OutlinedButton(onClick = { confirm = true }, enabled = !viewModel.busy) { Text(exportLabel) }
+	}
 	if (confirm) {
 		val formats = remember(record.id, record.updatedAtMillis) { TranscriptExportFormatter.availableFormats(record) }
 		val hasText = remember(record.id, record.updatedAtMillis) { TranscriptExportFormatter.hasExportableText(record) }

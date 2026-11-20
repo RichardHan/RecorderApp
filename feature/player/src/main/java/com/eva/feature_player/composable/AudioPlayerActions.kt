@@ -1,13 +1,13 @@
 package com.eva.feature_player.composable
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -79,97 +79,81 @@ internal fun AudioPlayerActions(
 		color = color,
 		contentColor = contentColor,
 	) {
-		Column(
+		Row(
 			modifier = Modifier
-				.padding(all = dimensionResource(id = R.dimen.player_actions_padding)),
-			horizontalAlignment = Alignment.CenterHorizontally,
-			verticalArrangement = Arrangement.spacedBy(16.dp)
+				.fillMaxWidth()
+				.padding(horizontal = 2.dp, vertical = 2.dp),
+			verticalAlignment = Alignment.CenterVertically,
 		) {
-			Row(
-				modifier = Modifier.fillMaxWidth(),
-				horizontalArrangement = Arrangement.SpaceBetween
-			) {
-				IconButtonWithText(
-					icon = {
-						Icon(
-							painter = painterResource(id = R.drawable.ic_mute_stream),
-							contentDescription = stringResource(id = R.string.player_action_mute),
-						)
-					},
-					isSelected = playerMetaData.isMuted,
-					text = stringResource(id = R.string.player_action_mute),
-					onClick = onMuteStream,
-					enabled = isControllerReady
-				)
-				IconButtonWithText(
-					icon = {
-						Icon(
-							painter = painterResource(id = R.drawable.ic_repeat),
-							contentDescription = stringResource(id = R.string.player_action_repeat),
-						)
-					},
-					isSelected = playerMetaData.isRepeating,
-					text = stringResource(id = R.string.player_action_repeat),
-					onClick = { onRepeatModeChange(!playerMetaData.isRepeating) },
-					enabled = isControllerReady
-				)
-				IconButtonWithText(
-					icon = {
-						Text(
-							text = stringResource(
-								R.string.player_playback_speed,
-								playerMetaData.playBackSpeed.speed
-							),
-							style = MaterialTheme.typography.titleMedium,
-							color = MaterialTheme.colorScheme.onSurface
-						)
-					},
-					text = stringResource(id = R.string.player_action_speed),
-					onClick = {
-						scope.launch { playBackSpeedBottomSheet.show() }
-							.invokeOnCompletion { openPlayBackSpeedBottomSheet = true }
-					},
-					enabled = isControllerReady
+			CompactIconButton(onClick = onMuteStream, enabled = isControllerReady) {
+				Icon(
+					painter = painterResource(id = R.drawable.ic_mute_stream),
+					contentDescription = stringResource(id = R.string.player_action_mute),
+					tint = if (playerMetaData.isMuted) MaterialTheme.colorScheme.primary
+					else contentColor,
 				)
 			}
-			Row(
-				modifier = Modifier.fillMaxWidth(),
-				horizontalArrangement = Arrangement.SpaceBetween,
-				verticalAlignment = Alignment.CenterVertically
+			CompactIconButton(
+				onClick = { onRepeatModeChange(!playerMetaData.isRepeating) },
+				enabled = isControllerReady,
 			) {
-				IconButtonWithText(
-					icon = {
-						Icon(
-							painter = painterResource(id = R.drawable.ic_fast_rewind),
-							contentDescription = stringResource(id = R.string.player_fast_rewind)
-						)
-					},
-					text = stringResource(id = R.string.player_fast_rewind),
-					onClick = onRewind,
-					enabled = isControllerReady
+				Icon(
+					painter = painterResource(id = R.drawable.ic_repeat),
+					contentDescription = stringResource(id = R.string.player_action_repeat),
+					tint = if (playerMetaData.isRepeating) MaterialTheme.colorScheme.primary
+					else contentColor,
 				)
-				AnimatedPlayPauseButton(
-					isPlaying = isPlayerPlaying,
-					enabled = isControllerReady,
-					onPause = onPause,
-					onPlay = onPlay,
+			}
+			CompactIconButton(
+				onClick = {
+					scope.launch { playBackSpeedBottomSheet.show() }
+						.invokeOnCompletion { openPlayBackSpeedBottomSheet = true }
+				},
+				enabled = isControllerReady,
+			) {
+				Text(
+					text = stringResource(
+						R.string.player_playback_speed,
+						playerMetaData.playBackSpeed.speed
+					),
+					style = MaterialTheme.typography.labelLarge,
+					color = MaterialTheme.colorScheme.onSurface,
 				)
-				IconButtonWithText(
-					icon = {
-						Icon(
-							painter = painterResource(id = R.drawable.ic_fast_forward),
-							contentDescription = stringResource(id = R.string.player_fast_forward)
-						)
-					},
-					text = stringResource(id = R.string.player_fast_forward),
-					onClick = onForward,
-					enabled = isControllerReady,
+			}
+			androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+			CompactIconButton(onClick = onRewind, enabled = isControllerReady) {
+				Icon(
+					painter = painterResource(id = R.drawable.ic_fast_rewind),
+					contentDescription = stringResource(id = R.string.player_fast_rewind),
+				)
+			}
+			AnimatedPlayPauseButton(
+				isPlaying = isPlayerPlaying,
+				enabled = isControllerReady,
+				onPause = onPause,
+				onPlay = onPlay,
+			)
+			CompactIconButton(onClick = onForward, enabled = isControllerReady) {
+				Icon(
+					painter = painterResource(id = R.drawable.ic_fast_forward),
+					contentDescription = stringResource(id = R.string.player_fast_forward),
 				)
 			}
 		}
 	}
 }
 
+
+@Composable
+private fun CompactIconButton(
+	onClick: () -> Unit,
+	enabled: Boolean,
+	content: @Composable () -> Unit,
+) {
+	IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(40.dp)) {
+		content()
+	}
+}
 
 @PreviewLightDark
 @Composable
