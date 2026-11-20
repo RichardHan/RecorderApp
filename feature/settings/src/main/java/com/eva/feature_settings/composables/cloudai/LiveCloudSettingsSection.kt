@@ -143,7 +143,7 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 		ModelShortcutChips(
 			current = draft.summaryModel,
 			recents = recentSummary,
-			presets = ModelShortcuts.SUMMARY_PRESETS,
+			presets = ModelShortcuts.PRESETS,
 			onPick = { draft = draft.copy(summaryModel = it) },
 			testTag = "live-summary-model-shortcuts",
 		)

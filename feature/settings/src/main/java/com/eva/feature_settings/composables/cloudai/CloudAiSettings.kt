@@ -183,7 +183,7 @@ internal fun CloudAiSettingsContent(
 			ModelShortcutChips(
 				current = draft.transcribeModel,
 				recents = recentTranscribe,
-				presets = ModelShortcuts.TRANSCRIBE_PRESETS,
+				presets = ModelShortcuts.PRESETS,
 				onPick = { draft = draft.copy(transcribeModel = it) },
 				testTag = "transcribe-model-shortcuts",
 			)
@@ -191,7 +191,7 @@ internal fun CloudAiSettingsContent(
 			ModelShortcutChips(
 				current = draft.summaryModel,
 				recents = recentSummary,
-				presets = ModelShortcuts.SUMMARY_PRESETS,
+				presets = ModelShortcuts.PRESETS,
 				onPick = { draft = draft.copy(summaryModel = it) },
 				testTag = "summary-model-shortcuts",
 			)

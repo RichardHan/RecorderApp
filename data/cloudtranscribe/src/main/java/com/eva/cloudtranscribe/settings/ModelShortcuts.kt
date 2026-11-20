@@ -1,29 +1,18 @@
 package com.eva.cloudtranscribe.settings
 
-import com.eva.cloudtranscribe.live.LiveCloudSettings
 import com.eva.cloudtranscribe.model.CloudSettings
 
 /**
  * Quick-fill model IDs for the AI settings fields, and the recently-used list rules.
- * Presets reuse this app's defaults plus documented / well-known official IDs only.
+ * Every model field (transcription, summary, live-cloud summary) uses the same two presets.
  */
 object ModelShortcuts {
 	const val RECENT_LIMIT = 5
 	const val MAX_MODEL_LENGTH = 128
 
-	val TRANSCRIBE_PRESETS = listOf(
+	val PRESETS = listOf(
 		CloudSettings.DEFAULT_MODEL,
 		"gemini-3.5-transcribe",
-		"gpt-4o-transcribe",
-		"gpt-4o-mini-transcribe",
-		"whisper-1",
-	)
-
-	val SUMMARY_PRESETS = listOf(
-		CloudSettings.DEFAULT_MODEL,
-		LiveCloudSettings.DEFAULT_SUMMARY_MODEL,
-		"gpt-4o",
-		"gpt-4o-mini",
 	)
 
 	/** Trimmed value, or null when blank. Over-long IDs are capped so prefs stay bounded. */

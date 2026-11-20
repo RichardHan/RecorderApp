@@ -1,10 +1,8 @@
 package com.eva.cloudtranscribe.settings
 
-import com.eva.cloudtranscribe.live.LiveCloudSettings
 import com.eva.cloudtranscribe.model.CloudSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ModelShortcutsTest {
@@ -69,31 +67,22 @@ class ModelShortcutsTest {
 	@Test
 	fun chipsShowRecentsFirstThenUnusedPresets() {
 		val recents = listOf("custom-a", CloudSettings.DEFAULT_MODEL, "custom-b")
-		val chips = ModelShortcuts.chips(recents, ModelShortcuts.TRANSCRIBE_PRESETS)
-		assertEquals(listOf("custom-a", CloudSettings.DEFAULT_MODEL, "custom-b"), chips.take(3))
-		assertEquals(CloudSettings.DEFAULT_MODEL, chips[1])
+		val chips = ModelShortcuts.chips(recents, ModelShortcuts.PRESETS)
+		assertEquals(
+			listOf("custom-a", CloudSettings.DEFAULT_MODEL, "custom-b", "gemini-3.5-transcribe"),
+			chips,
+		)
 		assertFalse(chips.drop(3).contains(CloudSettings.DEFAULT_MODEL))
-		assertTrue(chips.contains("gemini-3.5-transcribe"))
-		assertTrue(chips.contains("gpt-4o-transcribe"))
-		assertTrue(chips.contains("gpt-4o-mini-transcribe"))
-		assertTrue(chips.contains("whisper-1"))
 		assertEquals(chips, chips.distinct())
 	}
 
 	@Test
-	fun transcribePresetsStartWithTheAppDefault() {
-		assertEquals(CloudSettings.DEFAULT_MODEL, ModelShortcuts.TRANSCRIBE_PRESETS.first())
-		assertEquals("gemini-3.8-flash", CloudSettings.DEFAULT_MODEL)
-		assertTrue(ModelShortcuts.TRANSCRIBE_PRESETS.contains("gemini-3.5-transcribe"))
-	}
-
-	@Test
-	fun summaryPresetsIncludeBothAppDefaults() {
-		assertEquals(CloudSettings.DEFAULT_MODEL, ModelShortcuts.SUMMARY_PRESETS[0])
-		assertEquals(LiveCloudSettings.DEFAULT_SUMMARY_MODEL, ModelShortcuts.SUMMARY_PRESETS[1])
-		assertEquals("deepseek-v4.1-flash", LiveCloudSettings.DEFAULT_SUMMARY_MODEL)
-		assertTrue(ModelShortcuts.SUMMARY_PRESETS.contains("gpt-4o"))
-		assertTrue(ModelShortcuts.SUMMARY_PRESETS.contains("gpt-4o-mini"))
+	fun allFieldsShareTheSameTwoPresets() {
+		assertEquals(
+			listOf("gemini-3.8-flash", "gemini-3.5-transcribe"),
+			ModelShortcuts.PRESETS,
+		)
+		assertEquals(CloudSettings.DEFAULT_MODEL, ModelShortcuts.PRESETS.first())
 	}
 
 	@Test
