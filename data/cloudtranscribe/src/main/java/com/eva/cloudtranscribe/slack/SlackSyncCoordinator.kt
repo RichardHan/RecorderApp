@@ -54,6 +54,8 @@ class SlackSyncCoordinator internal constructor(
 			override var currentSessionId: String?
 				get() = deliveryState.currentSessionId
 				set(value) { deliveryState.currentSessionId = value }
+			override fun permit(id: String) = deliveryState.permit(id)
+			override fun savePermit(id: String, permit: SlackSessionPermit) = deliveryState.savePermit(id, permit)
 		},
 		clock = { System.currentTimeMillis() },
 		scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
@@ -66,6 +68,7 @@ class SlackSyncCoordinator internal constructor(
 		val settings: SlackSyncSettings,
 	) {
 		var override: Boolean? = null
+		var generation: Int = 0
 		var sentItems: List<String> = emptyList()
 		var latestItems: List<String> = emptyList()
 		var lastKeyPointsSentAt: Long? = null
@@ -98,10 +101,11 @@ class SlackSyncCoordinator internal constructor(
 			session?.timer?.cancel()
 			session = next
 		}
+		deliveryState.savePermit(next.id, SlackSessionPermit(enabled = next.syncing()))
 		deliveryState.currentSessionId = next.id
 		publish(next)
 		if (next.syncing() && settings.sendStart) {
-			outbox.enqueue(SlackOutgoing(next.id, SlackMessageKind.START, SlackMessages.startText(now)))
+			outbox.enqueue(outgoing(next, SlackMessageKind.START, SlackMessages.startText(now)))
 		}
 	}
 
@@ -109,6 +113,9 @@ class SlackSyncCoordinator internal constructor(
 	fun setSyncForThisRecording(enabled: Boolean) {
 		val s = synchronized(lock) { session } ?: return
 		s.override = enabled
+		// Revocation invalidates every previously queued message, even after re-enabling this recording.
+		if (!enabled) s.generation++
+		persist(s)
 		if (!enabled) {
 			s.timer?.cancel()
 			s.timer = null
@@ -119,12 +126,14 @@ class SlackSyncCoordinator internal constructor(
 	fun onPaused() {
 		val s = synchronized(lock) { session } ?: return
 		s.paused = true
+		persist(s)
 		publish(s)
 	}
 
 	fun onResumed() {
 		val s = synchronized(lock) { session } ?: return
 		s.paused = false
+		persist(s)
 		publish(s)
 		// an update that arrived just before the pause may now be due
 		scheduleKeyPoints(s)
@@ -161,7 +170,7 @@ class SlackSyncCoordinator internal constructor(
 			s.sentItems = s.sentItems + newItems
 			s.lastKeyPointsSentAt = clock()
 			s.timer = null
-			SlackOutgoing(s.id, SlackMessageKind.KEY_POINTS, maybeMask(s, SlackMessages.keyPointsText(newItems)))
+			outgoing(s, SlackMessageKind.KEY_POINTS, maybeMask(s, SlackMessages.keyPointsText(newItems)))
 		}
 		outbox.enqueue(message)
 	}
@@ -170,20 +179,31 @@ class SlackSyncCoordinator internal constructor(
 	fun onRecordingSaved() {
 		val s = synchronized(lock) { session?.also { session = null } } ?: return
 		s.timer?.cancel()
+		persist(s, ended = true)
 		publish(null)
 		if (!s.syncing() || !s.settings.sendEnd) return
 		val finalItems = s.latestItems.ifEmpty { s.sentItems }
 		val text = SlackMessages.endText(finalItems) ?: return
-		outbox.enqueue(SlackOutgoing(s.id, SlackMessageKind.END, maybeMask(s, text)))
+		outbox.enqueue(outgoing(s, SlackMessageKind.END, maybeMask(s, text)))
 	}
 
 	/** Recording discarded: nothing more is sent for it. */
 	fun onRecordingCancelled() {
 		val s = synchronized(lock) { session?.also { session = null } } ?: return
 		s.timer?.cancel()
+		s.override = false
+		s.generation++
+		persist(s, ended = true)
 		publish(null)
 		Log.d(TAG, "SESSION CANCELLED, NOTHING MORE SENT")
 	}
+
+	private fun persist(s: Session, ended: Boolean = false) {
+		deliveryState.savePermit(s.id, SlackSessionPermit(s.generation, s.syncing(), s.paused, ended))
+	}
+
+	private fun outgoing(s: Session, kind: SlackMessageKind, text: String) =
+		SlackOutgoing(s.id, kind, text, s.generation, s.settings.consentAtMillis)
 
 	private fun maybeMask(s: Session, text: String) = if (s.settings.maskSensitive) SlackMessages.mask(text) else text
 
@@ -195,4 +215,14 @@ class SlackSyncCoordinator internal constructor(
 /** Indirection so the coordinator can be tested without SharedPreferences. */
 interface SlackDeliveryStateHolder {
 	var currentSessionId: String?
+	fun permit(id: String): SlackSessionPermit?
+	fun savePermit(id: String, permit: SlackSessionPermit)
 }
+
+@kotlinx.serialization.Serializable
+data class SlackSessionPermit(
+	val generation: Int = 0,
+	val enabled: Boolean = true,
+	val paused: Boolean = false,
+	val ended: Boolean = false,
+)
