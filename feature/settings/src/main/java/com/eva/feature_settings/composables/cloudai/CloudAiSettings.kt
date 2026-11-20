@@ -200,7 +200,7 @@ internal fun CloudAiSettingsContent(
 			viewModel.testResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 			draft.validate(hasKey)?.let { Text("尚未可用：$it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 		}
-		SettingsCard("摘要", summaryFormatLabel(current.summaryFormat) + "・自動摘要" + onOff(current.autoSummaryAfterTranscript), "ai-summary") {
+		SettingsCard("摘要", summaryFormatLabel(current.summaryFormat) + "・自動摘要" + onOff(current.autoSummaryAfterTranscript) + "・自動命名" + onOff(current.autoTitleAfterSummary), "ai-summary") {
 			Text("摘要格式", style = MaterialTheme.typography.bodyLarge)
 			Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
 				SummaryFormat.entries.forEach { format ->
@@ -220,6 +220,7 @@ internal fun CloudAiSettingsContent(
 			}
 			SettingSwitch("附來源時間", draft.summaryCitations, "只限雲端逐字稿；會多用 token") { draft = draft.copy(summaryCitations = it) }
 			SettingSwitch("轉錄後自動摘要", draft.autoSummaryAfterTranscript, androidx.compose.ui.res.stringResource(com.eva.feature_settings.R.string.auto_summary_cost_hint)) { if (it) confirmAutoSummary = true else draft = draft.copy(autoSummaryAfterTranscript = false) }
+			SettingSwitch("摘要完成後自動用 AI 命名", draft.autoTitleAfterSummary, androidx.compose.ui.res.stringResource(com.eva.feature_settings.R.string.auto_title_cost_hint)) { draft = draft.copy(autoTitleAfterSummary = it) }
 		}
 		SettingsCard("轉錄", "自動轉錄" + onOff(current.autoAfterRecording) + "・詞彙 ${current.customVocabulary.size} 個", "ai-transcribe") {
 			CustomVocabularySection(peopleText = peopleText, termsText = termsText, kept = vocabulary.size, onPeople = { peopleText = it }, onTerms = { termsText = it })

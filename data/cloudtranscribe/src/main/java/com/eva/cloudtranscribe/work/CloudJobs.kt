@@ -43,6 +43,8 @@ import com.eva.cloudtranscribe.model.TranscriptRecord
 import com.eva.cloudtranscribe.model.TranscriptSource
 import com.eva.cloudtranscribe.secure.ApiKeyStore
 import com.eva.cloudtranscribe.settings.CloudSettingsRepository
+import com.eva.cloudtranscribe.title.AutoTitleRenamer
+import com.eva.cloudtranscribe.title.AutoTitleResult
 import com.eva.cloudtranscribe.store.TranscriptStore
 import com.eva.recordings.domain.provider.VoiceRecordingsProvider
 import com.eva.utils.Resource
@@ -270,6 +272,7 @@ class CloudSummaryWorker @AssistedInject constructor(
 	private val settingsRepo: CloudSettingsRepository,
 	private val keys: ApiKeyStore,
 	private val recordings: VoiceRecordingsProvider,
+	private val autoTitle: AutoTitleRenamer,
 ) : CoroutineWorker(context, params) {
 	override suspend fun doWork(): Result {
 		val recordingId = inputData.getLong(CloudJobScheduler.KEY_RECORDING, -1)
@@ -318,9 +321,16 @@ class CloudSummaryWorker @AssistedInject constructor(
 
 	private suspend fun done(r: SummaryRecord): Result {
 		store.saveSummary(r)
+		val renamed = if (r.status == RunStatus.SUCCESS)
+			runCatching { autoTitle.applyIfEligible(r.recordingId) }.getOrNull() as? AutoTitleResult.Applied
+		else null
 		runCatching {
-			if (settingsRepo.current().notifyWhenDone) CloudDoneMessages.summary(r.status, recordingTitle(recordings, r.recordingId), r.text)
-				?.let { CloudDoneNotifier.post(applicationContext, r.recordingId, "summary", it) }
+			if (settingsRepo.current().notifyWhenDone) CloudDoneMessages.summary(
+				r.status,
+				renamed?.displayName ?: recordingTitle(recordings, r.recordingId),
+				r.text,
+				autoTitled = renamed != null,
+			)?.let { CloudDoneNotifier.post(applicationContext, r.recordingId, "summary", it) }
 		}
 		return if (r.status == RunStatus.SUCCESS) Result.success() else Result.failure()
 	}

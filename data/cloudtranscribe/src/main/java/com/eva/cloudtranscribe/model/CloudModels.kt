@@ -32,6 +32,8 @@ data class CloudSettings(
 	val redactPiiForCloud: Boolean = false,
 	/** Opt-in: one extra summary request (text only) after each SUCCESSFUL cloud transcription. Off by default. */
 	val autoSummaryAfterTranscript: Boolean = false,
+	/** After a successful post-recording summary with real points, auto-rename if the file still has its original name. Default ON. */
+	val autoTitleAfterSummary: Boolean = true,
 	/** Local notification when background cloud transcription / summary finishes. Off by default. */
 	val notifyWhenDone: Boolean = false,
 	/** Ask NEW summaries to cite cloud segments (longer prompt and reply → more tokens). Off by default. */

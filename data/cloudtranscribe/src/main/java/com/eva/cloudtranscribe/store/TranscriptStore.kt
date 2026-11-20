@@ -17,6 +17,7 @@ import kotlinx.serialization.json.Json
  * `<root>/v1/<recordingId>/translations/<lang>.json` — latest translation per target language (#37)
  * `<root>/v1/<recordingId>/qa/<id>.json`            — single-recording questions and answers (#7)
  * `<root>/v1/<recordingId>/outline.json`             — optional AI outline of a summary (#38)
+ * `<root>/v1/<recordingId>/auto-title.json`          — auto AI rename marker (applied once; no Room migration)
  * `<root>/v1/<recordingId>/checkpoints/<runId>/NNN.json` — per-chunk cloud checkpoints, removed only after success or explicit cleanup
  * `<root>/v1/<recordingId>/edits/<transcriptId>.json` — on-device user corrections, an overlay; the transcript file itself is never rewritten
  * The raw recording is never touched.
@@ -105,6 +106,14 @@ class TranscriptStore(root: File) {
 		read(File(recDir(recordingId), "outline.json"))?.let { runCatching { json.decodeFromString(com.eva.cloudtranscribe.outline.SavedOutline.serializer(), it) }.getOrNull() }
 
 	fun deleteOutline(recordingId: Long) { synchronized(lock) { File(recDir(recordingId), "outline.json").delete() } }
+
+	fun autoTitleMarker(recordingId: Long): com.eva.cloudtranscribe.title.AutoTitleMarker? =
+		read(File(recDir(recordingId), "auto-title.json"))?.let {
+			runCatching { json.decodeFromString(com.eva.cloudtranscribe.title.AutoTitleMarker.serializer(), it) }.getOrNull()
+		}
+
+	fun saveAutoTitleMarker(recordingId: Long, marker: com.eva.cloudtranscribe.title.AutoTitleMarker) =
+		write(File(recDir(recordingId), "auto-title.json"), json.encodeToString(com.eva.cloudtranscribe.title.AutoTitleMarker.serializer(), marker))
 
 	fun deleteSummary(recordingId: Long, id: String) { File(summariesDir(recordingId), "${safe(id)}.json").delete() }
 	fun clearCheckpoints(recordingId: Long, runId: String) { checkpointDir(recordingId, runId).deleteRecursively() }
