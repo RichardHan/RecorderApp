@@ -53,6 +53,7 @@ import com.eva.cloudtranscribe.model.ReasoningEffort
 import com.eva.cloudtranscribe.model.SummaryFormat
 import com.eva.cloudtranscribe.secure.ApiKeyStore
 import com.eva.cloudtranscribe.settings.CloudSettingsRepository
+import com.eva.cloudtranscribe.settings.ModelShortcuts
 import com.eva.feature_settings.composables.drive.DriveSettingsContent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -75,6 +76,10 @@ internal class CloudAiSettingsViewModel @Inject constructor(
 	private val keys: ApiKeyStore,
 ) : ViewModel() {
 	val settings: StateFlow<CloudSettings?> = repo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+	val recentTranscribeModels: StateFlow<List<String>> =
+		repo.recentTranscribeModels.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+	val recentSummaryModels: StateFlow<List<String>> =
+		repo.recentSummaryModels.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 	val hasKey: StateFlow<Boolean> = keys.hasKey
 	var savedKey by mutableStateOf(keys.read())
 		private set
@@ -115,7 +120,11 @@ internal class CloudAiSettingsViewModel @Inject constructor(
 	fun cancelTest() { probeTransport?.cancel(); testJob?.cancel() }
 	override fun onCleared() { probeTransport?.cancel(); super.onCleared() }
 
-	fun save(s: CloudSettings) = viewModelScope.launch { repo.update { s } }
+	fun save(s: CloudSettings) = viewModelScope.launch {
+		repo.update { s }
+		repo.recordRecentTranscribe(s.transcribeModel)
+		repo.recordRecentSummary(s.summaryModel)
+	}
 	fun saveKey(key: String) {
 		if (key.isBlank()) return
 		keys.save(key)
@@ -131,6 +140,8 @@ internal fun CloudAiSettingsContent(
 ) {
 	val saved by viewModel.settings.collectAsStateWithLifecycle()
 	val hasKey by viewModel.hasKey.collectAsStateWithLifecycle()
+	val recentTranscribe by viewModel.recentTranscribeModels.collectAsStateWithLifecycle()
+	val recentSummary by viewModel.recentSummaryModels.collectAsStateWithLifecycle()
 	val current = saved ?: return
 	var draft by remember(current) { mutableStateOf(current) }
 	var keyInput by remember { mutableStateOf("") }
@@ -169,7 +180,21 @@ internal fun CloudAiSettingsContent(
 				singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
 				isError = draft.baseUrl.isNotBlank() && !draft.baseUrl.startsWith("https://"))
 			OutlinedTextField(draft.transcribeModel, { draft = draft.copy(transcribeModel = it.trim()) }, Modifier.fillMaxWidth(), label = { Text("轉錄模型") }, singleLine = true)
+			ModelShortcutChips(
+				current = draft.transcribeModel,
+				recents = recentTranscribe,
+				presets = ModelShortcuts.TRANSCRIBE_PRESETS,
+				onPick = { draft = draft.copy(transcribeModel = it) },
+				testTag = "transcribe-model-shortcuts",
+			)
 			OutlinedTextField(draft.summaryModel, { draft = draft.copy(summaryModel = it.trim()) }, Modifier.fillMaxWidth(), label = { Text("摘要模型") }, singleLine = true)
+			ModelShortcutChips(
+				current = draft.summaryModel,
+				recents = recentSummary,
+				presets = ModelShortcuts.SUMMARY_PRESETS,
+				onPick = { draft = draft.copy(summaryModel = it) },
+				testTag = "summary-model-shortcuts",
+			)
 			Text("API Key", style = MaterialTheme.typography.bodyLarge)
 			Text(stringResource(if (hasKey) R.string.cloud_api_key_saved else R.string.cloud_api_key_missing), style = MaterialTheme.typography.bodySmall)
 			viewModel.savedKey?.let { key ->
