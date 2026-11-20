@@ -318,6 +318,67 @@ class LiveCloudContextSessionTests {
 	}
 
 	@Test
+	fun zeroOverlapKeepsRealRepetitionWithQualityEnabled() = runTest {
+		val s = LiveCloudSession(
+			backgroundScope, on.copy(overlapSec = 0), "s",
+			transcribe = { CallOutcome.Text("可以開始。") },
+			summarize = { CallOutcome.Text("k") },
+			sampleRate = 100,
+		)
+		repeat(2) {
+			s.onAudio(pcm(30), 3_000)
+			runCurrent()
+		}
+		assertEquals(listOf("可以開始。", "可以開始。"), s.state.value.cloudSpans.map { it.text })
+	}
+
+	@Test
+	fun pauseClearsOverlapAndKeepsRealRepetition() = runTest {
+		val s = LiveCloudSession(
+			backgroundScope, on, "s",
+			transcribe = { CallOutcome.Text("可以開始。") },
+			summarize = { CallOutcome.Text("k") },
+			sampleRate = 100,
+		)
+		s.onAudio(pcm(30), 3_000)
+		runCurrent()
+		s.setUploadsPaused(true)
+		s.onAudio(pcm(10), 1_000)
+		s.setUploadsPaused(false)
+		s.onAudio(pcm(30), 3_000)
+		runCurrent()
+		assertEquals(listOf(0L, 40_000L), s.state.value.cloudSpans.map { it.startMs })
+		assertEquals(listOf("可以開始。", "可以開始。"), s.state.value.cloudSpans.map { it.text })
+	}
+
+	@Test
+	fun queueOverflowDoesNotBlockLaterResultsOrTrimAcrossTheGap() = runTest {
+		val release = CompletableDeferred<Unit>()
+		val s = LiveCloudSession(
+			backgroundScope, on, "s",
+			transcribe = { job ->
+				if (job.startMs < 60_000L) release.await()
+				CallOutcome.Text(if (job.startMs == 0L) "第一段。" else "可以開始。")
+			},
+			summarize = { CallOutcome.Text("k") },
+			sampleRate = 100,
+			queueCapacity = 1,
+		)
+		repeat(4) {
+			s.onAudio(pcm(30), 3_000)
+			runCurrent()
+		}
+		assertEquals(30_000L, s.state.value.skippedMs)
+		release.complete(Unit)
+		runCurrent()
+		val spans = s.state.value.cloudSpans
+		assertEquals(listOf(0L, 30_000L, 60_000L, 90_000L), spans.map { it.startMs })
+		assertFalse(spans[2].ok)
+		assertEquals("可以開始。", spans[3].text)
+		assertEquals(0, s.state.value.inFlightTranscribes)
+	}
+
+	@Test
 	fun laterChunkCanFinishFirstButMergesInOrder() = runTest {
 		val first = CompletableDeferred<Unit>()
 		val firstStarted = CompletableDeferred<Unit>()
@@ -328,9 +389,9 @@ class LiveCloudContextSessionTests {
 				if (job.startMs == 0L) {
 					firstStarted.complete(Unit)
 					first.await()
-					CallOutcome.Text("第一段")
+					CallOutcome.Text("前一句，可以開始。")
 				} else {
-					CallOutcome.Text("第二段")
+					CallOutcome.Text("可以開始。後一句。")
 				}
 			},
 			summarize = { CallOutcome.Text("k") },
@@ -343,7 +404,7 @@ class LiveCloudContextSessionTests {
 		assertTrue(s.state.value.inFlightTranscribes >= 1)
 		first.complete(Unit)
 		advanceUntilIdle(); runCurrent()
-		assertEquals(listOf("第一段", "第二段"), s.state.value.cloudSpans.sortedBy { it.startMs }.map { it.text })
+		assertEquals(listOf("前一句，可以開始。", "後一句。"), s.state.value.cloudSpans.map { it.text })
 		s.state.value.cloudSpans.forEach { seen += it.text }
 		s.finish()
 	}

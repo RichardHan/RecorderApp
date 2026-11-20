@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
@@ -55,6 +57,8 @@ class LiveCloudSession(
 	)
 
 	private val lock = Any()
+	// Keep dequeue, previous-text lookup and publication in the same serial apply lane.
+	private val applyMutex = Mutex()
 	private val guard = SessionGuard().also { it.start(sessionId) }
 	private val queue = BoundedChunkQueue<Chunk>(queueCapacity)
 
@@ -76,6 +80,7 @@ class LiveCloudSession(
 	private var nextApplySeq = 0
 	private var activeTranscribes = 0
 	private val finished = sortedMapOf<Int, FinishedChunk>()
+	private val skippedSequences = mutableSetOf<Int>()
 	private val transcribeJobs = mutableListOf<Job>()
 	private val refineJobs = mutableListOf<Job>()
 	private var knownTerms: List<String> = LiveKnownTerms.merge(emptyList(), seedTerms)
@@ -172,6 +177,7 @@ class LiveCloudSession(
 		val chunk = Chunk(startMs, endMs, uploaded, if (leading.isEmpty()) 0L else overlapMs, nextSeq++)
 		val dropped = queue.offer(chunk)
 		if (dropped != null) {
+			skippedSequences.add(dropped.seq)
 			val lost = dropped.endMs - dropped.startMs
 			_state.update {
 				it.copy(
@@ -255,17 +261,18 @@ class LiveCloudSession(
 		tryStart()
 	}
 
-	private fun drainApply() {
+	private suspend fun drainApply() = applyMutex.withLock {
 		while (true) {
 			val ready = synchronized(lock) {
 				if (!guard.isCurrent(sessionId)) {
 					null
 				} else {
+					while (skippedSequences.remove(nextApplySeq)) nextApplySeq++
 					val item = finished.remove(nextApplySeq)
 					if (item != null) nextApplySeq++
 					item
 				}
-			} ?: return
+			} ?: break
 			applyFinished(ready)
 		}
 	}
@@ -274,7 +281,11 @@ class LiveCloudSession(
 		if (!guard.isCurrent(sessionId)) return
 		val chunk = ready.chunk
 		val prevText = synchronized(lock) { previousCloudTextLocked() }
-		val span = spanOf(chunk, ready.outcome, prevText)
+		// The prepended samples came from the immediately adjacent audio only, never an older span.
+		val overlapText = if (chunk.overlapMs > 0L) {
+			_state.value.cloudSpans.lastOrNull { it.endMs == chunk.startMs && it.covers }?.text.orEmpty()
+		} else ""
+		val span = spanOf(chunk, ready.outcome, overlapText)
 		synchronized(lock) {
 			if (span.ok && !span.suspicious) {
 				successfulChunks++
@@ -339,9 +350,9 @@ class LiveCloudSession(
 		synchronized(lock) { refineJobs += job }
 	}
 
-	private fun spanOf(chunk: Chunk, outcome: CallOutcome, previousText: String): CloudSpan {
+	private fun spanOf(chunk: Chunk, outcome: CallOutcome, overlapText: String): CloudSpan {
 		fun cleaned(raw: String): String =
-			if (settings.enhanceContextQuality) LiveTranscriptOverlap.trimLeadingOverlap(previousText, raw) else raw.trim()
+			if (chunk.overlapMs > 0L) LiveTranscriptOverlap.trimLeadingOverlap(overlapText, raw) else raw.trim()
 		return when (outcome) {
 			is CallOutcome.Text -> when {
 				com.eva.cloudtranscribe.engine.Prompts.isNoSpeech(outcome.text) -> CloudSpan(chunk.startMs, chunk.endMs, "")
@@ -454,6 +465,7 @@ class LiveCloudSession(
 			transcribeJobs.forEach { it.cancel() }
 			refineJobs.forEach { it.cancel() }
 			finished.clear()
+			skippedSequences.clear()
 			activeTranscribes = 0
 			overlapTail = ShortArray(0)
 			knownTerms = emptyList()
