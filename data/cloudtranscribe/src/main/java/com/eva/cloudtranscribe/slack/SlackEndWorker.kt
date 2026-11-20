@@ -44,6 +44,8 @@ class WorkManagerSlackEndScheduler @Inject constructor(
 					SlackEndWorker.KEY_POINTS to points.toTypedArray(),
 					SlackEndWorker.KEY_MASK to request.maskSensitive,
 					SlackEndWorker.KEY_ENQUEUED_AT to request.enqueuedAtMillis,
+					SlackEndWorker.KEY_GENERATION to request.generation,
+					SlackEndWorker.KEY_CONSENT to (request.consentAtMillis ?: -1L),
 				),
 			)
 			.setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 20, TimeUnit.SECONDS)
@@ -79,6 +81,8 @@ class SlackEndWorker @AssistedInject constructor(
 		val livePoints = inputData.getStringArray(KEY_POINTS)?.toList().orEmpty()
 		val mask = inputData.getBoolean(KEY_MASK, false)
 		val enqueuedAt = inputData.getLong(KEY_ENQUEUED_AT, System.currentTimeMillis())
+		val generation = inputData.getInt(KEY_GENERATION, 0)
+		val consentAtMillis = inputData.getLong(KEY_CONSENT, -1).takeIf { it >= 0 }
 		val now = System.currentTimeMillis()
 
 		val records = if (recordingId > 0L) runCatching { store.summaries(recordingId) }.getOrDefault(emptyList()) else emptyList()
@@ -101,7 +105,7 @@ class SlackEndWorker @AssistedInject constructor(
 					mask,
 					SlackEndMessage.compose(title, durationMs, summary?.text, livePoints),
 				)
-				outbox.enqueue(SlackOutgoing(sessionId, SlackMessageKind.END, text))
+				outbox.enqueue(SlackOutgoing(sessionId, SlackMessageKind.END, text, generation, consentAtMillis))
 				return Result.success()
 			}
 			SlackEndPolicy.Wait.FALLBACK -> {
@@ -111,7 +115,7 @@ class SlackEndWorker @AssistedInject constructor(
 					mask,
 					SlackEndMessage.compose(title, durationMs, summaryText = null, fallbackItems = livePoints, condensedItems = condensed),
 				)
-				outbox.enqueue(SlackOutgoing(sessionId, SlackMessageKind.END, text))
+				outbox.enqueue(SlackOutgoing(sessionId, SlackMessageKind.END, text, generation, consentAtMillis))
 				return Result.success()
 			}
 		}
@@ -146,6 +150,8 @@ class SlackEndWorker @AssistedInject constructor(
 		const val KEY_POINTS = "live_points"
 		const val KEY_MASK = "mask"
 		const val KEY_ENQUEUED_AT = "enqueued_at"
+		const val KEY_GENERATION = "generation"
+		const val KEY_CONSENT = "consent_at"
 		fun tagFor(sessionId: String) = "slack_end_$sessionId"
 	}
 }

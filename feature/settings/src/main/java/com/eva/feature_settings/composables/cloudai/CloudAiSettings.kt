@@ -219,7 +219,7 @@ internal fun CloudAiSettingsContent(
 				)
 			}
 			SettingSwitch("附來源時間", draft.summaryCitations, "只限雲端逐字稿；會多用 token") { draft = draft.copy(summaryCitations = it) }
-			SettingSwitch("轉錄後自動摘要", draft.autoSummaryAfterTranscript, "每次多一次摘要請求") { if (it) confirmAutoSummary = true else draft = draft.copy(autoSummaryAfterTranscript = false) }
+			SettingSwitch("轉錄後自動摘要", draft.autoSummaryAfterTranscript, androidx.compose.ui.res.stringResource(com.eva.feature_settings.R.string.auto_summary_cost_hint)) { if (it) confirmAutoSummary = true else draft = draft.copy(autoSummaryAfterTranscript = false) }
 		}
 		SettingsCard("轉錄", "自動轉錄" + onOff(current.autoAfterRecording) + "・詞彙 ${current.customVocabulary.size} 個", "ai-transcribe") {
 			CustomVocabularySection(peopleText = peopleText, termsText = termsText, kept = vocabulary.size, onPeople = { peopleText = it }, onTerms = { termsText = it })
@@ -269,7 +269,7 @@ internal fun CloudAiSettingsContent(
 	if (confirmAutoSummary) AlertDialog(
 		onDismissRequest = { confirmAutoSummary = false },
 		title = { Text("開啟自動摘要？") },
-		text = { Text("每次雲端轉錄成功後（手動或自動轉錄都算），會再送出 1 次摘要請求：只送逐字稿文字、不上傳音訊，使用你設定的摘要模型，可能產生 API 費用。部分完成、失敗或取消的轉錄不會送；同一份逐字稿已有摘要時不會重複送。") },
+		text = { Text(androidx.compose.ui.res.stringResource(com.eva.feature_settings.R.string.auto_summary_cost_details)) },
 		confirmButton = { TextButton({ draft = draft.copy(autoSummaryAfterTranscript = true); confirmAutoSummary = false }) { Text("我了解，開啟") } },
 		dismissButton = { TextButton({ confirmAutoSummary = false }) { Text("取消") } },
 	)

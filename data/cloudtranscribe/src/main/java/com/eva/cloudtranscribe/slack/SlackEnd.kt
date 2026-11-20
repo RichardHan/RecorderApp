@@ -14,6 +14,8 @@ data class SlackEndRequest(
 	val liveKeyPoints: List<String>,
 	val maskSensitive: Boolean,
 	val enqueuedAtMillis: Long,
+	val generation: Int = 0,
+	val consentAtMillis: Long? = null,
 )
 
 /** Schedules one process-safe end message per recording session. */
