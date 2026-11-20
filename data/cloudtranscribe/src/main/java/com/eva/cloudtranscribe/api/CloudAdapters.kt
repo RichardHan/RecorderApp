@@ -40,6 +40,16 @@ interface CloudAiClient {
 }
 
 object CloudAiClients {
+	fun transcriber(settings: CloudSettings, apiKey: String, transport: HttpTransport): CloudAiClient {
+		if (!settings.speakerDiarization) return create(settings, apiKey, transport, settings.transcribeModel)
+		val endpoint = java.net.URI.create(settings.baseUrl.trim())
+		require(endpoint.scheme.equals("https", ignoreCase = true) && endpoint.host != null &&
+			endpoint.userInfo == null && endpoint.rawQuery == null && endpoint.rawFragment == null) { "Invalid HTTPS endpoint" }
+		val path = endpoint.rawPath.trimEnd('/').removeSuffix("/v1beta").removeSuffix("/v1")
+		val base = "https://${endpoint.rawAuthority}$path"
+		return GeminiNativeClient("$base/v1beta", apiKey, CloudSettings.SPEAKER_MODEL, transport, speakerDiarization = true)
+	}
+
 	fun create(settings: CloudSettings, apiKey: String, transport: HttpTransport, model: String): CloudAiClient =
 		when (settings.providerType) {
 			ProviderType.OPENAI_COMPATIBLE -> OpenAiCompatibleClient(settings.baseUrl, apiKey, model, settings.reasoningEffort, transport)
@@ -153,6 +163,7 @@ class GeminiNativeClient(
 	private val transport: HttpTransport,
 	private val maxTokens: Int = CloudSettings.MAX_TOKENS,
 	private val timeoutSeconds: Int = CloudSettings.TIMEOUT_SECONDS,
+	private val speakerDiarization: Boolean = false,
 ) : CloudAiClient {
 	private val url = baseUrl.trim().trimEnd('/').ifBlank { DEFAULT_BASE } + "/models/$model:generateContent"
 
@@ -161,33 +172,38 @@ class GeminiNativeClient(
 			addJsonObject {
 				put("role", "user")
 				putJsonArray("parts") {
-					addJsonObject { put("text", prompt) }
+					if (!speakerDiarization) addJsonObject { put("text", prompt) }
 					if (audio != null) addJsonObject {
-						putJsonObject("inline_data") {
-							put("mime_type", audio.mimeType)
+						putJsonObject(if (speakerDiarization) "inlineData" else "inline_data") {
+							if (speakerDiarization) put("mimeType", if (audio.format == "mp3") "audio/mpeg" else audio.mimeType)
+							else put("mime_type", audio.mimeType)
 							put("data", Base64.getEncoder().encodeToString(audio.bytes))
 						}
 					}
 				}
 			}
 		}
-		putJsonObject("generationConfig") { put("maxOutputTokens", maxTokens) }
+		putJsonObject("generationConfig") {
+			if (speakerDiarization) putJsonObject("audioTranscriptionConfig") { put("diarization", true) }
+			else put("maxOutputTokens", maxTokens)
+		}
 	}.toString()
 
 	override fun transcribe(prompt: String, audio: AudioPayload) = send(buildBody(prompt, audio))
 	override fun complete(prompt: String) = send(buildBody(prompt, null))
 
 	private fun send(body: String): CallOutcome = safeCall(apiKey) {
-		val response = transport.postJson(url, mapOf("x-goog-api-key" to apiKey), body, timeoutSeconds)
+		val headers = if (speakerDiarization) mapOf("Authorization" to "Bearer $apiKey") else mapOf("x-goog-api-key" to apiKey)
+		val response = transport.postJson(url, headers, body, timeoutSeconds)
 		if (response.code !in 200..299) return@safeCall classifyHttp(response.code, response.body, apiKey)
-		parse(response.body)
+		parse(response.body, speakerDiarization)
 	}
 
 	companion object {
 		const val DEFAULT_BASE = "https://generativelanguage.googleapis.com/v1beta"
 		private val FILTER_REASONS = setOf("SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII", "RECITATION")
 
-		fun parse(body: String): CallOutcome {
+		fun parse(body: String, speakerDiarization: Boolean = false): CallOutcome {
 			val root = json.parseToJsonElement(body).jsonObject
 			val block = root["promptFeedback"]?.jsonObject?.get("blockReason")?.jsonPrimitive?.contentOrNull
 			if (block != null) return CallOutcome.ContentFiltered
@@ -196,7 +212,17 @@ class GeminiNativeClient(
 			val first = candidates[0].jsonObject
 			val finish = first["finishReason"]?.jsonPrimitive?.contentOrNull
 			val parts = first["content"]?.jsonObject?.get("parts") as? JsonArray
-			val text = parts?.joinToString("") { (it as? JsonObject)?.get("text")?.jsonPrimitive?.contentOrNull.orEmpty() }?.trim().orEmpty()
+			val text = if (speakerDiarization) {
+				val labels = mutableMapOf<String, Int>()
+				parts.orEmpty().mapNotNull { element ->
+					val part = element as? JsonObject ?: return@mapNotNull null
+					val transcript = part["audioTranscription"] as? JsonObject
+					val words = (transcript?.get("text") ?: part["text"])?.jsonPrimitive?.contentOrNull?.trim()
+					if (words.isNullOrEmpty()) return@mapNotNull null
+					val label = transcript?.get("speakerLabel")?.jsonPrimitive?.contentOrNull
+					if (label.isNullOrBlank()) words else "Speaker ${labels.getOrPut(label) { labels.size + 1 }}: $words"
+				}.joinToString("\n")
+			} else parts?.joinToString("") { (it as? JsonObject)?.get("text")?.jsonPrimitive?.contentOrNull.orEmpty() }?.trim().orEmpty()
 			if (finish in FILTER_REASONS && text.isEmpty()) return CallOutcome.ContentFiltered
 			return if (text.isEmpty()) CallOutcome.Empty else CallOutcome.Text(text)
 		}

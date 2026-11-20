@@ -161,14 +161,24 @@ internal fun CloudAiSettingsContent(
 			Text("介面格式", style = MaterialTheme.typography.bodyLarge)
 			Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
 				FilterChip(draft.providerType == ProviderType.OPENAI_COMPATIBLE, { draft = draft.copy(providerType = ProviderType.OPENAI_COMPATIBLE) }, { Text("OpenAI 相容服務") })
-				FilterChip(draft.providerType == ProviderType.GEMINI_NATIVE, { draft = draft.copy(providerType = ProviderType.GEMINI_NATIVE) }, { Text("Gemini 原生") })
+				FilterChip(draft.providerType == ProviderType.GEMINI_NATIVE, { draft = draft.copy(providerType = ProviderType.GEMINI_NATIVE, speakerDiarization = false) }, { Text("Gemini 原生") })
 			}
 			OutlinedTextField(draft.baseUrl, { draft = draft.copy(baseUrl = it.trim()) }, Modifier.fillMaxWidth(),
 				label = { Text("API Endpoint") },
 				supportingText = { Text(if (draft.providerType == ProviderType.GEMINI_NATIVE) "如 https://generativelanguage.googleapis.com/v1beta" else "不含 /chat/completions") },
 				singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
 				isError = draft.baseUrl.isNotBlank() && !draft.baseUrl.startsWith("https://"))
-			OutlinedTextField(draft.transcribeModel, { draft = draft.copy(transcribeModel = it.trim()) }, Modifier.fillMaxWidth(), label = { Text("轉錄模型") }, singleLine = true)
+			if (draft.providerType == ProviderType.OPENAI_COMPATIBLE) {
+				Text(stringResource(R.string.cloud_transcription_mode), style = MaterialTheme.typography.bodyLarge)
+				FilterChip(draft.speakerDiarization, {
+					draft = draft.copy(transcribeModel = CloudSettings.SPEAKER_MODEL, speakerDiarization = true)
+				}, { Text(stringResource(R.string.cloud_mode_speakers)) })
+				FilterChip(!draft.speakerDiarization && draft.transcribeModel == CloudSettings.DEFAULT_MODEL, {
+					draft = draft.copy(transcribeModel = CloudSettings.DEFAULT_MODEL, speakerDiarization = false)
+				}, { Text(stringResource(R.string.cloud_mode_flash)) })
+				if (draft.speakerDiarization) Text(stringResource(R.string.cloud_mode_speakers_hint), style = MaterialTheme.typography.bodySmall)
+			}
+			OutlinedTextField(draft.transcribeModel, { draft = draft.copy(transcribeModel = it.trim(), speakerDiarization = false) }, Modifier.fillMaxWidth(), label = { Text("轉錄模型") }, singleLine = true)
 			OutlinedTextField(draft.summaryModel, { draft = draft.copy(summaryModel = it.trim()) }, Modifier.fillMaxWidth(), label = { Text("摘要模型") }, singleLine = true)
 			Text("API Key", style = MaterialTheme.typography.bodyLarge)
 			Text(stringResource(if (hasKey) R.string.cloud_api_key_saved else R.string.cloud_api_key_missing), style = MaterialTheme.typography.bodySmall)
@@ -186,18 +196,22 @@ internal fun CloudAiSettingsContent(
 				OutlinedButton(enabled = hasKey, onClick = { viewModel.removeKey() }) { Text("移除 Key") }
 			}
 			val dirty = dirtyDraft || keyInput.isNotBlank()
-			Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-				OutlinedButton(
-					enabled = !dirty && !viewModel.testing && hasKey && current.baseUrl.isNotBlank() && current.transcribeModel.isNotBlank(),
-					onClick = { confirmTest = true },
-				) { Text(if (viewModel.testing) "連線測試中…" else "測試連線") }
-				if (viewModel.testing) TextButton(onClick = { viewModel.cancelTest() }) { Text("取消測試") }
+			if (draft.speakerDiarization) {
+				Text(stringResource(R.string.cloud_mode_audio_test), style = MaterialTheme.typography.bodySmall)
+			} else {
+				Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+					OutlinedButton(
+						enabled = !dirty && !viewModel.testing && hasKey && current.baseUrl.isNotBlank() && current.transcribeModel.isNotBlank(),
+						onClick = { confirmTest = true },
+					) { Text(if (viewModel.testing) "連線測試中…" else "測試連線") }
+					if (viewModel.testing) TextButton(onClick = { viewModel.cancelTest() }) { Text("取消測試") }
+				}
+				InfoLine(
+					if (dirty) "測試只用已儲存設定，請先儲存。" else "只送一次極短文字，不上傳錄音。",
+					"按測試只會送出一次極短文字（可能產生少量 API 費用），不會上傳錄音，也不會自動重試。僅文字連線測試，不代表支援音訊。",
+				)
+				viewModel.testResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 			}
-			InfoLine(
-				if (dirty) "測試只用已儲存設定，請先儲存。" else "只送一次極短文字，不上傳錄音。",
-				"按測試只會送出一次極短文字（可能產生少量 API 費用），不會上傳錄音，也不會自動重試。僅文字連線測試，不代表支援音訊。",
-			)
-			viewModel.testResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 			draft.validate(hasKey)?.let { Text("尚未可用：$it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 		}
 		SettingsCard("摘要", summaryFormatLabel(current.summaryFormat) + "・自動摘要" + onOff(current.autoSummaryAfterTranscript), "ai-summary") {

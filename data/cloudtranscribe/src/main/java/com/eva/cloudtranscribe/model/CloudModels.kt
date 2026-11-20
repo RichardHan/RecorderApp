@@ -40,6 +40,7 @@ data class CloudSettings(
 	val followUpInstructions: String = "",
 	/** Spelling hints for CLOUD transcription only (empty = prompt unchanged). Sent with audio only when cloud transcription runs. */
 	val customVocabulary: List<VocabularyTerm> = emptyList(),
+	val speakerDiarization: Boolean = false,
 ) {
 	val normalizedChunkSeconds: Int get() = chunkSeconds.coerceIn(MIN_CHUNK_SECONDS, MAX_CHUNK_SECONDS)
 
@@ -58,6 +59,7 @@ data class CloudSettings(
 	}
 
 	companion object {
+		const val SPEAKER_MODEL = "gemini-3.5-transcribe"
 		const val DEFAULT_MODEL = "gemini-3.8-flash"
 		const val DEFAULT_CHUNK_SECONDS = 300
 		const val MIN_CHUNK_SECONDS = 60
@@ -119,6 +121,7 @@ data class Provenance(
 	val summaryFormat: String? = null,
 	/** True when a summary was requested with segment citations. */
 	val citations: Boolean? = null,
+	val speakerDiarization: Boolean = false,
 )
 
 /**

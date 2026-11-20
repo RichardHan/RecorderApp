@@ -78,7 +78,8 @@ class CloudJobScheduler @Inject constructor(
 		val existing = resumeRunId?.let { store.transcript(recordingId, it) }
 		val snapshot = existing?.provenance ?: Provenance(
 			engine = "cloud", providerType = s.providerType, endpointHost = Redactor.hostOf(s.baseUrl),
-			model = s.transcribeModel, reasoningEffort = s.reasoningEffort.wire,
+			model = s.transcribeModel, reasoningEffort = if (s.speakerDiarization) null else s.reasoningEffort.wire,
+			speakerDiarization = s.speakerDiarization,
 			chunkSeconds = s.normalizedChunkSeconds, workers = s.normalizedWorkers,
 			audioFormat = "mp3 16kHz mono 64kbps", trigger = trigger,
 		)
@@ -188,14 +189,14 @@ class CloudTranscribeWorker @AssistedInject constructor(
 		val current = settingsRepo.current()
 		val p = record.provenance
 		// Retry/resume always uses the run's own provider/model snapshot — never another provider.
-		val s = current.copy(providerType = p.providerType ?: current.providerType, transcribeModel = p.model)
+		val s = current.copy(providerType = p.providerType ?: current.providerType, transcribeModel = p.model, speakerDiarization = p.speakerDiarization)
 		runCatching { setForeground(foregroundInfo("雲端轉錄中…")) }
 		val pcm = File(applicationContext.cacheDir, "cloud_ai_pcm/$runId.pcm")
 		try {
 			store.saveTranscript(record.copy(status = RunStatus.RUNNING, updatedAtMillis = System.currentTimeMillis()))
 			val uri = recordingUri(recordingId)
 			if (!pcm.exists() || pcm.length() == 0L) PcmDecoder.decodeToFile(applicationContext, uri, pcm)
-			val client = CloudAiClients.create(s, apiKey, UrlConnectionTransport(), p.model)
+			val client = CloudAiClients.transcriber(s, apiKey, UrlConnectionTransport())
 			val engine = CloudTranscriptionEngine(client, store.checkpoints(recordingId, runId), EngineConfig(
 				chunkSeconds = p.chunkSeconds ?: s.normalizedChunkSeconds,
 				workers = p.workers ?: s.normalizedWorkers,

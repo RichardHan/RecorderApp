@@ -175,7 +175,7 @@ internal class LiveCloudCoordinator(
 			val summaryKey = if (live.summaryReuseTranscribeKey) asrKey else explicitSummaryKey
 			val summaryProblem = live.validateSummary(explicitSummaryKey != null, asrKey != null)
 			val transport = transportFactory()
-			val asrClient = CloudAiClients.create(cloud, asrKey!!, transport, cloud.transcribeModel)
+			val asrClient = CloudAiClients.transcriber(cloud, asrKey!!, transport)
 			// snapshot per session: vocabulary edits apply from the next recording, never mid-session
 			val transcribePrompt = Prompts.withVocabulary(Prompts.TRANSCRIBE, cloud.customVocabulary)
 			val summaryClient = if (summaryProblem == null && summaryKey != null)
@@ -201,7 +201,7 @@ internal class LiveCloudCoordinator(
 					cloud.customVocabulary.map { it.term },
 					notesOf(),
 				),
-				refine = { prompt ->
+				refine = if (cloud.speakerDiarization && summaryClient == null) null else { prompt ->
 					summaryClient?.complete(prompt) ?: asrClient.complete(prompt)
 				},
 			)
