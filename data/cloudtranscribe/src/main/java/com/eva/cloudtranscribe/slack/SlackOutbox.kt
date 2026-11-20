@@ -83,25 +83,34 @@ class SlackDeliveryState @Inject constructor(@ApplicationContext context: Contex
 
 /** WorkManager-backed outbox: survives process death, waits for network, retries with back-off. */
 @Singleton
-class WorkManagerSlackOutbox @Inject constructor(@ApplicationContext private val context: Context) : SlackOutbox {
+class WorkManagerSlackOutbox @Inject constructor(
+	@ApplicationContext private val context: Context,
+	private val payloads: SlackPayloadStore,
+) : SlackOutbox {
 	override fun enqueue(message: SlackOutgoing) {
-		val request = OneTimeWorkRequestBuilder<SlackSendWorker>()
-			.setInputData(
-				workDataOf(
-					SlackSendWorker.KEY_SESSION to message.sessionId,
-					SlackSendWorker.KEY_KIND to message.kind.name,
-					SlackSendWorker.KEY_TEXT to message.text,
-				),
-			)
-			.setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-			.setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-			.addTag(SlackSendWorker.TAG)
-			.build()
-		// one queue: messages are delivered in order, one at a time
-		WorkManager.getInstance(context)
-			.enqueueUniqueWork(SlackSendWorker.QUEUE, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
+		val payload = payloads.save(message.text)
+		try {
+			val request = OneTimeWorkRequestBuilder<SlackSendWorker>()
+				.setInputData(slackWorkData(message, payload))
+				.setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+				.setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+				.addTag(SlackSendWorker.TAG)
+				.build()
+			// one queue: messages are delivered in order, one at a time
+			WorkManager.getInstance(context)
+				.enqueueUniqueWork(SlackSendWorker.QUEUE, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
+		} catch (e: Exception) {
+			payloads.delete(payload)
+			throw e
+		}
 	}
 }
+
+internal fun slackWorkData(message: SlackOutgoing, payload: String) = workDataOf(
+	SlackSendWorker.KEY_SESSION to message.sessionId,
+	SlackSendWorker.KEY_KIND to message.kind.name,
+	SlackSendWorker.KEY_PAYLOAD to payload,
+)
 
 /** Decides whether a queued message may still go out at delivery time. Pure for tests. */
 object SlackDeliveryRules {
@@ -128,15 +137,26 @@ class SlackSendWorker @AssistedInject constructor(
 	private val settingsRepo: SlackSyncSettingsRepository,
 	private val webhookStore: SlackWebhookStore,
 	private val state: SlackDeliveryState,
+	private val payloads: SlackPayloadStore,
 ) : CoroutineWorker(context, params) {
 
 	override suspend fun doWork(): Result {
+		val payload = inputData.getString(KEY_PAYLOAD)
+		fun finished(): Result {
+			payload?.let(payloads::delete)
+			return Result.success()
+		}
+		val text = if (payload == null) inputData.getString(KEY_TEXT) else runCatching { payloads.read(payload) }.getOrNull()
+		if (text == null) {
+			state.setError("待送訊息內容已遺失，未送出")
+			return finished()
+		}
 		val kind = inputData.getString(KEY_KIND)?.let { name -> SlackMessageKind.entries.firstOrNull { it.name == name } }
-			?: return Result.failure()
+			?: return finished()
 		val message = SlackOutgoing(
 			sessionId = inputData.getString(KEY_SESSION).orEmpty(),
 			kind = kind,
-			text = inputData.getString(KEY_TEXT).orEmpty(),
+			text = text,
 		)
 		val url = webhookStore.read()
 		val allowed = SlackDeliveryRules.shouldDeliver(
@@ -146,24 +166,24 @@ class SlackSendWorker @AssistedInject constructor(
 			currentSessionId = state.currentSessionId,
 			alreadySent = state.wasSent(message.hash),
 		)
-		if (!allowed || url == null) return Result.success()
+		if (!allowed || url == null) return finished()
 		if (!state.retryGate.canSend()) return Result.retry()
 		return when (val result = sender.send(url, message.text)) {
 			SlackSendResult.Sent -> {
 				state.markSent(message.hash)
 				state.setError(null)
-				Result.success()
+				finished()
 			}
 
 			is SlackSendResult.Permanent -> {
 				state.setError(SlackSendPolicy.describe(result))
-				Result.success()
+				finished()
 			}
 
 			is SlackSendResult.Retry, is SlackSendResult.RetryAfter -> {
 				state.setError(SlackSendPolicy.describe(result))
 				if (result is SlackSendResult.RetryAfter) state.retryGate.defer(result.seconds)
-				if (runAttemptCount >= MAX_ATTEMPTS) Result.success() else Result.retry()
+				if (runAttemptCount >= MAX_ATTEMPTS) finished() else Result.retry()
 			}
 		}
 	}
@@ -171,7 +191,8 @@ class SlackSendWorker @AssistedInject constructor(
 	companion object {
 		const val KEY_SESSION = "session"
 		const val KEY_KIND = "kind"
-		const val KEY_TEXT = "text"
+		const val KEY_TEXT = "text" // legacy work queued before file-backed payloads
+		const val KEY_PAYLOAD = "payload_file"
 		const val TAG = "slack_sync"
 		const val QUEUE = "slack_sync_queue"
 		const val MAX_ATTEMPTS = 8
