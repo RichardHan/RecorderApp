@@ -6,7 +6,6 @@ import android.os.BadParcelableException
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -18,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -32,18 +32,20 @@ class StudioActivity : ComponentActivity() {
 	private val library: RecordingLibrary by viewModels()
 	private val local: LocalSummary by viewModels()
 	private val speech: SpeechConnection by viewModels()
-	private var sharedSource by mutableStateOf<Uri?>(null)
+	private var sharedSources by mutableStateOf(emptyList<Uri>())
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
-		if (savedInstanceState != null) sharedSource = savedInstanceState.getString("pendingImport")?.let(Uri::parse)
-		else if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) receiveShare(intent)
+		if (savedInstanceState != null) {
+			sharedSources = savedInstanceState.getStringArrayList("pendingImports")?.map(Uri::parse)
+				?: listOfNotNull(savedInstanceState.getString("pendingImport")?.let(Uri::parse))
+		} else if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) receiveShare(intent)
 		setContent {
 			StudioTheme { appearance, dark, choose ->
 				val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
 					if (it) library.start() else library.message = R.string.permission
 				}
-				sharedSource?.let { source -> key(source) { SharedImportDialog(source, library) { sharedSource = null } } }
+				if (sharedSources.isNotEmpty()) key(sharedSources) { SharedImportDialog(sharedSources, library) { sharedSources = emptyList() } }
 				Studio(library, speech, local, dark, heading = { StudioHeading(appearance, choose) }) {
 					when {
 						library.started != 0L -> library.finish()
@@ -60,18 +62,21 @@ class StudioActivity : ComponentActivity() {
 	}
 
 	private fun receiveShare(intent: Intent) {
-		if (intent.action != Intent.ACTION_SEND) return
-		sharedSource = try { intent.sharedImportSource() } catch (_: BadParcelableException) { null }
-		if (sharedSource == null) library.message = R.string.import_error
+		if (intent.action != Intent.ACTION_SEND && intent.action != Intent.ACTION_SEND_MULTIPLE) return
+		sharedSources = try { intent.sharedImportSources() } catch (_: BadParcelableException) { emptyList() }
+		if (sharedSources.isEmpty()) library.message = R.string.import_error
 	}
 
 	override fun onSaveInstanceState(outState: Bundle) {
 		super.onSaveInstanceState(outState)
-		outState.putString("pendingImport", sharedSource?.toString())
+		outState.putStringArrayList("pendingImports", ArrayList(sharedSources.map(Uri::toString)))
 	}
 
 	override fun onStop() {
-		if (!isChangingConfigurations) library.finish()
+		if (!isChangingConfigurations) {
+			library.stopPlayback()
+			library.finish()
+		}
 		super.onStop()
 	}
 }
@@ -86,11 +91,12 @@ private fun Studio(
 	toggle: () -> Unit
 ) {
 	val active = library.started != 0L
-	val elapsed by produceState(0L, library.started) {
-		value = 0
-		while (active) {
-			value = (SystemClock.elapsedRealtime() - library.started) / 1000
+	val paused = library.isPaused
+	val elapsed by produceState(0L, library.started, paused) {
+		value = library.recordedDurationMs() / 1000
+		while (active && !paused) {
 			delay(250)
+			value = library.recordedDurationMs() / 1000
 		}
 	}
 	Surface(Modifier.fillMaxSize()) {
@@ -105,12 +111,24 @@ private fun Studio(
 				val accent = if (dark) MaterialTheme.colorScheme.primary else Color(0xFFD1F4A1)
 				Surface(color = panel, contentColor = Color.White, shape = RoundedCornerShape(24.dp)) {
 					Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-						Text(stringResource(if (active) R.string.active else R.string.ready))
+						Text(stringResource(when {
+							paused -> R.string.recording_paused
+							active -> R.string.active
+							else -> R.string.ready
+						}))
 						Text(String.format(Locale.ROOT, "%02d:%02d:%02d", elapsed / 3600, elapsed / 60 % 60, elapsed % 60),
 							style = MaterialTheme.typography.displayMedium, fontFamily = FontFamily.Monospace)
 						LiveWaveform(library, accent)
-						Button(onClick = toggle, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF201917))) {
-							Text(stringResource(if (active) R.string.stop else R.string.record))
+						FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+							Button(onClick = toggle, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF201917))) {
+								Text(stringResource(if (active) R.string.stop else R.string.record))
+							}
+							if (active) {
+								TextButton(onClick = { library.setPaused(!paused) },
+									colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
+									Text(stringResource(if (paused) R.string.resume_recording else R.string.pause_recording))
+								}
+							}
 						}
 						Text(stringResource(R.string.foreground), style = MaterialTheme.typography.bodySmall)
 					}
@@ -124,9 +142,14 @@ private fun Studio(
 			item { ImportActions(library) }
 			if (library.files.isEmpty()) item { Text(stringResource(R.string.empty)) }
 			items(library.files, key = { it.name }) { file ->
-				Text(DateFormat.getDateTimeInstance().format(Date(file.lastModified())))
-				TranscriptionRow(file, speech, local)
-				TrimAction(file, library::refresh)
+				val recordedAt = DateFormat.getDateTimeInstance().format(Date(file.lastModified()))
+				Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+					Text(recordedAt, Modifier.weight(1f))
+					if (file.extension in audioTypes) TextButton(onClick = { library.togglePlayback(file) }, enabled = !active) {
+						Text(stringResource(if (library.playingFile == file) R.string.stop_playback else R.string.play))
+					}
+				}
+				TranscriptionRow(file, recordedAt, speech, local)
 				HorizontalDivider()
 			}
 		}

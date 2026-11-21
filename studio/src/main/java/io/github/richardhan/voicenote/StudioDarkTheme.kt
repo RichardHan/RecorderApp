@@ -6,8 +6,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -36,26 +38,29 @@ internal val studioDarkColors = darkColorScheme(
 @Composable
 internal fun LiveWaveform(library: RecordingLibrary, accent: Color) {
 	val started = library.started
+	val paused = library.isPaused
 	val capacity = 56
-	val samples = remember(started) { mutableStateListOf<Float>() }
-	LaunchedEffect(started) {
-		if (started == 0L) return@LaunchedEffect
+	val samples = remember(started) { FloatArray(capacity) { -1f } }
+	var next by remember(started) { mutableIntStateOf(0) }
+	LaunchedEffect(started, paused) {
+		if (started == 0L || paused) return@LaunchedEffect
 		while (true) {
 			val peak = library.peakAmplitude().coerceIn(0, 32767)
-			if (samples.size == capacity) samples.removeAt(0)
-			samples.add(sqrt(peak / 32767f))
+			samples[next] = sqrt(peak / 32767f)
+			next = (next + 1) % capacity
 			delay(100)
 		}
 	}
 	Canvas(Modifier.fillMaxWidth().height(64.dp)) {
 		val mid = size.height / 2
 		val step = size.width / capacity
-		for (i in 0 until capacity) {
+		val oldest = next
+		for (i in samples.indices) {
 			val x = (i + 0.5f) * step
-			val sample = samples.getOrNull(i + samples.size - capacity)
-			val half = (mid * (sample ?: 0f) * 0.92f).coerceAtLeast(1.dp.toPx())
+			val sample = samples[(oldest + i) % capacity]
+			val half = (mid * sample * 0.92f).coerceAtLeast(1.dp.toPx())
 			drawLine(
-				color = if (sample != null) accent else Color.White.copy(alpha = 0.32f),
+				color = if (sample >= 0f) accent else Color.White.copy(alpha = 0.32f),
 				start = Offset(x, mid - half), end = Offset(x, mid + half),
 				strokeWidth = step * 0.48f, cap = StrokeCap.Round
 			)
