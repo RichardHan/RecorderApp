@@ -42,4 +42,15 @@
 	<string name="preview_clip">選択範囲を試聴</string>
 	<string name="save_clip">新しい録音として保存</string>
 	<string name="clip_error">音声を開くかトリミングすることができませんでした。</string>
+	<string name="appearance">外観</string>
+	<string name="theme_system">システム設定に合わせる</string>
+	<string name="theme_light">ライト</string>
+	<string name="theme_dark">ダーク</string>
+	<string name="resume_model">モデルのダウンロードを再開</string>
+	<string name="download_percent">モデルのダウンロード：%1$d%%</string>
+	<string name="pause_model">ダウンロードを一時停止</string>
+	<string name="discard_model">ダウンロード済みの部分を削除</string>
+	<string name="check_model">モデルを検証中…</string>
+	<string name="shared_audio">共有された音声ファイル</string>
+	<string name="confirm_import">読み込む</string>
 </resources>

@@ -42,4 +42,15 @@
 	<string name="preview_clip">Preview selection</string>
 	<string name="save_clip">Save as new recording</string>
 	<string name="clip_error">Could not open or trim this audio.</string>
+	<string name="appearance">Appearance</string>
+	<string name="theme_system">Follow system</string>
+	<string name="theme_light">Light</string>
+	<string name="theme_dark">Dark</string>
+	<string name="resume_model">Resume model download</string>
+	<string name="download_percent">Model download: %1$d%%</string>
+	<string name="pause_model">Pause download</string>
+	<string name="discard_model">Delete partial download</string>
+	<string name="check_model">Verifying model…</string>
+	<string name="shared_audio">Shared audio file</string>
+	<string name="confirm_import">Import</string>
 </resources>
