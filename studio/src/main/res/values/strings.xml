@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+	<string name="app_name">OpenRouter Recorder</string>
+	<string name="studio">Recording studio</string>
+	<string name="record">Start recording</string>
+	<string name="stop">Finish recording</string>
+	<string name="pause_recording">Pause recording</string>
+	<string name="resume_recording">Resume recording</string>
+	<string name="recording_paused">Recording paused</string>
+	<string name="pause_error">Could not pause. Try again or finish recording.</string>
+	<string name="resume_error">Could not resume. Try again or save the recorded part.</string>
+	<string name="active">Recording</string>
+	<string name="ready">Ready to record</string>
+	<string name="library">Recordings</string>
+	<string name="empty">Your recordings will appear here.</string>
+	<string name="permission">Allow microphone access in Settings to record.</string>
+	<string name="record_error">Could not save the recording. Try recording again.</string>
+	<string name="foreground">Leaving the app ends and saves the recording.</string>
+</resources>
