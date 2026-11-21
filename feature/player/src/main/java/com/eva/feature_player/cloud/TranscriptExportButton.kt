@@ -25,6 +25,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
@@ -127,7 +129,7 @@ class TranscriptExportViewModel @Inject constructor(
 
 /**
  * Exports only after explicit confirmation and the system destination picker. No automatic sharing.
- * TXT / Markdown always; SRT only when the transcript kept real sentence timing (never estimated).
+ * TXT / Markdown always; subtitles only when the transcript kept real sentence timing (never estimated).
  */
 @Composable
 internal fun TranscriptExportButton(
@@ -167,7 +169,7 @@ internal fun TranscriptExportButton(
 			onDismissRequest = { confirm = false },
 			title = { Text(stringResource(R.string.transcript_export_title)) },
 			text = {
-				Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+				Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
 					if (!hasText) {
 						Text(stringResource(R.string.transcript_export_empty))
 						return@Column
@@ -182,12 +184,12 @@ internal fun TranscriptExportButton(
 							Text(option.label)
 						}
 					}
-					if (TranscriptExportFormat.SRT !in formats) Text(
-						stringResource(R.string.transcript_export_no_srt),
+					if (formats.none { it.timed }) Text(
+						stringResource(R.string.transcript_export_no_subtitles),
 						style = MaterialTheme.typography.bodySmall,
 						color = MaterialTheme.colorScheme.onSurfaceVariant,
 					)
-					if (format != TranscriptExportFormat.SRT) {
+					if (!format.timed) {
 						if (!available.summary.isNullOrBlank()) CheckRow(stringResource(R.string.transcript_export_with_summary), withSummary) { withSummary = it }
 						if (available.bookmarks.isNotEmpty()) CheckRow(stringResource(R.string.transcript_export_with_bookmarks), withBookmarks) { withBookmarks = it }
 					}
