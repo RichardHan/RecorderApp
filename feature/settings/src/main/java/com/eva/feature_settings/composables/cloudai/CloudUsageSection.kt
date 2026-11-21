@@ -32,7 +32,7 @@ import com.eva.cloudtranscribe.model.TranscriptRecord
 import com.eva.cloudtranscribe.store.TranscriptStore
 import com.eva.cloudtranscribe.usage.BatteryUsageSummary
 import com.eva.cloudtranscribe.usage.CostEstimate
-import com.eva.cloudtranscribe.usage.DeviceContextBatteryStore
+import com.eva.cloudtranscribe.usage.summarizeBatteryUsage
 import com.eva.cloudtranscribe.usage.DiskUsage
 import com.eva.cloudtranscribe.usage.ModelPrice
 import com.eva.cloudtranscribe.usage.PeriodUsage
@@ -67,7 +67,6 @@ internal data class UsageSnapshot(
 internal class CloudUsageViewModel @Inject constructor(
 	private val store: TranscriptStore,
 	private val tokenStore: TokenUsageStore,
-	private val batteryStore: DeviceContextBatteryStore,
 	private val recordings: VoiceRecordingsProvider,
 	private val storage: StorageInfoProvider,
 	@ApplicationContext private val context: Context,
@@ -115,7 +114,7 @@ internal class CloudUsageViewModel @Inject constructor(
 			diskAppBytes = recordingBytes + sidecarBytes,
 			phoneFreeBytes = phone?.freeAmountInBytes,
 			phoneTotalBytes = phone?.totalAmountInBytes,
-			battery = runCatching { batteryStore.summarize() }.getOrDefault(BatteryUsageSummary()),
+			battery = summarizeBatteryUsage(ids.mapNotNull { store.deviceContext(it) }),
 			zone = ZoneId.systemDefault(),
 			nowMillis = System.currentTimeMillis(),
 		)
@@ -158,7 +157,7 @@ internal fun CloudUsageSection(
 				val months = monthsOf(snapshot, prices)
 				val visible = CloudUsage.visibleMonths(months)
 				val current = months.firstOrNull()
-				val history = visible.drop(1)
+				val history = visible.filter { it.month != current?.month }
 				if (current != null && !current.isEmpty) {
 					UsageBlockTitle(stringResource(StringsRes.string.cloud_usage_this_month, current.month.toString()))
 					TokenAndCostBlock(current.promptTokens, current.completionTokens, current.tokenRequests, current.cost)

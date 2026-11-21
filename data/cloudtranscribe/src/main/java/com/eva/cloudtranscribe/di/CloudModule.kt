@@ -3,8 +3,6 @@ package com.eva.cloudtranscribe.di
 import android.content.Context
 import com.eva.cloudtranscribe.cleanup.TranscriptCleanupStore
 import com.eva.cloudtranscribe.store.TranscriptStore
-import com.eva.cloudtranscribe.usage.DeviceContextBatteryStore
-import com.eva.cloudtranscribe.usage.TokenUsageHooks
 import com.eva.cloudtranscribe.usage.TokenUsageStore
 import dagger.Module
 import dagger.Provides
@@ -23,16 +21,8 @@ object CloudModule {
 
 	@Provides
 	@Singleton
-	fun tokenUsageStore(@ApplicationContext context: Context): TokenUsageStore {
-		val store = TokenUsageStore(File(context.filesDir, "ai_transcripts"))
-		TokenUsageHooks.store = store
-		return store
-	}
-
-	@Provides
-	@Singleton
-	fun deviceContextBatteryStore(@ApplicationContext context: Context): DeviceContextBatteryStore =
-		DeviceContextBatteryStore(File(context.filesDir, "ai_transcripts"))
+	fun tokenUsageStore(@ApplicationContext context: Context): TokenUsageStore =
+		TokenUsageStore(File(context.filesDir, "ai_transcripts"))
 
 	@Provides
 	@Singleton

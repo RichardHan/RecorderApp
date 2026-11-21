@@ -77,9 +77,6 @@ internal class VoiceRecorderService : LifecycleService() {
     lateinit var transcriptStore: com.eva.cloudtranscribe.store.TranscriptStore
 
     @Inject
-    lateinit var batteryCapture: com.eva.cloudtranscribe.usage.RecordingBatteryCapture
-
-    @Inject
     lateinit var liveCloud: com.eva.recorder.data.recorder.LiveCloudCoordinator
 
     @Inject
@@ -157,7 +154,6 @@ internal class VoiceRecorderService : LifecycleService() {
             liveCloud = liveCloud,
             transcriptStore = transcriptStore,
             liveToggles = liveToggles,
-            sessionCapture = batteryCapture,
         )
     }
 

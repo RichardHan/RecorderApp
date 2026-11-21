@@ -1,6 +1,8 @@
 package com.eva.cloudtranscribe.usage
 
 import com.eva.cloudtranscribe.store.AtomicTextFile
+import kotlinx.coroutines.asContextElement
+import kotlinx.coroutines.withContext
 import java.io.File
 import kotlinx.serialization.json.Json
 
@@ -9,7 +11,7 @@ import kotlinx.serialization.json.Json
  * Tests can use any directory; production uses the same root as [com.eva.cloudtranscribe.store.TranscriptStore].
  */
 class TokenUsageStore(root: File) {
-	private val dir = File(root, "v1").apply { mkdirs() }
+	private val dir = File(root, "v1")
 	private val file = File(dir, "token-usage.jsonl")
 	private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 	private val lock = Any()
@@ -54,15 +56,8 @@ object TokenUsageHooks {
 		}
 	}
 
-	suspend fun <T> withRecordingSuspend(id: Long?, block: suspend () -> T): T {
-		val previous = recordingId.get()
-		if (id != null && id > 0L) recordingId.set(id) else recordingId.remove()
-		return try {
-			block()
-		} finally {
-			if (previous != null) recordingId.set(previous) else recordingId.remove()
-		}
-	}
+	suspend fun <T> withRecordingSuspend(id: Long?, block: suspend () -> T): T =
+		withContext(recordingId.asContextElement(id?.takeIf { it > 0L })) { block() }
 
 	fun currentRecordingId(): Long? = recordingId.get()
 

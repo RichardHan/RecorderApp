@@ -11,6 +11,8 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.getSystemService
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.eva.cloudtranscribe.usage.TokenUsageHooks
+import com.eva.cloudtranscribe.usage.TokenUsageStore
 import com.eva.interactions.domain.AppShortcutFacade
 import com.eva.utils.UiStrings
 import com.eva.utils.NotificationConstants
@@ -31,6 +33,9 @@ class RecorderApp : Application(), Configuration.Provider {
 	@Inject
 	lateinit var shortcutFacade: AppShortcutFacade
 
+	@Inject
+	lateinit var tokenUsageStore: TokenUsageStore
+
 	override val workManagerConfiguration: Configuration
 		get() = Configuration.Builder()
 			.setWorkerFactory(workerFactory)
@@ -39,6 +44,7 @@ class RecorderApp : Application(), Configuration.Provider {
 
 	override fun onCreate() {
 		super.onCreate()
+		TokenUsageHooks.store = tokenUsageStore
 		UiStrings.resolve = { id, args -> if (args.isEmpty()) getString(id) else getString(id, *args) }
 
 		enableComposeStackTrace()
