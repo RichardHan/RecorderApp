@@ -52,6 +52,7 @@ data class EngineResult(
 	val segments: List<SegmentResult>,
 	val warnings: List<String>,
 	val requestCount: Int,
+	val reusedSegments: Int = 0,
 )
 
 class CloudTranscriptionEngine(
@@ -75,19 +76,21 @@ class CloudTranscriptionEngine(
 		// hard cap: every chunk may use maxAttempts + 1 empty retry + 3 filter sub-requests
 		val budget = ranges.size * (config.maxAttempts + 4)
 		val done = AtomicInteger(0)
+		val reused = AtomicInteger(0)
 		val semaphore = Semaphore(config.workers.coerceIn(1, CloudSettings.MAX_WORKERS))
 		val results = ranges.mapIndexed { index, range ->
 			async(Dispatchers.IO) {
 				semaphore.withPermit {
 					ensureActive()
 					val cached = checkpoints.load(index)?.takeIf { it.isFinal }
+					if (cached != null) reused.incrementAndGet()
 					val result = cached ?: processChunk(index, range, source, budget).also(checkpoints::save)
 					onProgress(done.incrementAndGet(), ranges.size)
 					result
 				}
 			}
 		}.awaitAll().sortedBy { it.index }
-		assemble(results)
+		assemble(results).copy(reusedSegments = reused.get())
 	}
 
 	private suspend fun processChunk(index: Int, range: LongRange, source: AudioRangeSource, budget: Int): SegmentResult {

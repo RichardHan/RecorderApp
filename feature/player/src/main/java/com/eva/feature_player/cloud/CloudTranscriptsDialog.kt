@@ -206,6 +206,16 @@ fun CloudTranscriptsDialog(
 						Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
 							Text(t.label(), style = MaterialTheme.typography.titleSmall)
 							Text(stringResource(StringsRes.string.feature_player_status, (t.status.zh()).toString()) + (t.provenance.endpointHost?.let { "・$it" } ?: "") + (t.provenance.reasoningEffort?.let { UiStrings.get(StringsRes.string.feature_player_effort, "・effort=%1\$s", it) } ?: "") + UiStrings.get(StringsRes.string.feature_player_requests, "・請求 %1\$s 次・%2\$s", t.requestCount, t.provenance.trigger), style = MaterialTheme.typography.bodySmall)
+							t.lastExecution?.let { run ->
+								val cost = run.knownUsd?.let { "US$$it" }
+									?: stringResource(StringsRes.string.transcript_cost_unreported)
+								Text(stringResource(StringsRes.string.transcript_last_execution,
+									run.elapsedMs / 1000.0, cost, run.pricedRequests, run.requests),
+									style = MaterialTheme.typography.bodySmall)
+								run.usdPerAudioHour()?.let { rate ->
+									Text(stringResource(StringsRes.string.transcript_cost_per_hour, rate), style = MaterialTheme.typography.bodySmall)
+								}
+							}
 							if (t.status == RunStatus.RUNNING || t.status == RunStatus.QUEUED) {
 								if (t.totalSegments > 0) LinearProgressIndicator({ t.completedSegments / t.totalSegments.toFloat() }, Modifier.fillMaxWidth())
 								else LinearProgressIndicator(Modifier.fillMaxWidth())
