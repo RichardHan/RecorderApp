@@ -32,4 +32,10 @@
 	<string name="remove_model">Remove offline summary model</string>
 	<string name="summary_error">Local summary failed. Check model download, memory and storage.</string>
 	<string name="summarize">Summarize on this device</string>
+	<string name="import_file">Import audio file</string>
+	<string name="import_url">Import link</string>
+	<string name="audio_url">HTTPS audio or YouTube URL</string>
+	<string name="import_error">Could not import this link or audio format.</string>
+	<string name="video_model">YouTube video model</string>
+	<string name="video_disclose">Send this YouTube link to OpenRouter to transcribe the video. The video model may charge your account.</string>
 </resources>

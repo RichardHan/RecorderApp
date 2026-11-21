@@ -1,5 +1,8 @@
 package io.github.richardhan.voicenote
 
+import android.net.Uri
+import kotlinx.coroutines.*
+import androidx.lifecycle.viewModelScope
 import android.app.Application
 import android.media.MediaRecorder
 import android.os.Build
@@ -18,7 +21,26 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 		private set
 	var message by mutableIntStateOf(0)
 	private fun savedFiles() = directory.listFiles().orEmpty()
-		.filter { it.extension == "m4a" }.sortedByDescending { it.name }
+		.filter { it.extension in audioTypes || it.extension == "youtube" }.sortedByDescending { it.name }
+
+	var importing by mutableStateOf(false)
+		private set
+
+	fun importSource(uri: Uri? = null, url: String = "") {
+		if (importing) return
+		importing = true
+		viewModelScope.launch {
+			try {
+				withContext(Dispatchers.IO) {
+					if (uri != null) importDocument(getApplication(), directory, uri) else importLink(directory, url)
+				}
+				files = savedFiles()
+				message = 0
+			} catch (e: CancellationException) { throw e }
+			catch (_: Exception) { message = R.string.import_error }
+			finally { importing = false }
+		}
+	}
 
 	fun start() {
 		if (recorder != null) return

@@ -73,6 +73,46 @@ class SpeechConnection : ViewModel() {
 		}
 	}
 
+	fun youtube(file: File, chosen: String) {
+		val token = key.trim()
+		if (custom || token.isEmpty() || chosen.isBlank()) { error = R.string.invalid; return }
+		request {
+			withContext(Dispatchers.IO) {
+				val content = org.json.JSONArray()
+					.put(JSONObject().put("type", "input_text").put("text", "Transcribe all speech verbatim in its original languages. Return only the transcript."))
+					.put(JSONObject().put("type", "input_video").put("video_url", file.readText()))
+				val input = org.json.JSONArray().put(JSONObject().put("role", "user").put("content", content))
+				val payload = JSONObject().put("model", chosen).put("input", input).toString().toByteArray()
+				val response = exchange("$OPEN_ROUTER/responses", token) { conn ->
+					conn.requestMethod = "POST"
+					conn.doOutput = true
+					conn.setRequestProperty("Content-Type", "application/json")
+					conn.outputStream.use { it.write(payload) }
+				}
+				require(response.optString("status") == "completed")
+				val output = response.getJSONArray("output")
+				val text = buildString {
+					for (i in 0 until output.length()) {
+						val parts = output.getJSONObject(i).optJSONArray("content") ?: continue
+						for (j in 0 until parts.length()) {
+							val part = parts.getJSONObject(j)
+							if (part.optString("type") == "output_text") appendLine(part.getString("text"))
+						}
+					}
+				}.trim()
+				storeTranscript(file, text)
+			}
+			revision++
+		}
+	}
+
+	private fun storeTranscript(file: File, text: String) {
+		require(text.isNotBlank())
+		val destination = transcriptFile(file)
+		val temp = File.createTempFile("transcript-", ".part", destination.parentFile)
+		try { temp.writeText(text); check(temp.renameTo(destination)) } finally { temp.delete() }
+	}
+
 	fun transcribe(file: File) {
 		if (!valid()) { error = R.string.invalid; return }
 		val url = "${endpoint()}/audio/transcriptions"
@@ -83,7 +123,7 @@ class SpeechConnection : ViewModel() {
 				val reply = exchange(url, token) { connection ->
 					val boundary = UUID.randomUUID().toString()
 					val header = "--$boundary\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\n$chosen\r\n" +
-						"--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"recording.m4a\"\r\nContent-Type: audio/mp4\r\n\r\n"
+						"--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"recording.${file.extension}\"\r\nContent-Type: ${audioTypes.getValue(file.extension)}\r\n\r\n"
 					val prefix = header.toByteArray()
 					val suffix = "\r\n--$boundary--\r\n".toByteArray()
 					connection.requestMethod = "POST"
@@ -96,11 +136,7 @@ class SpeechConnection : ViewModel() {
 						out.write(suffix)
 					}
 				}
-				val text = reply.getString("text")
-				require(text.isNotBlank())
-				val destination = transcriptFile(file)
-				val temp = File.createTempFile("transcript-", ".part", destination.parentFile)
-				try { temp.writeText(text); check(temp.renameTo(destination)) } finally { temp.delete() }
+				storeTranscript(file, reply.getString("text"))
 			}
 			revision++
 		}

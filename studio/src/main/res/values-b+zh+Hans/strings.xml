@@ -32,4 +32,10 @@
 	<string name="remove_model">移除离线摘要模型</string>
 	<string name="summary_error">本地摘要操作失败，请检查模型下载、内存与存储空间。</string>
 	<string name="summarize">在手机上生成摘要</string>
+	<string name="import_file">导入音频</string>
+	<string name="import_url">导入链接</string>
+	<string name="audio_url">HTTPS 音频或 YouTube 网址</string>
+	<string name="import_error">无法导入该链接或音频格式。</string>
+	<string name="video_model">YouTube 视频模型</string>
+	<string name="video_disclose">将该 YouTube 链接发送到 OpenRouter 转录视频，视频模型可能产生费用。</string>
 </resources>

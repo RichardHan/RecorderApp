@@ -97,6 +97,7 @@ private fun Studio(library: RecordingLibrary, speech: SpeechConnection, local: L
 			item { SummaryModelPanel(local) }
 			if (speech.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
 			item { Text(stringResource(R.string.library), style = MaterialTheme.typography.titleLarge) }
+			item { ImportActions(library) }
 			if (library.files.isEmpty()) item { Text(stringResource(R.string.empty)) }
 			items(library.files, key = { it.name }) { file ->
 				Text(DateFormat.getDateTimeInstance().format(Date(file.lastModified())))
