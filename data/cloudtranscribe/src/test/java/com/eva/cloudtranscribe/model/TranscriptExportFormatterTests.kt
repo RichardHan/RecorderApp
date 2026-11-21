@@ -44,10 +44,21 @@ class TranscriptExportFormatterTests {
 		val running = record(listOf(seg(0, 0, 2_000, "a")), status = RunStatus.RUNNING)
 		listOf(chunks, noTiming, broken, running).forEach { r ->
 			assertNull(TranscriptExportFormatter.srtCues(r))
-			assertFalse(TranscriptExportFormat.SRT in TranscriptExportFormatter.availableFormats(r))
+			assertFalse(TranscriptExportFormatter.availableFormats(r).any { it.timed })
+			assertTrue(runCatching { TranscriptExportFormatter.render(TranscriptExportFormat.WEBVTT, r) }.exceptionOrNull() is IllegalArgumentException)
 		}
 		val error = runCatching { TranscriptExportFormatter.render(TranscriptExportFormat.SRT, chunks) }.exceptionOrNull()
 		assertTrue(error is IllegalArgumentException)
+	}
+
+	@Test
+	fun webVttPreservesTimedBilingualSpeechAsLiteralCaptionText() {
+		val transcript = record(listOf(seg(0, 3_600_005, 3_601_500, "Speaker 1: 中英 <AI> & ML\r\n\r\nA --> B")))
+		val output = TranscriptExportFormatter.render(TranscriptExportFormat.WEBVTT, transcript,
+			TranscriptExportExtras(summary = "private notes"))
+		assertEquals("WEBVTT\n\n01:00:00.005 --> 01:00:01.500\nSpeaker 1: 中英 &lt;AI&gt; &amp; ML\nA --&gt; B\n\n", output)
+		assertEquals("text/vtt", TranscriptExportFormat.WEBVTT.mimeType)
+		assertEquals("meeting.vtt", TranscriptExportFormatter.fileName("meeting.mp3", null, 7, TranscriptExportFormat.WEBVTT))
 	}
 
 	@Test

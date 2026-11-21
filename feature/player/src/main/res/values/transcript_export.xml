@@ -1,5 +1,5 @@
 <resources>
-    <string name="transcript_export_button">Export transcript (TXT, Markdown or SRT)</string>
+    <string name="transcript_export_button">Export transcript</string>
     <string name="transcript_export_title">Export transcript</string>
     <string name="transcript_export_notice">Choose where to save the transcript, source, timestamps and any selected highlights or bookmarks. It may contain sensitive information. Choosing a cloud destination sends the file to that service. Cancel to skip export.</string>
     <string name="transcript_export_continue">Choose location</string>
@@ -7,7 +7,7 @@
     <string name="transcript_export_saved">Transcript saved</string>
     <string name="transcript_export_failed">Could not write the file. Check the destination and remove any incomplete file if needed.</string>
     <string name="transcript_export_format">Format</string>
-    <string name="transcript_export_no_srt">SRT is unavailable because this transcript has no sentence timestamps.</string>
+    <string name="transcript_export_no_subtitles">Subtitles require a completed transcript with timed speech segments of 30 seconds or less.</string>
     <string name="transcript_export_with_summary">Include saved highlights and summaries</string>
     <string name="transcript_export_with_bookmarks">Include bookmarks</string>
     <string name="transcript_export_empty">No transcript to export.</string>

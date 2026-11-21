@@ -7,10 +7,11 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-enum class TranscriptExportFormat(val extension: String, val mimeType: String, val label: String) {
+enum class TranscriptExportFormat(val extension: String, val mimeType: String, val label: String, val timed: Boolean = false) {
 	TXT("txt", "text/plain", "TXT"),
 	MARKDOWN("md", "text/markdown", "Markdown"),
-	SRT("srt", "application/x-subrip", UiStrings.get(StringsRes.string.data_cloudtranscribe_srt_subtitles, "SRT 字幕")),
+	SRT("srt", "application/x-subrip", UiStrings.get(StringsRes.string.data_cloudtranscribe_srt_subtitles, "SRT 字幕"), timed = true),
+	WEBVTT("vtt", "text/vtt", "WebVTT", timed = true),
 }
 
 data class ExportBookmark(val atMs: Long, val text: String)
@@ -27,7 +28,7 @@ data class TranscriptExportExtras(
 
 data class SrtCue(val index: Int, val startMs: Long, val endMs: Long, val text: String)
 
-/** Local-only TXT / Markdown / SRT rendering. SRT only exists when the transcript kept real sentence timing. */
+/** Local-only text and subtitle rendering. Subtitle export is available when the transcript kept real sentence timing. */
 object TranscriptExportFormatter {
 
 	/** A cue longer than this is a transcription chunk, not a sentence; chunk-level timing is never turned into subtitles. */
@@ -62,6 +63,7 @@ object TranscriptExportFormatter {
 			TranscriptExportFormat.TXT -> txt(record, extras)
 			TranscriptExportFormat.MARKDOWN -> markdown(record, extras)
 			TranscriptExportFormat.SRT -> srt(srtCues(record) ?: throw IllegalArgumentException("No real sentence timing; SRT is not available"))
+			TranscriptExportFormat.WEBVTT -> webVtt(requireNotNull(srtCues(record)) { "No sentence timing for WebVTT" })
 		}
 
 	private fun txt(record: TranscriptRecord, extras: TranscriptExportExtras): String = buildString {
@@ -126,6 +128,21 @@ object TranscriptExportFormatter {
 			appendLine(cue.index)
 			appendLine("${srtTime(cue.startMs)} --> ${srtTime(cue.endMs)}")
 			appendLine(cue.text)
+			appendLine()
+		}
+	}
+
+	private fun webVtt(cues: List<SrtCue>): String = buildString {
+		appendLine("WEBVTT")
+		appendLine()
+		for (cue in cues) {
+			val start = srtTime(cue.startMs).replace(',', '.')
+			val end = srtTime(cue.endMs).replace(',', '.')
+			appendLine("$start --> $end")
+			// Blank lines delimit cues. Keep visible lines and treat transcript markup as literal speech.
+			cue.text.lineSequence().filter { it.isNotBlank() }.forEach { line ->
+				appendLine(line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('\u0000', '\uFFFD'))
+			}
 			appendLine()
 		}
 	}
