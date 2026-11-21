@@ -55,6 +55,7 @@
 	<string name="audio_url">HTTPS 音声または YouTube URL</string>
 	<string name="import_error">このリンクまたは音声形式を読み込めません。</string>
 	<string name="video_model">YouTube 動画モデル</string>
+	<string name="confirm_video">この YouTube リンクを送信しますか？</string>
 	<string name="video_disclose">この YouTube リンクを OpenRouter に送信して文字起こしします。動画モデルの利用料がかかる場合があります。</string>
 	<string name="appearance">外観</string>
 	<string name="theme_system">システム設定に合わせる</string>

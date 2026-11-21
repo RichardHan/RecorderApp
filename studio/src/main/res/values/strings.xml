@@ -55,6 +55,7 @@
 	<string name="audio_url">HTTPS audio or YouTube URL</string>
 	<string name="import_error">Could not import this link or audio format.</string>
 	<string name="video_model">YouTube video model</string>
+	<string name="confirm_video">Send this YouTube link?</string>
 	<string name="video_disclose">Send this YouTube link to OpenRouter to transcribe the video. The video model may charge your account.</string>
 	<string name="appearance">Appearance</string>
 	<string name="theme_system">Follow system</string>

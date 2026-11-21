@@ -145,7 +145,7 @@ private fun Studio(
 				val recordedAt = DateFormat.getDateTimeInstance().format(Date(file.lastModified()))
 				Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
 					Text(recordedAt, Modifier.weight(1f))
-					TextButton(onClick = { library.togglePlayback(file) }, enabled = !active) {
+					if (file.extension in audioTypes) TextButton(onClick = { library.togglePlayback(file) }, enabled = !active) {
 						Text(stringResource(if (library.playingFile == file) R.string.stop_playback else R.string.play))
 					}
 				}

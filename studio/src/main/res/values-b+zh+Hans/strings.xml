@@ -55,6 +55,7 @@
 	<string name="audio_url">HTTPS 音频或 YouTube 网址</string>
 	<string name="import_error">无法导入该链接或音频格式。</string>
 	<string name="video_model">YouTube 视频模型</string>
+	<string name="confirm_video">要发送这个 YouTube 链接吗？</string>
 	<string name="video_disclose">将该 YouTube 链接发送到 OpenRouter 转录视频，视频模型可能产生费用。</string>
 	<string name="appearance">外观</string>
 	<string name="theme_system">跟随系统</string>
