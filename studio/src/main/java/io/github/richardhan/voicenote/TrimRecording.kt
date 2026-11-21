@@ -1,13 +1,20 @@
 package io.github.richardhan.voicenote
 
 import android.media.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import java.io.File
 import java.nio.ByteBuffer
-import java.util.Locale
+import kotlin.math.roundToInt
 import java.util.UUID
 import kotlinx.coroutines.*
 
@@ -48,18 +55,17 @@ private fun saveClip(file: File, startMs: Int, endMs: Int) {
 	} finally { extractor.release(); temp.delete() }
 }
 
-private fun clock(ms: Int) = String.format(Locale.ROOT, "%d:%02d.%d", ms / 60000, ms / 1000 % 60, ms / 100 % 10)
-
 @Composable
 internal fun TrimAction(file: File, refresh: () -> Unit) {
 	if (file.extension != "m4a") return
-	var open by remember { mutableStateOf(false) }
+	var open by rememberSaveable { mutableStateOf(false) }
 	TextButton(onClick = { open = true }) { Text(stringResource(R.string.trim)) }
 	if (!open) return
 	val scope = rememberCoroutineScope()
 	var duration by remember { mutableIntStateOf(0) }
-	var range by remember { mutableStateOf(0f..1f) }
-	var player by remember { mutableStateOf<MediaPlayer?>(null) }
+	var startText by rememberSaveable { mutableStateOf("0:00") }
+	var endInput by rememberSaveable { mutableStateOf<String?>(null) }
+	var previewing by remember { mutableStateOf(false) }
 	var error by remember { mutableStateOf(false) }
 	var saving by remember { mutableStateOf(false) }
 	LaunchedEffect(file) {
@@ -70,37 +76,100 @@ internal fun TrimAction(file: File, refresh: () -> Unit) {
 		}
 		error = duration <= 0
 	}
-	DisposableEffect(Unit) { onDispose { player?.release() } }
-	val start = (range.start * duration).toInt()
-	val end = (range.endInclusive * duration).toInt()
-	LaunchedEffect(player) {
-		val playback = player ?: return@LaunchedEffect
-		while (playback.isPlaying && playback.currentPosition < end) delay(30)
-		if (player === playback) { player = null; playback.release() }
+
+	val endText = endInput ?: formatClipTime(duration)
+	val start = parseClipTime(startText)
+	val end = parseClipTime(endText)
+	val valid = duration > 0 && start != null && end != null && start < end && end <= duration
+	val editable = duration > 0 && !previewing && !saving
+	val sliderStart = (start ?: 0).coerceAtMost(duration)
+	val sliderEnd = (end ?: duration).coerceIn(sliderStart, duration)
+
+	if (previewing && start != null && end != null) {
+		LifecycleStartEffect(Unit) {
+			onStopOrDispose { previewing = false }
+		}
+		LaunchedEffect(file, start, end) {
+			val playback = MediaPlayer()
+			var playing = false
+			try {
+				playback.setOnErrorListener { _, _, _ ->
+					error = true
+					previewing = false
+					true
+				}
+				playback.setOnCompletionListener { previewing = false }
+				playback.setOnSeekCompleteListener { it.start(); playing = true }
+				playback.setOnPreparedListener {
+					if (start > 0) it.seekTo(start.toLong(), MediaPlayer.SEEK_CLOSEST)
+					else { it.start(); playing = true }
+				}
+				playback.setDataSource(file.path)
+				playback.prepareAsync()
+				while (previewing) {
+					if (playing && playback.currentPosition >= end) previewing = false
+					else delay(20)
+				}
+			} catch (e: CancellationException) {
+				throw e
+			} catch (_: Exception) {
+				error = true
+				previewing = false
+			} finally {
+				playback.release()
+			}
+		}
 	}
-	AlertDialog(onDismissRequest = { if (!saving) open = false }, title = { Text(stringResource(R.string.trim)) },
-		text = { Column {
-			Text("${clock(start)} – ${clock(end)}")
-			RangeSlider(value = range, onValueChange = { range = it }, enabled = duration > 0 && player == null && !saving)
-			TextButton(enabled = end > start && player == null && !saving, onClick = {
-				val playback = MediaPlayer()
-				try {
-					playback.setDataSource(file.path)
-					playback.prepare()
-					playback.seekTo(start.toLong(), MediaPlayer.SEEK_CLOSEST)
-					playback.start()
-					player = playback
-				} catch (_: Exception) { playback.release(); error = true }
-			}) { Text(stringResource(R.string.preview_clip)) }
-			if (error) Text(stringResource(R.string.clip_error))
-		} }, confirmButton = {
-			TextButton(enabled = end > start && !saving && player == null, onClick = {
+
+	AlertDialog(
+		onDismissRequest = { if (!saving) open = false },
+		title = { Text(stringResource(R.string.trim)) },
+		text = {
+			Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+				RangeSlider(
+					value = sliderStart.toFloat()..sliderEnd.toFloat(),
+					valueRange = 0f..duration.coerceAtLeast(1).toFloat(),
+					enabled = editable,
+					onValueChange = { range ->
+						startText = formatClipTime(range.start.roundToInt().coerceAtMost(duration))
+						endInput = formatClipTime(range.endInclusive.roundToInt().coerceAtMost(duration))
+						error = false
+					}
+				)
+				OutlinedTextField(value = startText, onValueChange = { startText = it; error = false },
+					label = { Text(stringResource(R.string.clip_start)) }, enabled = editable, singleLine = true)
+				OutlinedTextField(value = endText, onValueChange = { endInput = it; error = false },
+					label = { Text(stringResource(R.string.clip_end)) }, enabled = editable, singleLine = true)
+				Text(stringResource(R.string.clip_time_hint, formatClipTime(duration)), style = MaterialTheme.typography.bodySmall)
+				if (duration > 0) {
+					if (valid) Text(stringResource(R.string.clip_length, formatClipTime(end - start)))
+					else Text(stringResource(R.string.clip_invalid_range), color = MaterialTheme.colorScheme.error)
+				}
+				TextButton(enabled = valid && !saving, onClick = { error = false; previewing = !previewing }) {
+					Text(stringResource(if (previewing) R.string.stop_preview else R.string.preview_clip))
+				}
+				if (error) Text(stringResource(R.string.clip_error), color = MaterialTheme.colorScheme.error)
+			}
+		},
+		confirmButton = {
+			TextButton(enabled = valid && editable, onClick = {
+				if (start == null || end == null) return@TextButton
 				saving = true
 				scope.launch {
-					try { withContext(Dispatchers.IO) { saveClip(file, start, end) }; refresh(); open = false }
-					catch (_: Exception) { error = true }
-					finally { saving = false }
+					try {
+						withContext(Dispatchers.IO) { saveClip(file, start, end) }
+						refresh()
+						open = false
+					} catch (e: CancellationException) {
+						throw e
+					} catch (_: Exception) {
+						error = true
+					} finally {
+						saving = false
+					}
 				}
 			}) { Text(stringResource(R.string.save_clip)) }
-		}, dismissButton = { TextButton(enabled = !saving, onClick = { open = false }) { Text(stringResource(R.string.cancel)) } })
+		},
+		dismissButton = { TextButton(enabled = !saving, onClick = { open = false }) { Text(stringResource(R.string.cancel)) } }
+	)
 }

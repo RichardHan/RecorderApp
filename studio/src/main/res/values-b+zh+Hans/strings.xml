@@ -53,4 +53,10 @@
 	<string name="check_model">正在验证模型…</string>
 	<string name="shared_audio">分享的音频文件</string>
 	<string name="confirm_import">导入</string>
+	<string name="clip_start">开始时间</string>
+	<string name="clip_end">结束时间</string>
+	<string name="clip_time_hint">可输入分:秒或秒数（例如 1:02.5 或 62.5）。录音全长 %1$s。</string>
+	<string name="clip_length">选取时长 %1$s</string>
+	<string name="clip_invalid_range">请在录音范围内输入起止时间，结束须晚于开始。</string>
+	<string name="stop_preview">停止试听</string>
 </resources>

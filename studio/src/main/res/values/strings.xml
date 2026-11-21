@@ -53,4 +53,10 @@
 	<string name="check_model">Verifying model…</string>
 	<string name="shared_audio">Shared audio file</string>
 	<string name="confirm_import">Import</string>
+	<string name="clip_start">Start</string>
+	<string name="clip_end">End</string>
+	<string name="clip_time_hint">Enter minutes:seconds or seconds (e.g. 1:02.5 or 62.5). Recording length: %1$s.</string>
+	<string name="clip_length">Selection · %1$s</string>
+	<string name="clip_invalid_range">Choose a start and a later end within the recording.</string>
+	<string name="stop_preview">Stop preview</string>
 </resources>

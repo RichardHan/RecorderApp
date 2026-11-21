@@ -53,4 +53,10 @@
 	<string name="check_model">モデルを検証中…</string>
 	<string name="shared_audio">共有された音声ファイル</string>
 	<string name="confirm_import">読み込む</string>
+	<string name="clip_start">開始位置</string>
+	<string name="clip_end">終了位置</string>
+	<string name="clip_time_hint">分:秒または秒数で入力（例 1:02.5 または 62.5）。録音の長さ %1$s。</string>
+	<string name="clip_length">選択範囲の長さ %1$s</string>
+	<string name="clip_invalid_range">録音の範囲内で、終了位置が開始位置より後になるように入力してください。</string>
+	<string name="stop_preview">試聴を停止</string>
 </resources>
