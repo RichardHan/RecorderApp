@@ -55,11 +55,12 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 }
 
 @Composable
-internal fun TranscriptionRow(file: File, speech: SpeechConnection) {
+internal fun TranscriptionRow(file: File, speech: SpeechConnection, local: LocalSummary) {
 	var confirm by remember { mutableStateOf(false) }
 	val transcript by produceState("", file, speech.revision) {
 		value = withContext(Dispatchers.IO) { transcriptFile(file).takeIf { it.exists() }?.readText().orEmpty() }
 	}
+	SummaryAction(local, file, transcript)
 	if (transcript.isNotEmpty()) SelectionContainer { Text(transcript) }
 	TextButton(onClick = { confirm = true }, enabled = !speech.busy && speech.valid()) { Text(stringResource(R.string.upload)) }
 	if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.confirm)) },
