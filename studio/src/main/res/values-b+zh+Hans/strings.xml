@@ -13,6 +13,9 @@
 	<string name="ready">准备录音</string>
 	<string name="library">录音文件</string>
 	<string name="empty">录音完成后会显示在这里。</string>
+	<string name="play">播放</string>
+	<string name="stop_playback">停止播放</string>
+	<string name="playback_error">无法播放这段录音。</string>
 	<string name="permission">请在设置中允许麦克风权限以录音。</string>
 	<string name="record_error">无法保存录音，请重新录制。</string>
 	<string name="foreground">离开应用时会结束并保存录音。</string>

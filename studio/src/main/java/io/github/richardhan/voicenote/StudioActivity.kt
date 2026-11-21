@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -50,7 +51,10 @@ class StudioActivity : ComponentActivity() {
 		}
 	}
 	override fun onStop() {
-		if (!isChangingConfigurations) library.finish()
+		if (!isChangingConfigurations) {
+			library.stopPlayback()
+			library.finish()
+		}
 		super.onStop()
 	}
 }
@@ -102,7 +106,12 @@ private fun Studio(library: RecordingLibrary, toggle: () -> Unit) {
 			item { Text(stringResource(R.string.library), style = MaterialTheme.typography.titleLarge) }
 			if (library.files.isEmpty()) item { Text(stringResource(R.string.empty)) }
 			items(library.files, key = { it.name }) { file ->
-				Text(DateFormat.getDateTimeInstance().format(Date(file.lastModified())))
+				Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+					Text(DateFormat.getDateTimeInstance().format(Date(file.lastModified())), Modifier.weight(1f))
+					TextButton(onClick = { library.togglePlayback(file) }, enabled = !active) {
+						Text(stringResource(if (library.playingFile == file) R.string.stop_playback else R.string.play))
+					}
+				}
 				HorizontalDivider()
 			}
 		}

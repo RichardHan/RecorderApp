@@ -13,6 +13,9 @@
 	<string name="ready">準備錄音</string>
 	<string name="library">錄音檔</string>
 	<string name="empty">錄音完成後會顯示在這裡。</string>
+	<string name="play">播放</string>
+	<string name="stop_playback">停止播放</string>
+	<string name="playback_error">無法播放這段錄音。</string>
 	<string name="permission">請在設定允許麥克風權限以錄音。</string>
 	<string name="record_error">無法儲存錄音，請重新錄製。</string>
 	<string name="foreground">離開 App 時會結束並儲存錄音。</string>

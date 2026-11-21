@@ -1,6 +1,10 @@
 package io.github.richardhan.voicenote
 
 import android.app.Application
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.SystemClock
@@ -12,6 +16,13 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 	private val directory = File(app.filesDir, "audio").apply { mkdirs() }
 	private var recorder: MediaRecorder? = null
 	private var pending: File? = null
+	private val audioManager = requireNotNull(app.getSystemService(AudioManager::class.java))
+	private val playbackAttributes = AudioAttributes.Builder()
+		.setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
+	private var player: MediaPlayer? = null
+	private var focus: AudioFocusRequest? = null
+	internal var playingFile by mutableStateOf<File?>(null)
+		private set
 	var started by mutableLongStateOf(0L)
 		private set
 	private var pausedAt by mutableLongStateOf(0L)
@@ -25,6 +36,7 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 
 	fun start() {
 		if (recorder != null) return
+		stopPlayback()
 		try {
 			val file = File.createTempFile("capture-", ".part", directory)
 			pending = file
@@ -83,6 +95,52 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 		}
 	}
 
+	internal fun togglePlayback(file: File) {
+		if (recorder != null) return
+		val wasPlaying = playingFile == file
+		stopPlayback()
+		if (wasPlaying) return
+		try {
+			val session = MediaPlayer()
+			player = session
+			val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+				.setAudioAttributes(playbackAttributes)
+				.setWillPauseWhenDucked(true)
+				.setOnAudioFocusChangeListener { change ->
+					if (change < 0 && player === session) stopPlayback()
+				}.build()
+			check(audioManager.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
+			focus = request
+			session.setAudioAttributes(playbackAttributes)
+			session.setOnPreparedListener { if (player === it) it.start() }
+			session.setOnCompletionListener { if (player === it) stopPlayback() }
+			session.setOnErrorListener { failed, _, _ ->
+				if (player === failed) playbackFailed()
+				true
+			}
+			session.setDataSource(file.absolutePath)
+			session.prepareAsync()
+			playingFile = file
+			message = 0
+		} catch (_: Exception) {
+			playbackFailed()
+		}
+	}
+
+	private fun playbackFailed() {
+		stopPlayback()
+		message = R.string.playback_error
+	}
+
+	internal fun stopPlayback() {
+		val previous = player
+		player = null
+		previous?.release()
+		focus?.let { audioManager.abandonAudioFocusRequest(it) }
+		focus = null
+		playingFile = null
+	}
+
 	private fun release() {
 		runCatching { recorder?.release() }
 		recorder = null
@@ -93,5 +151,8 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 		totalPausedMs = 0L
 	}
 
-	override fun onCleared() { finish() }
+	override fun onCleared() {
+		stopPlayback()
+		finish()
+	}
 }

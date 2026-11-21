@@ -13,6 +13,9 @@
 	<string name="ready">Ready to record</string>
 	<string name="library">Recordings</string>
 	<string name="empty">Your recordings will appear here.</string>
+	<string name="play">Play</string>
+	<string name="stop_playback">Stop playback</string>
+	<string name="playback_error">Could not play the recording.</string>
 	<string name="permission">Allow microphone access in Settings to record.</string>
 	<string name="record_error">Could not save the recording. Try recording again.</string>
 	<string name="foreground">Leaving the app ends and saves the recording.</string>
