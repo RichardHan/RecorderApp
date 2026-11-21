@@ -21,3 +21,14 @@ internal fun findExcerpt(text: String, query: String): String? {
 	val suffix = if (end < text.length) "…" else ""
 	return prefix + text.substring(start, end).replace('\n', ' ') + suffix
 }
+
+internal fun transcriptMatchOffsets(text: String, query: String): List<Int> {
+	if (query.isBlank()) return emptyList()
+	return buildList {
+		var offset = text.indexOf(query, ignoreCase = true)
+		while (offset >= 0) {
+			add(offset)
+			offset = text.indexOf(query, startIndex = offset + query.length, ignoreCase = true)
+		}
+	}
+}

@@ -63,4 +63,7 @@
 	<string name="clear_query">清除</string>
 	<string name="no_matches">找不到符合的錄音</string>
 	<string name="transcript">逐字稿</string>
+	<string name="match_position">第 %1$d 筆，共 %2$d 筆</string>
+	<string name="previous_match">上一筆</string>
+	<string name="next_match">下一筆</string>
 </resources>

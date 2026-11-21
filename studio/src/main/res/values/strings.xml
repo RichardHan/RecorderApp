@@ -63,4 +63,7 @@
 	<string name="clear_query">Clear</string>
 	<string name="no_matches">No matching recordings</string>
 	<string name="transcript">Transcript</string>
+	<string name="match_position">Match %1$d of %2$d</string>
+	<string name="previous_match">Previous match</string>
+	<string name="next_match">Next match</string>
 </resources>

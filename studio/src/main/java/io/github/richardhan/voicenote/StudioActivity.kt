@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import java.io.File
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -90,8 +89,12 @@ private fun Studio(
 	var input by rememberSaveable { mutableStateOf("") }
 	val query = input.trim()
 	val hits = transcriptHits(library.files, query, speech.revision)
-	var selected by remember(query) { mutableStateOf<File?>(null) }
-	selected?.let { file -> MatchedTranscript(file, query, speech.revision) { selected = null } }
+	var selectedName by rememberSaveable(query) { mutableStateOf<String?>(null) }
+	selectedName?.let { name ->
+		library.files.firstOrNull { it.name == name }?.let { file ->
+			MatchedTranscript(file, query, speech.revision) { selectedName = null }
+		}
+	}
 	val active = library.started != 0L
 	val elapsed by produceState(0L, library.started) {
 		value = 0
@@ -151,7 +154,7 @@ private fun Studio(
 				hits == null -> item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
 				hits.isEmpty() -> item { Text(stringResource(R.string.no_matches)) }
 				else -> items(hits, key = { it.recording.name }) { hit ->
-					SearchResult(hit) { selected = hit.recording }
+					SearchResult(hit) { selectedName = hit.recording.name }
 				}
 			}
 		}
