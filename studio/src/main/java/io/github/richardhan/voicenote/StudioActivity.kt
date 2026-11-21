@@ -9,8 +9,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,16 +30,12 @@ class StudioActivity : ComponentActivity() {
 	private val speech: SpeechConnection by viewModels()
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
-		enableEdgeToEdge()
 		setContent {
-			val dark = isSystemInDarkTheme()
-			val scheme = if (dark) darkColorScheme(primary = Color(0xFFD6BDFF), surface = Color(0xFF17151C))
-				else lightColorScheme(primary = Color(0xFF58308C), surface = Color(0xFFFAF8FC))
-			MaterialTheme(colorScheme = scheme) {
+			StudioTheme { appearance, dark, choose ->
 				val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
 					if (it) library.start() else library.message = R.string.permission
 				}
-				Studio(library, speech) {
+				Studio(library, speech, dark, heading = { StudioHeading(appearance, choose) }) {
 					when {
 						library.started != 0L -> library.finish()
 						checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> library.start()
@@ -58,7 +52,13 @@ class StudioActivity : ComponentActivity() {
 }
 
 @Composable
-private fun Studio(library: RecordingLibrary, speech: SpeechConnection, toggle: () -> Unit) {
+private fun Studio(
+	library: RecordingLibrary,
+	speech: SpeechConnection,
+	dark: Boolean,
+	heading: @Composable () -> Unit,
+	toggle: () -> Unit
+) {
 	val active = library.started != 0L
 	val elapsed by produceState(0L, library.started) {
 		value = 0
@@ -73,14 +73,17 @@ private fun Studio(library: RecordingLibrary, speech: SpeechConnection, toggle: 
 			contentPadding = PaddingValues(20.dp),
 			verticalArrangement = Arrangement.spacedBy(14.dp)
 		) {
-			item { Text(stringResource(R.string.studio), style = MaterialTheme.typography.headlineLarge) }
+			item { heading() }
 			item {
-				Surface(color = Color(0xFF30213F), contentColor = Color.White, shape = RoundedCornerShape(24.dp)) {
+				val panel = if (dark) MaterialTheme.colorScheme.surfaceContainer else Color(0xFF30213F)
+				val accent = if (dark) MaterialTheme.colorScheme.primary else Color(0xFFD1F4A1)
+				Surface(color = panel, contentColor = Color.White, shape = RoundedCornerShape(24.dp)) {
 					Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
 						Text(stringResource(if (active) R.string.active else R.string.ready))
 						Text(String.format(Locale.ROOT, "%02d:%02d:%02d", elapsed / 3600, elapsed / 60 % 60, elapsed % 60),
 							style = MaterialTheme.typography.displayMedium, fontFamily = FontFamily.Monospace)
-						Button(onClick = toggle, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD1F4A1), contentColor = Color(0xFF21310A))) {
+						LiveWaveform(library, accent)
+						Button(onClick = toggle, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF201917))) {
 							Text(stringResource(if (active) R.string.stop else R.string.record))
 						}
 						Text(stringResource(R.string.foreground), style = MaterialTheme.typography.bodySmall)

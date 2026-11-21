@@ -28,4 +28,8 @@
 	<string name="invalid">Enter an HTTPS endpoint, a model ID and an API key.</string>
 	<string name="failed">Could not complete the request. Check your connection, key and selected model.</string>
 	<string name="http_error">Provider returned HTTP %1$d.</string>
+	<string name="appearance">Appearance</string>
+	<string name="theme_system">Follow system</string>
+	<string name="theme_light">Light</string>
+	<string name="theme_dark">Dark</string>
 </resources>
