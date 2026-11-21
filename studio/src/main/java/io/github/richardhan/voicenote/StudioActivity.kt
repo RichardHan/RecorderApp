@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -85,6 +86,15 @@ private fun Studio(
 	heading: @Composable () -> Unit,
 	toggle: () -> Unit
 ) {
+	var input by rememberSaveable { mutableStateOf("") }
+	val query = input.trim()
+	val hits = transcriptHits(library.files, query, speech.revision)
+	var selectedName by rememberSaveable(query) { mutableStateOf<String?>(null) }
+	selectedName?.let { name ->
+		library.files.firstOrNull { it.name == name }?.let { file ->
+			MatchedTranscript(file, query, speech.revision) { selectedName = null }
+		}
+	}
 	val active = library.started != 0L
 	val elapsed by produceState(0L, library.started) {
 		value = 0
@@ -122,12 +132,30 @@ private fun Studio(
 			if (speech.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
 			item { Text(stringResource(R.string.library), style = MaterialTheme.typography.titleLarge) }
 			item { ImportActions(library) }
-			if (library.files.isEmpty()) item { Text(stringResource(R.string.empty)) }
-			items(library.files, key = { it.name }) { file ->
-				Text(DateFormat.getDateTimeInstance().format(Date(file.lastModified())))
-				TranscriptionRow(file, speech, local)
-				TrimAction(file, library::refresh)
-				HorizontalDivider()
+			item {
+				OutlinedTextField(
+					value = input, onValueChange = { input = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+					label = { Text(stringResource(R.string.search_transcripts)) },
+					trailingIcon = if (input.isEmpty()) null else ({
+						TextButton(onClick = { input = "" }) { Text(stringResource(R.string.clear_query)) }
+					})
+				)
+			}
+			when {
+				query.isEmpty() -> {
+					if (library.files.isEmpty()) item { Text(stringResource(R.string.empty)) }
+					items(library.files, key = { it.name }) { file ->
+						Text(DateFormat.getDateTimeInstance().format(Date(file.lastModified())))
+						TranscriptionRow(file, speech, local)
+						TrimAction(file, library::refresh)
+						HorizontalDivider()
+					}
+				}
+				hits == null -> item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+				hits.isEmpty() -> item { Text(stringResource(R.string.no_matches)) }
+				else -> items(hits, key = { it.recording.name }) { hit ->
+					SearchResult(hit) { selectedName = hit.recording.name }
+				}
 			}
 		}
 	}

@@ -59,4 +59,11 @@
 	<string name="clip_length">Selection · %1$s</string>
 	<string name="clip_invalid_range">Choose a start and a later end within the recording.</string>
 	<string name="stop_preview">Stop preview</string>
+	<string name="search_transcripts">Search transcripts</string>
+	<string name="clear_query">Clear</string>
+	<string name="no_matches">No matching recordings</string>
+	<string name="transcript">Transcript</string>
+	<string name="match_position">Match %1$d of %2$d</string>
+	<string name="previous_match">Previous match</string>
+	<string name="next_match">Next match</string>
 </resources>

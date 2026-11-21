@@ -59,4 +59,11 @@
 	<string name="clip_length">選取長度 %1$s</string>
 	<string name="clip_invalid_range">請在錄音範圍內輸入起訖時間，結束須晚於開始。</string>
 	<string name="stop_preview">停止試聽</string>
+	<string name="search_transcripts">搜尋逐字稿</string>
+	<string name="clear_query">清除</string>
+	<string name="no_matches">找不到符合的錄音</string>
+	<string name="transcript">逐字稿</string>
+	<string name="match_position">第 %1$d 筆，共 %2$d 筆</string>
+	<string name="previous_match">上一筆</string>
+	<string name="next_match">下一筆</string>
 </resources>
