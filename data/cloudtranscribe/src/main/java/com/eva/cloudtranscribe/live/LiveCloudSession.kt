@@ -4,6 +4,7 @@ import com.eva.cloudtranscribe.R as StringsRes
 import com.eva.utils.UiStrings
 
 import com.eva.cloudtranscribe.api.CallOutcome
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -242,24 +243,51 @@ class LiveCloudSession(
 			knownTerms = terms,
 		)
 		val t0 = clock()
-		var outcome = transcribe(job)
-		if (outcome is CallOutcome.Failure && outcome.retryable && guard.isCurrent(sessionId)) {
-			outcome = transcribe(job)
-		}
-		val transcribeMs = (clock() - t0).coerceAtLeast(0L)
-		val uploadedMs = chunk.samples.size.toLong() * 1000L / sampleRate
-		synchronized(lock) {
-			finished[chunk.seq] = FinishedChunk(chunk, outcome, transcribeMs, uploadedMs)
+		var outcome: CallOutcome? = null
+		try {
+			outcome = try {
+				val first = transcribe(job)
+				if (first is CallOutcome.Failure && first.retryable && guard.isCurrent(sessionId)) {
+					transcribe(job)
+				} else {
+					first
+				}
+			} catch (ce: CancellationException) {
+				throw ce
+			} catch (e: Exception) {
+				CallOutcome.Failure(e.message ?: "transcribe failed", retryable = false)
+			}
+		} finally {
+			val transcribeMs = (clock() - t0).coerceAtLeast(0L)
+			val uploadedMs = chunk.samples.size.toLong() * 1000L / sampleRate
+			synchronized(lock) {
+				val finalOutcome = outcome
+				if (finalOutcome != null) {
+					finished[chunk.seq] = FinishedChunk(chunk, finalOutcome, transcribeMs, uploadedMs)
+				} else {
+					skippedSequences += chunk.seq
+				}
+			}
+			onProcessDone()
 		}
 		drainApply()
-		onProcessDone()
 	}
 
 	private fun onProcessDone() {
 		synchronized(lock) {
 			activeTranscribes = (activeTranscribes - 1).coerceAtLeast(0)
 			transcribing = activeTranscribes > 0
-			_state.update { it.copy(inFlightTranscribes = activeTranscribes, pendingChunks = queue.size()) }
+			_state.update {
+				it.copy(
+					inFlightTranscribes = activeTranscribes,
+					pendingChunks = queue.size(),
+					phase = if (!transcribing && queue.size() == 0 && it.phase == LiveCloudPhase.TRANSCRIBING) {
+						LiveCloudPhase.IDLE
+					} else {
+						it.phase
+					},
+				)
+			}
 		}
 		tryStart()
 	}
@@ -310,6 +338,7 @@ class LiveCloudSession(
 				cloudSpans = (it.cloudSpans + span).sortedBy { s -> s.startMs },
 				transcribeError = if (span.ok && !span.suspicious) null else span.error,
 				phase = when {
+					it.phase == LiveCloudPhase.FINISHING || it.phase == LiveCloudPhase.DONE -> it.phase
 					activeTranscribes > 0 -> LiveCloudPhase.TRANSCRIBING
 					else -> LiveCloudPhase.IDLE
 				},

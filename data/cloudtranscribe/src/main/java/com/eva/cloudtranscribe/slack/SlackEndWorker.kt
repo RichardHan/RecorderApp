@@ -73,6 +73,9 @@ class SlackEndWorker @AssistedInject constructor(
 	private val recordings: VoiceRecordingsProvider,
 	private val outbox: WorkManagerSlackOutbox,
 	private val autoTitle: AutoTitleRenamer,
+	private val slackSettingsRepo: SlackSyncSettingsRepository,
+	private val webhookStore: SlackWebhookStore,
+	private val deliveryState: SlackDeliveryState,
 ) : CoroutineWorker(context, params) {
 
 	override suspend fun doWork(): Result {
@@ -80,17 +83,22 @@ class SlackEndWorker @AssistedInject constructor(
 		val recordingId = inputData.getLong(KEY_RECORDING, 0L)
 		val durationMs = inputData.getLong(KEY_DURATION, 0L)
 		val givenTitle = inputData.getString(KEY_TITLE)?.ifBlank { null }
-		val livePoints = inputData.getStringArray(KEY_POINTS)?.toList().orEmpty()
+		val livePoints = inputData.getNullableStringArray(KEY_POINTS)?.filterNotNull().orEmpty()
 		val mask = inputData.getBoolean(KEY_MASK, false)
 		val enqueuedAt = inputData.getLong(KEY_ENQUEUED_AT, System.currentTimeMillis())
 		val generation = inputData.getInt(KEY_GENERATION, 0)
 		val consentAtMillis = inputData.getLong(KEY_CONSENT, -1).takeIf { it >= 0 }
 		val now = System.currentTimeMillis()
 
+		val slackSettings = slackSettingsRepo.current()
+		val hasWebhook = !webhookStore.read().isNullOrBlank()
+		if (!SlackEndPolicy.canProceed(slackSettings, hasWebhook, consentAtMillis, generation, deliveryState.permit(sessionId))) {
+			return Result.success()
+		}
+
 		val records = if (recordingId > 0L) runCatching { store.summaries(recordingId) }.getOrDefault(emptyList()) else emptyList()
 		val summary = SlackEndPolicy.pickPostRecordingSummary(records)
 		val cloud = settingsRepo.current()
-		if (recordingId > 0L) runCatching { autoTitle.applyIfEligible(recordingId) }
 		val waitForPipeline = SlackEndPolicy.shouldWaitForPipeline(cloud.autoAfterRecording, cloud.autoSummaryAfterTranscript)
 		when (
 			SlackEndPolicy.decide(
@@ -103,6 +111,7 @@ class SlackEndWorker @AssistedInject constructor(
 		) {
 			SlackEndPolicy.Wait.WAIT -> return Result.retry()
 			SlackEndPolicy.Wait.READY -> {
+				if (recordingId > 0L) runCatching { autoTitle.applyIfEligible(recordingId) }
 				val title = recordingTitle(recordingId) ?: givenTitle
 				val text = maybeMask(
 					mask,

@@ -237,6 +237,19 @@ object SlackEndPolicy {
 	fun isInFlight(records: List<SummaryRecord>): Boolean =
 		records.any { it.provenance.engine == POST_RECORDING_ENGINE && it.status in IN_FLIGHT }
 
+	fun canProceed(
+		settings: SlackSyncSettings,
+		hasWebhook: Boolean,
+		consentAtMillis: Long?,
+		generation: Int,
+		permit: SlackSessionPermit?,
+	): Boolean {
+		if (!hasWebhook || !settings.isActive || !settings.sendEnd) return false
+		if (consentAtMillis != settings.consentAtMillis) return false
+		if (permit == null || !permit.enabled || permit.generation != generation) return false
+		return true
+	}
+
 	fun decide(
 		nowMs: Long,
 		enqueuedAtMs: Long,

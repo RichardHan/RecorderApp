@@ -4,6 +4,7 @@ import com.eva.cloudtranscribe.api.CallOutcome
 import com.eva.cloudtranscribe.engine.Prompts
 import com.eva.cloudtranscribe.live.LiveAudioOverlap
 import com.eva.cloudtranscribe.live.LiveBoundaryRefine
+import com.eva.cloudtranscribe.live.LiveCloudPhase
 import com.eva.cloudtranscribe.live.LiveCloudSession
 import com.eva.cloudtranscribe.live.LiveCloudSettings
 import com.eva.cloudtranscribe.live.LiveKnownTerms
@@ -419,5 +420,50 @@ class LiveCloudContextSessionTests {
 		assertEquals(5, LiveCloudSettings(overlapSec = 99).normalized().overlapSec)
 		assertEquals(0L, LiveCloudSettings(enhanceContextQuality = false, overlapSec = 3).effectiveOverlapMs)
 		assertEquals(3_000L, LiveCloudSettings(enhanceContextQuality = true, overlapSec = 3).effectiveOverlapMs)
+	}
+	@Test
+	fun transcribeExceptionDoesNotStallLaterChunksOrLeakTranscribingPhase() = runTest {
+		val s = LiveCloudSession(
+			backgroundScope, on, "s",
+			transcribe = { job ->
+				if (job.startMs == 0L) error("encoder failed")
+				CallOutcome.Text("第二段正常。")
+			},
+			summarize = { CallOutcome.Text("k") },
+			sampleRate = 100,
+		)
+		s.onAudio(pcm(30), 3_000)
+		advanceUntilIdle(); runCurrent()
+		s.onAudio(pcm(30), 3_000)
+		advanceUntilIdle(); runCurrent()
+		val spans = s.state.value.cloudSpans
+		assertEquals(listOf(0L, 30_000L), spans.map { it.startMs })
+		assertFalse(spans[0].ok)
+		assertTrue(spans[1].ok)
+		assertEquals("第二段正常。", spans[1].text)
+		assertEquals(0, s.state.value.inFlightTranscribes)
+		assertEquals(LiveCloudPhase.IDLE, s.state.value.phase)
+	}
+
+	@Test
+	fun phaseReturnsToIdleWhenDelayedEarlierChunkFinishesLast() = runTest {
+		val first = CompletableDeferred<Unit>()
+		val s = LiveCloudSession(
+			backgroundScope, on, "s",
+			transcribe = { job ->
+				if (job.startMs == 0L) first.await()
+				CallOutcome.Text("片段。")
+			},
+			summarize = { CallOutcome.Text("k") },
+			sampleRate = 100,
+		)
+		repeat(60) { s.onAudio(pcm(1), 100) }
+		advanceUntilIdle(); runCurrent()
+		assertEquals(LiveCloudPhase.TRANSCRIBING, s.state.value.phase)
+		first.complete(Unit)
+		advanceUntilIdle(); runCurrent()
+		assertEquals(0, s.state.value.inFlightTranscribes)
+		assertEquals(0, s.state.value.pendingChunks)
+		assertEquals(LiveCloudPhase.IDLE, s.state.value.phase)
 	}
 }

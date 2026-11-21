@@ -418,4 +418,18 @@ class SlackSyncCoordinatorTests {
 		runCurrent()
 		assertEquals(listOf(SlackMessageKind.START), outbox.sent.map { it.kind })
 	}
+	@Test
+	fun starting_with_initialEnabled_false_never_enqueues_start_even_when_settings_active() = runTest {
+		val outbox = FakeOutbox()
+		val holder = Holder()
+		val c = coordinator(outbox, holder = holder)
+		c.onRecordingStarted(initialEnabled = false)
+		assertTrue(outbox.sent.isEmpty())
+		assertFalse(c.status.value.syncing)
+		val id = holder.currentSessionId!!
+		assertFalse(holder.permit(id)!!.enabled)
+		c.setSyncForThisRecording(true)
+		assertTrue(c.status.value.syncing)
+		assertTrue(holder.permit(id)!!.enabled)
+	}
 }

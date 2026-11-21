@@ -67,10 +67,10 @@ object AutoRecordingName {
 	}
 
 	/** `name (n).ext` for collision retries; [attempt] is 2-based (first retry is 2). */
-	fun withCollisionSuffix(displayName: String, attempt: Int): String {
+	fun withCollisionSuffix(displayName: String, attempt: Int, knownExtension: String? = null): String {
 		if (attempt <= 1) return displayName
-		val ext = extensionOf(displayName)
-		val base = if (ext.isNotEmpty()) displayName.removeSuffix(ext) else displayName
+		val ext = (knownExtension ?: extensionOf(displayName)).takeIf { it.startsWith(".") }.orEmpty()
+		val base = if (ext.isNotEmpty() && displayName.endsWith(ext)) displayName.removeSuffix(ext) else displayName
 		return "$base ($attempt)$ext"
 	}
 }

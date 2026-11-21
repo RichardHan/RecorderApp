@@ -23,9 +23,14 @@ object TitleSuggestion {
 	private val WRAP = Regex("""^[「『《〈"'“‘【\[(（]+|[」』》〉"'”’】\])）]+$""")
 
 	/** Newest successful, non-empty summary that actually has points. */
-	fun latestUsable(summaries: List<SummaryRecord>): SummaryRecord? =
+	fun latestUsable(summaries: List<SummaryRecord>, requiredEngine: String? = null): SummaryRecord? =
 		summaries.sortedByDescending { it.createdAtMillis }
-			.firstOrNull { it.status == RunStatus.SUCCESS && it.text.isNotBlank() && it.text.trim() != NO_POINTS }
+			.firstOrNull {
+				(requiredEngine == null || it.provenance.engine == requiredEngine) &&
+					it.status == RunStatus.SUCCESS &&
+					it.text.isNotBlank() &&
+					it.text.trim() != NO_POINTS
+			}
 
 	/** Removes characters that cannot appear in a file name and collapses spaces. */
 	fun sanitize(title: String): String = ILLEGAL.replace(title, " ").replace(Regex("""\s+"""), " ").trim()

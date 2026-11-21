@@ -140,4 +140,28 @@ class AutoTitleRenamerTests {
 		).applyIfEligible(7)
 		assertFalse(prompt.contains("0912-345-678"))
 	}
+	@Test
+	fun ignores_live_keypoints_until_post_recording_summary_succeeds() = runBlocking {
+		val store = TranscriptStore(Files.createTempDirectory("auto-title-live").toFile())
+		store.saveSummary(SummaryRecord("live-1", 7L, "t0", Provenance(engine = "live-keypoints", model = "m"), 999L, RunStatus.SUCCESS, "- 即時重點"))
+		var aiCalls = 0
+		val r = renamer(store, complete = { _, _ -> aiCalls++; CallOutcome.Text("不該命名") })
+		assertEquals(AutoTitleResult.Skipped("no-points"), r.applyIfEligible(7))
+		assertEquals(0, aiCalls)
+		assertEquals(null, store.autoTitleMarker(7))
+	}
+
+	@Test
+	fun collision_suffix_preserves_empty_extension_when_title_contains_dot() = runBlocking {
+		val store = storeWithSummary("- 報告重點")
+		val tried = mutableListOf<String>()
+		val result = renamer(
+			store,
+			recording = recording("Voice-20 Nov 15:30"),
+			complete = { _, _ -> CallOutcome.Text("報告 v2.1") },
+			rename = { _, name -> tried += name; name.endsWith(" (2)") },
+		).applyIfEligible(7)
+		assertEquals(AutoTitleResult.Applied("2026-11-20 1530 報告 v2.1 (2)", AutoTitlePolicy.SOURCE_AI), result)
+		assertEquals(listOf("2026-11-20 1530 報告 v2.1", "2026-11-20 1530 報告 v2.1 (2)"), tried)
+	}
 }

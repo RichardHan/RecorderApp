@@ -7,6 +7,7 @@ import com.eva.cloudtranscribe.model.CloudSettings
 import com.eva.cloudtranscribe.model.PiiRedactor
 import com.eva.cloudtranscribe.secure.ApiKeyStore
 import com.eva.cloudtranscribe.settings.CloudSettingsRepository
+import com.eva.cloudtranscribe.slack.SlackEndPolicy
 import com.eva.cloudtranscribe.store.TranscriptStore
 import com.eva.recordings.domain.models.RecordedVoiceModel
 import com.eva.recordings.domain.provider.VoiceRecordingsProvider
@@ -74,7 +75,7 @@ class AutoTitleRenamer internal constructor(
 		if (!s.autoTitleAfterSummary) return AutoTitleResult.Skipped("setting-off")
 		val recording = loadRecording(recordingId) ?: return AutoTitleResult.Skipped("missing")
 		val display = recording.displayName.ifBlank { recording.title }
-		val usable = TitleSuggestion.latestUsable(store.summaries(recordingId))
+		val usable = TitleSuggestion.latestUsable(store.summaries(recordingId), requiredEngine = SlackEndPolicy.POST_RECORDING_ENGINE)
 		if (!AutoTitlePolicy.shouldAttempt(s.autoTitleAfterSummary, marker.applied, display, usable)) {
 			return AutoTitleResult.Skipped(if (usable == null) "no-points" else "not-original")
 		}
@@ -109,7 +110,7 @@ class AutoTitleRenamer internal constructor(
 		}
 		var appliedName: String? = null
 		for (attempt in 1..MAX_COLLISION) {
-			val candidate = AutoRecordingName.withCollisionSuffix(base, attempt)
+			val candidate = AutoRecordingName.withCollisionSuffix(base, attempt, ext)
 			if (candidate == display) { appliedName = display; break }
 			if (rename(recording, candidate)) { appliedName = candidate; break }
 		}

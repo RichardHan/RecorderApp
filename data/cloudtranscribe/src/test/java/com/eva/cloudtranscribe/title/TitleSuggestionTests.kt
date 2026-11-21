@@ -63,4 +63,14 @@ class TitleSuggestionTests {
 		assertTrue(p.contains("摘要：\n- 重點"))
 		assertTrue(p.length < TitleSuggestion.MAX_SUMMARY_CHARS + 200)
 	}
+	@Test
+	fun latest_usable_can_require_post_recording_engine() {
+		val list = listOf(
+			SummaryRecord("live", 1, "t", Provenance(engine = "live-keypoints", model = "m"), 100L, RunStatus.SUCCESS, "- 即時重點"),
+			summary("post", 50L, "- 完整摘要"),
+		)
+		assertEquals("live", TitleSuggestion.latestUsable(list)?.id)
+		assertEquals("post", TitleSuggestion.latestUsable(list, requiredEngine = "cloud-summary")?.id)
+		assertNull(TitleSuggestion.latestUsable(listOf(list.first()), requiredEngine = "cloud-summary"))
+	}
 }

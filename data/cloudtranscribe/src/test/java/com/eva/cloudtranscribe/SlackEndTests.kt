@@ -9,6 +9,8 @@ import com.eva.cloudtranscribe.slack.SlackEndMessage
 import com.eva.cloudtranscribe.slack.SlackEndPolicy
 import com.eva.cloudtranscribe.slack.SlackEndRequest
 import com.eva.cloudtranscribe.slack.SlackEndScheduler
+import com.eva.cloudtranscribe.slack.SlackSessionPermit
+import com.eva.cloudtranscribe.slack.SlackSyncSettings
 import com.eva.cloudtranscribe.slack.SlackMessages
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -244,5 +246,19 @@ class SlackEndPolicyTests {
 		val req = SlackEndRequest("abc", 7L, 1_000L, "週會", listOf("x"), false, 0L)
 		assertEquals("abc", req.sessionId)
 		assertEquals(7L, req.recordingId)
+	}
+	@Test
+	fun canProceed_blocks_revoked_consent_missing_webhook_disabled_sendEnd_and_invalid_permit() {
+		val active = SlackSyncSettings(enabled = true, consentAtMillis = 100L, sendEnd = true)
+		val permit = SlackSessionPermit(generation = 0, enabled = true, paused = false, ended = true)
+		assertTrue(SlackEndPolicy.canProceed(active, hasWebhook = true, consentAtMillis = 100L, generation = 0, permit = permit))
+		assertFalse(SlackEndPolicy.canProceed(active, hasWebhook = false, consentAtMillis = 100L, generation = 0, permit = permit))
+		assertFalse(SlackEndPolicy.canProceed(active.copy(enabled = false), hasWebhook = true, consentAtMillis = 100L, generation = 0, permit = permit))
+		assertFalse(SlackEndPolicy.canProceed(active.copy(consentAtMillis = null), hasWebhook = true, consentAtMillis = 100L, generation = 0, permit = permit))
+		assertFalse(SlackEndPolicy.canProceed(active.copy(consentAtMillis = 200L), hasWebhook = true, consentAtMillis = 100L, generation = 0, permit = permit))
+		assertFalse(SlackEndPolicy.canProceed(active.copy(sendEnd = false), hasWebhook = true, consentAtMillis = 100L, generation = 0, permit = permit))
+		assertFalse(SlackEndPolicy.canProceed(active, hasWebhook = true, consentAtMillis = 100L, generation = 0, permit = null))
+		assertFalse(SlackEndPolicy.canProceed(active, hasWebhook = true, consentAtMillis = 100L, generation = 0, permit = permit.copy(enabled = false)))
+		assertFalse(SlackEndPolicy.canProceed(active, hasWebhook = true, consentAtMillis = 100L, generation = 0, permit = permit.copy(generation = 1)))
 	}
 }
