@@ -8,6 +8,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import com.eva.ui.R as UiRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,6 +37,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.eva.cloudtranscribe.live.LiveCloudSettings
+import com.eva.cloudtranscribe.live.LiveCloudSettingsRepository
 import com.eva.cloudtranscribe.slack.SlackDeliveryState
 import com.eva.cloudtranscribe.slack.SlackMessages
 import com.eva.cloudtranscribe.slack.SlackSendPolicy
@@ -44,6 +47,7 @@ import com.eva.cloudtranscribe.slack.SlackSender
 import com.eva.cloudtranscribe.slack.SlackSyncSettings
 import com.eva.cloudtranscribe.slack.SlackSyncSettingsRepository
 import com.eva.cloudtranscribe.slack.SlackThrottle
+import com.eva.cloudtranscribe.slack.SlackWebhookGuide
 import com.eva.cloudtranscribe.slack.SlackWebhookStore
 import com.eva.cloudtranscribe.slack.UrlConnectionSlackTransport
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -59,12 +63,14 @@ import kotlinx.coroutines.launch
 internal class SlackSyncSettingsViewModel @Inject constructor(
 	private val repo: SlackSyncSettingsRepository,
 	private val webhookStore: SlackWebhookStore,
+	liveCloudSettings: LiveCloudSettingsRepository,
 	deliveryState: SlackDeliveryState,
 ) : ViewModel() {
 
 	val settings: StateFlow<SlackSyncSettings?> = repo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 	val hasWebhook: StateFlow<Boolean> = webhookStore.hasKey
 	val lastError: StateFlow<String?> = deliveryState.lastError
+	val liveCloud: StateFlow<LiveCloudSettings> = liveCloudSettings.settings.stateIn(viewModelScope, SharingStarted.Eagerly, LiveCloudSettings())
 
 	private val _savedWebhookUrl = MutableStateFlow(webhookStore.read())
 	/** Decrypted webhook URL for the settings screen only; never logged. */
@@ -124,6 +130,7 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 	val hasWebhook by viewModel.hasWebhook.collectAsStateWithLifecycle()
 	val savedWebhookUrl by viewModel.savedWebhookUrl.collectAsStateWithLifecycle()
 	val lastError by viewModel.lastError.collectAsStateWithLifecycle()
+	val liveCloud by viewModel.liveCloud.collectAsStateWithLifecycle()
 	val current = saved ?: return
 	val context = LocalContext.current
 	var urlInput by remember(savedWebhookUrl) { mutableStateOf(savedWebhookUrl.orEmpty()) }
@@ -141,7 +148,8 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 		InfoLine(
 			UiStrings.get(StringsRes.string.feature_settings_send_live_highlights_to_the_selected_channel, "開啟後把即時重點送到指定頻道。不上傳音訊、不讀取 Slack。"),
 			UiStrings.get(StringsRes.string.feature_settings_during_recording_this_device_sends_text_highlights, "開啟後，錄音中會把本機產生的即時重點送到你用 Incoming Webhook 指定的 Slack 頻道。不會上傳音訊，也不會讀取 Slack。") +
-				UiStrings.get(StringsRes.string.feature_settings_webhook_messages_cannot_be_edited_or_reliably, "Webhook 的限制：送出後不能編輯，也無法可靠地開討論串。所以「持續送」的做法是：開始一則、之後最多每 N 分鐘一則「新增的重點」、結束一則。"),
+				UiStrings.get(StringsRes.string.feature_settings_webhook_messages_cannot_be_edited_or_reliably, "Webhook 的限制：送出後不能編輯，也無法可靠地開討論串。所以「持續送」的做法是：開始一則、之後最多每 N 分鐘一則「新增的重點」、結束一則。") +
+				"\n" + UiStrings.get(StringsRes.string.feature_settings_how_to_get_webhook_steps, "建立 Slack App → 開啟 Incoming Webhooks → Add New Webhook → 選頻道 → 複製網址貼上。"),
 		)
 
 		Row(
@@ -169,6 +177,11 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 			keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
 			modifier = Modifier.fillMaxWidth(),
 		)
+		TextButton(onClick = {
+			if (!SlackWebhookGuide.open(context)) {
+				Toast.makeText(context, UiRes.string.cannot_launch_activity, Toast.LENGTH_SHORT).show()
+			}
+		}) { Text(UiStrings.get(StringsRes.string.feature_settings_how_to_get_webhook, "怎麼取得 Webhook？"), style = MaterialTheme.typography.bodySmall) }
 		urlError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 			Button(enabled = urlInput.isNotBlank(), onClick = {
@@ -201,7 +214,16 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 		SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_live_highlight_updates, "即時重點更新"), current.sendKeyPoints, UiStrings.get(StringsRes.string.feature_settings_up_to_three_unique_highlights_per_batch, "合併去重後每批最多 3 點；需開啟即時雲端摘要")) { v -> viewModel.update { it.copy(sendKeyPoints = v) } }
 		SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_final_highlights, "結束時的重點總結"), current.sendEnd, UiStrings.get(StringsRes.string.feature_settings_send_a_brief_recap_when_the_cloud, "等錄音後的雲端摘要完成再送一則精簡總結")) { v -> viewModel.update { it.copy(sendEnd = v) } }
 		SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_mask_personal_data_before_sending, "送出前遮蔽個資"), current.maskSensitive, UiStrings.get(StringsRes.string.feature_settings_emails_and_long_numbers, "電子郵件與長數字")) { v -> viewModel.update { it.copy(maskSensitive = v) } }
-		Text(stringResource(StringsRes.string.feature_settings_live_highlight_interval), style = MaterialTheme.typography.bodyMedium)
+		Text(UiStrings.get(StringsRes.string.feature_settings_slack_push_interval, "Slack 推送間隔"), style = MaterialTheme.typography.bodyMedium)
+		Text(
+			UiStrings.get(
+				StringsRes.string.feature_settings_slack_push_interval_hint,
+				"App 內的即時重點每 %1\$s 秒更新；這裡控制多久把新重點合併送一次到 Slack。",
+				slackPushIntervalSeconds(liveCloud.summaryIntervalSec),
+			),
+			style = MaterialTheme.typography.bodySmall,
+			color = MaterialTheme.colorScheme.onSurfaceVariant,
+		)
 		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 			SlackThrottle.OPTIONS_MINUTES.forEach { minutes ->
 				val label = if (minutes == 0) UiStrings.get(StringsRes.string.feature_settings_close, "關閉") else UiStrings.get(StringsRes.string.feature_settings_minutes, "%1\$s 分鐘", minutes)
@@ -250,3 +272,8 @@ internal fun SlackSyncSettingsSection(viewModel: SlackSyncSettingsViewModel = hi
 	)
 }
 
+
+
+/** Uses the configured live-cloud summary interval, clamped to the allowed range. */
+internal fun slackPushIntervalSeconds(summaryIntervalSec: Int): Int =
+	summaryIntervalSec.coerceIn(LiveCloudSettings.MIN_SUMMARY_INTERVAL, LiveCloudSettings.MAX_SUMMARY_INTERVAL)

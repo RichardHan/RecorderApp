@@ -83,6 +83,8 @@
 	<string name="feature_settings_for_cloud_transcripts_uses_additional_tokens">只限雲端逐字稿；會多用 token</string>
 	<string name="feature_settings_for_example_https_generativelanguage_googleapis_com_v1beta">如 https://generativelanguage.googleapis.com/v1beta</string>
 	<string name="feature_settings_hide_content_on_lock_screen">鎖定畫面不顯示內容</string>
+	<string name="feature_settings_how_to_get_webhook">怎麼取得 Webhook？</string>
+	<string name="feature_settings_how_to_get_webhook_steps">建立 Slack App → 開啟 Incoming Webhooks → Add New Webhook → 選頻道 → 複製網址貼上。</string>
 	<string name="feature_settings_highlight_interval_in_seconds_15_600_default">重點整理間隔（秒，15–600，預設 30）</string>
 	<string name="feature_settings_highlight_prompt_editable">重點整理 Prompt（可自行修改）</string>
 	<string name="feature_settings_highlight_service">重點整理服務</string>
@@ -96,7 +98,7 @@
 	<string name="feature_settings_last_sync">最近一次同步：%1$s</string>
 	<string name="feature_settings_live_cloud">雲端即時</string>
 	<string name="feature_settings_live_cloud_mode">即時雲端模式</string>
-	<string name="feature_settings_live_highlight_interval">即時重點更新間隔</string>
+	<string name="feature_settings_live_highlight_interval">Slack 推送間隔</string>
 	<string name="feature_settings_live_highlight_updates">即時重點更新</string>
 	<string name="feature_settings_live_highlights_are_deduplicated_the_final_message">即時重點只合併去重、不另外壓縮。結束訊息會等錄音後的雲端摘要；失敗或逾時則改用精簡的即時重點。</string>
 	<string name="feature_settings_local_captions">本機字幕</string>
@@ -181,6 +183,8 @@
 	<string name="feature_settings_sherpa_vosk_live_recognition_off_by_default">Sherpa／Vosk 即時辨識；預設關閉</string>
 	<string name="feature_settings_skip_nearly_silent_segments">略過近乎無聲的段落</string>
 	<string name="feature_settings_slack_sync">Slack 同步</string>
+	<string name="feature_settings_slack_push_interval">Slack 推送間隔</string>
+	<string name="feature_settings_slack_push_interval_hint">App 內的即時重點每 %1$s 秒更新；這裡控制多久把新重點合併送一次到 Slack。</string>
 	<string name="feature_settings_storage_available_of">儲存空間：可用 %1$s / %2$s</string>
 	<string name="feature_settings_summarize_after_transcription">轉錄後自動摘要</string>
 	<string name="feature_settings_summary">摘要</string>
