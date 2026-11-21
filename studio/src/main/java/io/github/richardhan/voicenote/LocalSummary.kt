@@ -18,6 +18,12 @@ private const val sha256 = "bf1aba9ce8d963124407353c6aa4cbf72eba78db21ae133de983
 
 class LocalSummary(app: Application) : AndroidViewModel(app) {
 	private val modelFile = File(app.noBackupFilesDir, "qwen3-0.6b-v1.litertlm")
+	private val transfer = ModelDownload(URL(modelUrl), modelFile, modelBytes, sha256)
+	private var downloadJob: Job? = null
+	var downloaded by mutableLongStateOf(transfer.savedBytes)
+		private set
+	var downloading by mutableStateOf(false)
+		private set
 	var installed by mutableStateOf(modelFile.length() == modelBytes)
 		private set
 	var busy by mutableStateOf(false)
@@ -27,45 +33,37 @@ class LocalSummary(app: Application) : AndroidViewModel(app) {
 	var revision by mutableIntStateOf(0)
 		private set
 
-	private fun runTask(block: suspend () -> Unit) {
-		if (busy) return
+	private fun runTask(block: suspend () -> Unit): Job? {
+		if (busy) return null
 		busy = true
 		failed = false
-		viewModelScope.launch {
-			try { withContext(Dispatchers.IO) { block() }; installed = modelFile.length() == modelBytes; revision++ }
+		return viewModelScope.launch {
+			try { withContext(Dispatchers.IO) { block() }; revision++ }
 			catch (e: CancellationException) { throw e }
 			catch (_: Exception) { failed = true }
 			catch (_: LinkageError) { failed = true }
-			finally { busy = false }
+			finally {
+				installed = modelFile.length() == modelBytes
+				downloaded = transfer.savedBytes
+				downloading = false
+				busy = false
+			}
 		}
 	}
 
-	fun download() = runTask {
-		val temp = File.createTempFile("summary-", ".part", modelFile.parentFile)
-		try {
-			val digest = MessageDigest.getInstance("SHA-256")
-			val conn = URL(modelUrl).openConnection().apply { connectTimeout = 20000; readTimeout = 60000 }
-			conn.getInputStream().use { input ->
-				temp.outputStream().buffered().use { out ->
-					val buf = ByteArray(65536)
-					var total = 0L
-					while (true) {
-						currentCoroutineContext().ensureActive()
-						val n = input.read(buf)
-						if (n < 0) break
-						total += n
-						check(total <= modelBytes)
-						out.write(buf, 0, n)
-						digest.update(buf, 0, n)
-					}
-				}
-			}
-			check(temp.length() == modelBytes && digest.digest().joinToString("") { "%02x".format(it) } == sha256)
-			check(temp.renameTo(modelFile))
-		} finally { temp.delete() }
+	fun download() {
+		if (busy || installed) return
+		downloading = true
+		downloadJob = runTask {
+			transfer.install { bytes -> withContext(Dispatchers.Main) { downloaded = bytes } }
+		}
 	}
 
-	fun remove() = runTask { check(modelFile.delete() || !modelFile.exists()) }
+	fun pause() { downloadJob?.cancel() }
+
+	fun discardPartial() = runTask { transfer.discard() }
+
+	fun remove() = runTask { transfer.uninstall() }
 
 	fun summarize(file: File, transcript: String) = runTask {
 		val config = EngineConfig(modelPath = modelFile.path, backend = Backend.CPU(), cacheDir = getApplication<Application>().cacheDir.path)
@@ -91,10 +89,27 @@ private fun summaryFile(file: File, transcript: String): File {
 
 @Composable
 internal fun SummaryModelPanel(local: LocalSummary) {
-	TextButton(enabled = !local.busy, onClick = { if (local.installed) local.remove() else local.download() }) {
-		Text(stringResource(if (local.installed) R.string.remove_model else R.string.download_model))
+	if (!local.downloading) {
+		val label = when {
+			local.installed -> R.string.remove_model
+			local.downloaded > 0 -> R.string.resume_model
+			else -> R.string.download_model
+		}
+		TextButton(enabled = !local.busy, onClick = { if (local.installed) local.remove() else local.download() }) {
+			Text(stringResource(label))
+		}
 	}
-	if (local.busy) LinearProgressIndicator()
+	if (local.downloading || (!local.installed && local.downloaded > 0)) {
+		val fraction = local.downloaded.toFloat() / modelBytes
+		LinearProgressIndicator(progress = { fraction })
+		if (local.downloading && local.downloaded == modelBytes) Text(stringResource(R.string.check_model))
+		else Text(stringResource(R.string.download_percent, local.downloaded * 100 / modelBytes))
+		if (local.downloading) {
+			TextButton(onClick = local::pause) { Text(stringResource(R.string.pause_model)) }
+		} else {
+			TextButton(enabled = !local.busy, onClick = { local.discardPartial() }) { Text(stringResource(R.string.discard_model)) }
+		}
+	} else if (local.busy) LinearProgressIndicator()
 	if (local.failed) Text(stringResource(R.string.summary_error), color = MaterialTheme.colorScheme.error)
 }
 
