@@ -38,4 +38,13 @@
 	<string name="import_error">Could not import this link or audio format.</string>
 	<string name="video_model">YouTube video model</string>
 	<string name="video_disclose">Send this YouTube link to OpenRouter to transcribe the video. The video model may charge your account.</string>
+	<string name="appearance">Appearance</string>
+	<string name="theme_system">Follow system</string>
+	<string name="theme_light">Light</string>
+	<string name="theme_dark">Dark</string>
+	<string name="resume_model">Resume model download</string>
+	<string name="download_percent">Model download: %1$d%%</string>
+	<string name="pause_model">Pause download</string>
+	<string name="discard_model">Delete partial download</string>
+	<string name="check_model">Verifying model…</string>
 </resources>

@@ -38,4 +38,13 @@
 	<string name="import_error">無法匯入這個連結或音訊格式。</string>
 	<string name="video_model">YouTube 影片模型</string>
 	<string name="video_disclose">將這個 YouTube 連結送到 OpenRouter 轉錄影片，影片模型可能產生費用。</string>
+	<string name="appearance">外觀</string>
+	<string name="theme_system">跟隨系統</string>
+	<string name="theme_light">淺色</string>
+	<string name="theme_dark">深色</string>
+	<string name="resume_model">繼續下載模型</string>
+	<string name="download_percent">模型下載進度：%1$d%%</string>
+	<string name="pause_model">暫停下載</string>
+	<string name="discard_model">刪除已下載部分</string>
+	<string name="check_model">正在驗證模型…</string>
 </resources>
