@@ -39,4 +39,15 @@ class TranscriptSearchTest {
 		assertTrue(sidecar.delete())
 		assertEquals("", readTranscript(recording))
 	}
+
+	@Test fun findsEveryNonOverlappingLiteralOccurrenceInReadingOrder() {
+		val text = "預算 ｜ BUDGET [v2.1] 🗓️ " + "段落".repeat(800) + "預算 budget [v2.1] 見積見積"
+		for (word in listOf("預算", "budget", "[v2.1]", "見積")) {
+			assertEquals(listOf(text.indexOf(word, ignoreCase = true), text.lastIndexOf(word, ignoreCase = true)),
+				transcriptMatchOffsets(text, word))
+		}
+		assertEquals(listOf(0, 2), transcriptMatchOffsets("aaaaa", "aa"))
+		assertTrue(transcriptMatchOffsets(text, " ").isEmpty())
+		assertTrue(transcriptMatchOffsets(text, "absent").isEmpty())
+	}
 }
