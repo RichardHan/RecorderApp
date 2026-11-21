@@ -57,6 +57,12 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 		}
 	}
 
+	internal fun peakAmplitude(): Int = try {
+		recorder?.maxAmplitude ?: 0
+	} catch (_: IllegalStateException) {
+		0
+	}
+
 	fun recordedDurationMs(): Long {
 		if (started == 0L) return 0L
 		val end = if (isPaused) pausedAt else SystemClock.elapsedRealtime()

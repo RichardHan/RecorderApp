@@ -90,8 +90,9 @@ private fun Studio(
 						}))
 						Text(String.format(Locale.ROOT, "%02d:%02d:%02d", elapsed / 3600, elapsed / 60 % 60, elapsed % 60),
 							style = MaterialTheme.typography.displayMedium, fontFamily = FontFamily.Monospace)
+						LiveWaveform(library, accent)
 						FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-							Button(onClick = toggle, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD1F4A1), contentColor = Color(0xFF21310A))) {
+							Button(onClick = toggle, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF201917))) {
 								Text(stringResource(if (active) R.string.stop else R.string.record))
 							}
 							if (active) {
