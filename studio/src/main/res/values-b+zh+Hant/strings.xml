@@ -78,4 +78,7 @@
 	<string name="speaker_alias">這段錄音中的姓名</string>
 	<string name="no_speakers">找不到發言段落。</string>
 	<string name="rerun_names">重新分析會重設這段錄音的發言者姓名。</string>
+	<string name="turn_listen">試聽</string>
+	<string name="turn_play_description">%1$s，%2$s，%3$s</string>
+	<string name="turn_play_error">無法播放這段錄音。</string>
 </resources>

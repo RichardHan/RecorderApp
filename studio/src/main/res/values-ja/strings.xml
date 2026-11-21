@@ -78,4 +78,7 @@
 	<string name="speaker_alias">この録音での名前</string>
 	<string name="no_speakers">発話区間が見つかりませんでした。</string>
 	<string name="rerun_names">再解析するとこの録音の話者名がリセットされます。</string>
+	<string name="turn_listen">試聴</string>
+	<string name="turn_play_description">%1$s、%2$s、%3$s</string>
+	<string name="turn_play_error">この区間を再生できませんでした。</string>
 </resources>

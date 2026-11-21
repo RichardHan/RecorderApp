@@ -78,4 +78,7 @@
 	<string name="speaker_alias">Name in this recording</string>
 	<string name="no_speakers">No speech intervals found.</string>
 	<string name="rerun_names">Analyzing again resets speaker names.</string>
+	<string name="turn_listen">Listen</string>
+	<string name="turn_play_description">%1$s, %2$s, %3$s</string>
+	<string name="turn_play_error">Could not play this part of the recording.</string>
 </resources>

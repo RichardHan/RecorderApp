@@ -78,4 +78,7 @@
 	<string name="speaker_alias">此录音中的姓名</string>
 	<string name="no_speakers">未找到发言片段。</string>
 	<string name="rerun_names">重新分析将重置此录音中的发言人姓名。</string>
+	<string name="turn_listen">试听</string>
+	<string name="turn_play_description">%1$s，%2$s，%3$s</string>
+	<string name="turn_play_error">无法播放这段录音。</string>
 </resources>
