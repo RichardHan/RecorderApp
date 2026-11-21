@@ -32,18 +32,20 @@ class StudioActivity : ComponentActivity() {
 	private val library: RecordingLibrary by viewModels()
 	private val local: LocalSummary by viewModels()
 	private val speech: SpeechConnection by viewModels()
-	private var sharedSource by mutableStateOf<Uri?>(null)
+	private var sharedSources by mutableStateOf(emptyList<Uri>())
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
-		if (savedInstanceState != null) sharedSource = savedInstanceState.getString("pendingImport")?.let(Uri::parse)
-		else if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) receiveShare(intent)
+		if (savedInstanceState != null) {
+			sharedSources = savedInstanceState.getStringArrayList("pendingImports")?.map(Uri::parse)
+				?: listOfNotNull(savedInstanceState.getString("pendingImport")?.let(Uri::parse))
+		} else if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) receiveShare(intent)
 		setContent {
 			StudioTheme { appearance, dark, choose ->
 				val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
 					if (it) library.start() else library.message = R.string.permission
 				}
-				sharedSource?.let { source -> key(source) { SharedImportDialog(source, library) { sharedSource = null } } }
+				if (sharedSources.isNotEmpty()) key(sharedSources) { SharedImportDialog(sharedSources, library) { sharedSources = emptyList() } }
 				Studio(library, speech, local, dark, heading = { StudioHeading(appearance, choose) }) {
 					when {
 						library.started != 0L -> library.finish()
@@ -60,14 +62,14 @@ class StudioActivity : ComponentActivity() {
 	}
 
 	private fun receiveShare(intent: Intent) {
-		if (intent.action != Intent.ACTION_SEND) return
-		sharedSource = try { intent.sharedImportSource() } catch (_: BadParcelableException) { null }
-		if (sharedSource == null) library.message = R.string.import_error
+		if (intent.action != Intent.ACTION_SEND && intent.action != Intent.ACTION_SEND_MULTIPLE) return
+		sharedSources = try { intent.sharedImportSources() } catch (_: BadParcelableException) { emptyList() }
+		if (sharedSources.isEmpty()) library.message = R.string.import_error
 	}
 
 	override fun onSaveInstanceState(outState: Bundle) {
 		super.onSaveInstanceState(outState)
-		outState.putString("pendingImport", sharedSource?.toString())
+		outState.putStringArrayList("pendingImports", ArrayList(sharedSources.map(Uri::toString)))
 	}
 
 	override fun onStop() {

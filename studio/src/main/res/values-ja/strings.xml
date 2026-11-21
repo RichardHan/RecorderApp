@@ -32,6 +32,12 @@
 	<string name="remove_model">オフライン要約モデルを削除</string>
 	<string name="summary_error">ローカル要約に失敗しました。モデルのダウンロード、メモリ、空き容量を確認してください。</string>
 	<string name="summarize">この端末で要約</string>
+	<string name="choose_audio_files">音声ファイルを選択</string>
+	<string name="confirm_audio_batch">%1$d 件の音声ファイルを読み込みますか？</string>
+	<string name="audio_file_number">音声ファイル %1$d</string>
+	<string name="batch_progress">音声を読み込み中 · %2$d 件中 %1$d 件を処理</string>
+	<string name="batch_result">音声ファイル %2$d 件中 %1$d 件を読み込みました</string>
+	<string name="failed_imports">読み込めなかったファイル</string>
 	<string name="import_file">音声ファイルを読み込む</string>
 	<string name="import_url">リンクから読み込む</string>
 	<string name="audio_url">HTTPS 音声または YouTube URL</string>

@@ -32,6 +32,12 @@
 	<string name="remove_model">移除離線摘要模型</string>
 	<string name="summary_error">本機摘要作業失敗，請檢查模型下載、記憶體與儲存空間。</string>
 	<string name="summarize">在手機上產生摘要</string>
+	<string name="choose_audio_files">選取音檔</string>
+	<string name="confirm_audio_batch">匯入 %1$d 個音檔？</string>
+	<string name="audio_file_number">第 %1$d 個音檔</string>
+	<string name="batch_progress">正在匯入音檔，已處理 %1$d／%2$d 個</string>
+	<string name="batch_result">已匯入 %1$d／%2$d 個音檔</string>
+	<string name="failed_imports">未能匯入的音檔</string>
 	<string name="import_file">匯入音檔</string>
 	<string name="import_url">匯入連結</string>
 	<string name="audio_url">HTTPS 音檔或 YouTube 網址</string>

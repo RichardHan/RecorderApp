@@ -32,6 +32,12 @@
 	<string name="remove_model">移除离线摘要模型</string>
 	<string name="summary_error">本地摘要操作失败，请检查模型下载、内存与存储空间。</string>
 	<string name="summarize">在手机上生成摘要</string>
+	<string name="choose_audio_files">选择音频文件</string>
+	<string name="confirm_audio_batch">导入 %1$d 个音频文件？</string>
+	<string name="audio_file_number">第 %1$d 个音频文件</string>
+	<string name="batch_progress">正在导入音频，已处理 %1$d/%2$d 个</string>
+	<string name="batch_result">已导入 %1$d/%2$d 个音频文件</string>
+	<string name="failed_imports">未能导入的音频文件</string>
 	<string name="import_file">导入音频</string>
 	<string name="import_url">导入链接</string>
 	<string name="audio_url">HTTPS 音频或 YouTube 网址</string>
