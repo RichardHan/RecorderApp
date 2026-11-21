@@ -32,6 +32,12 @@
 	<string name="remove_model">オフライン要約モデルを削除</string>
 	<string name="summary_error">ローカル要約に失敗しました。モデルのダウンロード、メモリ、空き容量を確認してください。</string>
 	<string name="summarize">この端末で要約</string>
+	<string name="import_file">音声ファイルを読み込む</string>
+	<string name="import_url">リンクから読み込む</string>
+	<string name="audio_url">HTTPS 音声または YouTube URL</string>
+	<string name="import_error">このリンクまたは音声形式を読み込めません。</string>
+	<string name="video_model">YouTube 動画モデル</string>
+	<string name="video_disclose">この YouTube リンクを OpenRouter に送信して文字起こしします。動画モデルの利用料がかかる場合があります。</string>
 	<string name="appearance">外観</string>
 	<string name="theme_system">システム設定に合わせる</string>
 	<string name="theme_light">ライト</string>
@@ -41,4 +47,6 @@
 	<string name="pause_model">ダウンロードを一時停止</string>
 	<string name="discard_model">ダウンロード済みの部分を削除</string>
 	<string name="check_model">モデルを検証中…</string>
+	<string name="shared_audio">共有された音声ファイル</string>
+	<string name="confirm_import">読み込む</string>
 </resources>
