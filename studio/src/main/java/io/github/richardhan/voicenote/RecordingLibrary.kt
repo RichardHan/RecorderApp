@@ -42,6 +42,8 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 		}
 	}
 
+	fun peakAmplitude(): Int = try { recorder?.maxAmplitude ?: 0 } catch (_: IllegalStateException) { 0 }
+
 	fun finish() {
 		val session = recorder ?: return
 		try {
