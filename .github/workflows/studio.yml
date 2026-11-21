@@ -1,4 +1,4 @@
-name: Voice Ledger preview
+name: OpenRouter Recorder preview
 on:
   pull_request:
     paths:
@@ -19,6 +19,6 @@ jobs:
       - run: ./gradlew -p studio lintDebug assembleDebug bundleRelease
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: Voice-Ledger-preview
+          name: OpenRouter-Recorder-preview
           path: studio/build/outputs/apk/debug/*.apk
           if-no-files-found: error
