@@ -16,4 +16,25 @@
 	<string name="permission">請在設定允許麥克風權限以錄音。</string>
 	<string name="record_error">無法儲存錄音，請重新錄製。</string>
 	<string name="foreground">離開 App 時會結束並儲存錄音。</string>
+	<string name="receipt_model">轉錄模型 · %1$s</string>
+	<string name="receipt_fee">回報費用 USD %1$s</string>
+	<string name="receipt_no_fee">服務未回報費用</string>
+	<string name="receipt_time">請求耗時 %1$.2f 秒</string>
+	<string name="model">轉錄模型</string>
+	<string name="configure">模型與連線</string>
+	<string name="custom">自訂 API 端點</string>
+	<string name="standard">OpenRouter</string>
+	<string name="key">API 金鑰（限本次使用）</string>
+	<string name="base">HTTPS 基底網址</string>
+	<string name="model_id">模型 ID</string>
+	<string name="refresh">載入可用模型</string>
+	<string name="upload">傳送並轉錄</string>
+	<string name="sending">轉錄中…</string>
+	<string name="confirm">傳送這段錄音？</string>
+	<string name="disclose">將音訊傳送至 %1$s，由 %2$s 轉錄。服務商可能會向你的帳戶收費。</string>
+	<string name="cancel">取消</string>
+	<string name="done">完成</string>
+	<string name="invalid">請填寫 HTTPS 端點、模型 ID 和 API 金鑰。</string>
+	<string name="failed">請求失敗，請檢查連線、金鑰與模型。</string>
+	<string name="http_error">服務商回傳 HTTP %1$d。</string>
 </resources>
