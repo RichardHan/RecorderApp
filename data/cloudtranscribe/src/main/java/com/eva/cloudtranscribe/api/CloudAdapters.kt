@@ -6,6 +6,7 @@ import com.eva.utils.UiStrings
 import com.eva.cloudtranscribe.model.CloudSettings
 import com.eva.cloudtranscribe.model.ProviderType
 import com.eva.cloudtranscribe.model.ReasoningEffort
+import com.eva.cloudtranscribe.model.ReasoningEffortPolicy
 import java.io.IOException
 import java.util.Base64
 import kotlinx.serialization.json.Json
@@ -93,9 +94,7 @@ class OpenAiCompatibleClient(
 	private val url = baseUrl.trim().trimEnd('/') + "/chat/completions"
 
 	/** Mirrors the desktop router: no reasoning_effort for `*transcribe*` / `*flash-lite*` models. */
-	fun shouldSendEffort(): Boolean = effort.wire != null &&
-		!model.contains("transcribe", ignoreCase = true) &&
-		!model.contains("flash-lite", ignoreCase = true)
+	fun shouldSendEffort(): Boolean = ReasoningEffortPolicy.shouldSend(model, effort)
 
 	fun buildBody(content: JsonElement): String = buildJsonObject {
 		put("model", model)

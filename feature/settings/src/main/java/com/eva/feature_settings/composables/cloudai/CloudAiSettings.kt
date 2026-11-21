@@ -53,6 +53,8 @@ import com.eva.cloudtranscribe.model.CustomVocabulary
 import com.eva.cloudtranscribe.model.VocabularyKind
 import com.eva.cloudtranscribe.model.ProviderType
 import com.eva.cloudtranscribe.model.ReasoningEffort
+import com.eva.cloudtranscribe.model.ReasoningEffortPolicy
+import com.eva.cloudtranscribe.model.ReasoningEffortSkip
 import com.eva.cloudtranscribe.model.SummaryFormat
 import com.eva.cloudtranscribe.secure.ApiKeyStore
 import com.eva.cloudtranscribe.settings.CloudSettingsRepository
@@ -280,12 +282,13 @@ internal fun CloudAiSettingsContent(
 			SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_mask_personal_data_before_sending, "送出前遮蔽個資"), draft.redactPiiForCloud, UiStrings.get(StringsRes.string.feature_settings_phone_numbers_emails_id_and_card_numbers, "電話、Email、身分證號、卡號；摘要／章節")) { draft = draft.copy(redactPiiForCloud = it) }
 			if (draft.redactPiiForCloud) InfoLine(UiStrings.get(StringsRes.string.feature_settings_mask_outgoing_text_only_keep_the_original, "只替換送出的文字，原稿不變。"), UiStrings.get(StringsRes.string.feature_settings_masks_outgoing_text_locally_the_original_transcript, "只在本機替換送出的文字，原始逐字稿不變；雲端音訊轉錄無法遮蔽。格式比對無法保證找出所有個資，人名不遮蔽。"))
 		}
-		SettingsCard(UiStrings.get(StringsRes.string.feature_settings_advanced, "進階"), UiStrings.get(StringsRes.string.feature_settings_second_segments_at_once, "分段 %1\$s 秒・同時 %2\$s 段", current.normalizedChunkSeconds, current.normalizedWorkers), "ai-advanced", initiallyExpanded = false) {
+		SettingsCard(UiStrings.get(StringsRes.string.feature_settings_advanced, "錄後轉錄進階"), UiStrings.get(StringsRes.string.feature_settings_second_segments_at_once, "分段 %1\$s 秒・同時 %2\$s 段", current.normalizedChunkSeconds, current.normalizedWorkers), "ai-advanced", initiallyExpanded = false) {
 			Text(UiStrings.get(StringsRes.string.feature_settings_reasoning_effort, "reasoning_effort"), style = MaterialTheme.typography.bodyLarge)
 			Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
 				ReasoningEffort.entries.forEach { e -> FilterChip(draft.reasoningEffort == e, { draft = draft.copy(reasoningEffort = e) }, { Text(e.wire ?: UiStrings.get(StringsRes.string.feature_settings_off, "off")) }) }
 			}
-			Text(stringResource(StringsRes.string.feature_settings_never_sent_for_models_with_transcribe_or), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+			Text(reasoningEffortNote(draft), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+			Text(stringResource(StringsRes.string.feature_settings_chunk_settings_post_recording_only), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 			OutlinedTextField(draft.chunkSeconds.toString(), { v -> v.toIntOrNull()?.let { draft = draft.copy(chunkSeconds = it) } }, Modifier.fillMaxWidth(),
 				label = { Text(stringResource(StringsRes.string.feature_settings_segment_length_in_seconds)) }, supportingText = { Text(stringResource(StringsRes.string.feature_settings_60_900_default_300)) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
 			OutlinedTextField(draft.workers.toString(), { v -> v.toIntOrNull()?.let { draft = draft.copy(workers = it) } }, Modifier.fillMaxWidth(),
@@ -337,6 +340,44 @@ internal fun summaryFormatLabel(format: SummaryFormat): String = when (format) {
 	SummaryFormat.BULLETS_AND_OPEN_QUESTIONS -> UiStrings.get(StringsRes.string.feature_settings_bullets_and_open_questions, "條列＋未解問題")
 	SummaryFormat.CUSTOM -> UiStrings.get(StringsRes.string.feature_settings_custom, "自訂")
 }
+
+@Composable
+private fun reasoningEffortNote(settings: CloudSettings): String {
+	val note = ReasoningEffortPolicy.of(settings)
+	val summarySkip = note.summarySkip
+	val transcribeSkip = note.transcribeSkip
+	val summaryClause = if (summarySkip == null) {
+		stringResource(StringsRes.string.feature_settings_reasoning_applies_to_summary, note.summaryModel)
+	} else {
+		stringResource(
+			StringsRes.string.feature_settings_reasoning_applies_to_summary_skipped,
+			note.summaryModel,
+			reasoningSkipText(summarySkip),
+		)
+	}
+	val transcribeClause = if (transcribeSkip == null) {
+		stringResource(StringsRes.string.feature_settings_reasoning_transcribe_sent, note.transcribeModel)
+	} else {
+		stringResource(
+			StringsRes.string.feature_settings_reasoning_transcribe_skipped,
+			note.transcribeModel,
+			reasoningSkipText(transcribeSkip),
+		)
+	}
+	return stringResource(StringsRes.string.feature_settings_reasoning_effort_note, summaryClause, transcribeClause)
+}
+
+@Composable
+private fun reasoningSkipText(skip: ReasoningEffortSkip): String = stringResource(
+	when (skip) {
+		ReasoningEffortSkip.OFF -> StringsRes.string.feature_settings_reasoning_skip_off
+		ReasoningEffortSkip.DEFAULT_TRANSCRIBE_MODEL -> StringsRes.string.feature_settings_reasoning_skip_default_model
+		ReasoningEffortSkip.SPEAKER_DIARIZATION -> StringsRes.string.feature_settings_reasoning_skip_diarization
+		ReasoningEffortSkip.MODEL_NAME_TRANSCRIBE -> StringsRes.string.feature_settings_reasoning_skip_transcribe_name
+		ReasoningEffortSkip.MODEL_NAME_FLASH_LITE -> StringsRes.string.feature_settings_reasoning_skip_flash_lite
+		ReasoningEffortSkip.GEMINI_NATIVE -> StringsRes.string.feature_settings_reasoning_skip_gemini_native
+	},
+)
 
 /** Spelling hints for cloud transcription; one term per line. Offline recognition is unaffected. */
 @Composable
