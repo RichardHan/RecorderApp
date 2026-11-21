@@ -30,23 +30,32 @@ internal class CoarseLocationProviderImpl(private val context: Context) : Locati
 
 	private val locationProvider by lazy { LocationServices.getFusedLocationProviderClient(context.applicationContext) }
 
-	private val _hasLocationPermission: Boolean
+	private val hasFineLocationPermission: Boolean
+		get() = ContextCompat.checkSelfPermission(
+			context,
+			Manifest.permission.ACCESS_FINE_LOCATION
+		) == PermissionChecker.PERMISSION_GRANTED
+
+	private val hasCoarseLocationPermission: Boolean
 		get() = ContextCompat.checkSelfPermission(
 			context,
 			Manifest.permission.ACCESS_COARSE_LOCATION
 		) == PermissionChecker.PERMISSION_GRANTED
 
+	private val _hasLocationPermission: Boolean
+		get() = hasFineLocationPermission || hasCoarseLocationPermission
+
 	private val lastLocationRequest: LastLocationRequest
 		get() = LastLocationRequest.Builder()
-			.setGranularity(Granularity.GRANULARITY_COARSE)
-			.setMaxUpdateAgeMillis(10_000)
+			.setGranularity(if (hasFineLocationPermission) Granularity.GRANULARITY_FINE else Granularity.GRANULARITY_COARSE)
+			.setMaxUpdateAgeMillis(60_000)
 			.build()
 
 	private val currentLocationRequest: CurrentLocationRequest
 		get() = CurrentLocationRequest.Builder()
-			.setGranularity(Granularity.GRANULARITY_COARSE)
-			.setPriority(Priority.PRIORITY_BALANCED_POWER_ACCURACY)
-			.setDurationMillis(2_000)
+			.setGranularity(if (hasFineLocationPermission) Granularity.GRANULARITY_FINE else Granularity.GRANULARITY_COARSE)
+			.setPriority(if (hasFineLocationPermission) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY)
+			.setDurationMillis(2_500)
 			.build()
 
 	private val isGpsEnabled: Boolean
@@ -66,7 +75,7 @@ internal class CoarseLocationProviderImpl(private val context: Context) : Locati
 				.getCurrentLocation(currentLocationRequest, tokenSource.token)
 				.await()
 				?: return Result.failure(CurrentLocationTimeoutException())
-			 Result.success(location.toDomainModel())
+			Result.success(location.toDomainModel())
 		} catch (e: CancellationException) {
 			tokenSource.cancel()
 			throw e
@@ -92,7 +101,7 @@ internal class CoarseLocationProviderImpl(private val context: Context) : Locati
 		return when {
 			!_hasLocationPermission -> Result.failure(LocationPermissionNotFoundException())
 			!isLocationEnabled -> Result.failure(LocationNotEnabledException())
-			!isNetworkProviderEnabled || !isGpsEnabled ->
+			!isNetworkProviderEnabled && !isGpsEnabled ->
 				Result.failure(LocationProviderNotFoundException())
 
 			else -> {

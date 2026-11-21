@@ -21,7 +21,10 @@ import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.navDeepLink
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.eva.feature_recorder.screen.RecorderViewModel
+import com.eva.recorder.domain.models.RecorderAction
 import com.eva.feature_recorder.screen.VoiceRecorderScreen
 import com.eva.ui.navigation.NavRoutes
 import com.eva.ui.navigation.animatedComposable
@@ -65,6 +68,36 @@ fun NavGraphBuilder.recorderRoute(navController: NavHostController) =
 		val liveCloud by viewModel.liveCloud.collectAsStateWithLifecycle()
 		val slackStatus by viewModel.slackStatus.collectAsStateWithLifecycle()
 		val liveToggleUi by viewModel.liveToggleUi.collectAsStateWithLifecycle()
+		val deviceContextSettings by viewModel.deviceContextSettings.collectAsStateWithLifecycle()
+		val locationPermissionLauncher = rememberLauncherForActivityResult(
+			contract = ActivityResultContracts.RequestMultiplePermissions()
+		) {
+			viewModel.onAction(RecorderAction.StartRecorderAction)
+		}
+		val handleRecorderAction: (RecorderAction) -> Unit = { action ->
+			val dc = deviceContextSettings
+			val hasLocationPerm = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+					PackageManager.PERMISSION_GRANTED ||
+				ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+					PackageManager.PERMISSION_GRANTED
+			if (action == RecorderAction.StartRecorderAction &&
+				dc != null &&
+				dc.enabled &&
+				dc.includeLocation &&
+				!dc.locationPromptedOnRecord &&
+				!hasLocationPerm
+			) {
+				viewModel.markLocationPromptedOnRecord()
+				locationPermissionLauncher.launch(
+					arrayOf(
+						Manifest.permission.ACCESS_FINE_LOCATION,
+						Manifest.permission.ACCESS_COARSE_LOCATION,
+					)
+				)
+			} else {
+				viewModel.onAction(action)
+			}
+		}
 
 		UiEventsHandler(eventsFlow = viewModel::uiEvent)
 
@@ -85,7 +118,7 @@ fun NavGraphBuilder.recorderRoute(navController: NavHostController) =
 				onAcceptCloudConsent = viewModel::acceptCloudConsent,
 				recorderTimer = { recorderTimer },
 				deferredRecordingPoints = { recordingPoints },
-				onRecorderAction = viewModel::onAction,
+				onRecorderAction = handleRecorderAction,
 				onScreenEvent = viewModel::onEvent,
 				onToggleLiveTranscription = viewModel::setLocalLive,
 				showNotes = true,

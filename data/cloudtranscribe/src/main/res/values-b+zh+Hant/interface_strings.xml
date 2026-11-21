@@ -140,4 +140,18 @@
 	<string name="data_cloudtranscribe_upload_fell_behind_this_segment_was_skipped">雲端跟不上，此段未上傳（錄音完整保存，可事後重轉）</string>
 	<string name="data_cloudtranscribe_use_https_for_the_summary_endpoint">摘要 Endpoint 必須是 https://</string>
 	<string name="auto_title_applied">"（已自動命名）"</string>
+	<string name="data_cloudtranscribe_device_plugged_ac">AC 電源</string>
+	<string name="data_cloudtranscribe_device_plugged_wireless">無線充電</string>
+	<string name="data_cloudtranscribe_device_plugged_dock">底座</string>
+	<string name="data_cloudtranscribe_device_charging">充電中</string>
+	<string name="data_cloudtranscribe_device_power_save">省電模式</string>
+	<string name="data_cloudtranscribe_device_cellular">行動網路</string>
+	<string name="data_cloudtranscribe_device_ethernet">乙太網路</string>
+	<string name="data_cloudtranscribe_device_network_other">其他網路</string>
+	<string name="data_cloudtranscribe_device_network_none">無網路連線</string>
+	<string name="data_cloudtranscribe_device_airplane_mode">飛航模式</string>
+	<string name="data_cloudtranscribe_device_metered">計量網路</string>
+	<string name="data_cloudtranscribe_device_storage_free_total">可用 %1$s / 共 %2$s</string>
+	<string name="data_cloudtranscribe_device_storage_end_delta">結束 %1$s（%2$s%3$s）</string>
+	<string name="data_cloudtranscribe_device_storage_short_free">餘 %1$s</string>
 </resources>
