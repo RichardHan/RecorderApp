@@ -1,0 +1,94 @@
+package io.github.richardhan.voicenote
+
+import android.net.Uri
+import kotlinx.coroutines.*
+import androidx.lifecycle.viewModelScope
+import android.app.Application
+import android.media.MediaRecorder
+import android.os.Build
+import android.os.SystemClock
+import androidx.compose.runtime.*
+import androidx.lifecycle.AndroidViewModel
+import java.io.File
+
+class RecordingLibrary(app: Application) : AndroidViewModel(app) {
+	private val directory = File(app.filesDir, "audio").apply { mkdirs() }
+	private var recorder: MediaRecorder? = null
+	private var pending: File? = null
+	var started by mutableLongStateOf(0L)
+		private set
+	var files by mutableStateOf(savedFiles())
+		private set
+	var message by mutableIntStateOf(0)
+	private fun savedFiles() = directory.listFiles().orEmpty()
+		.filter { it.extension in audioTypes || it.extension == "youtube" }.sortedByDescending { it.name }
+
+	var importing by mutableStateOf(false)
+		private set
+
+	fun importSource(uri: Uri? = null, url: String = "") {
+		if (importing) return
+		importing = true
+		viewModelScope.launch {
+			try {
+				withContext(Dispatchers.IO) {
+					if (uri != null) importDocument(getApplication(), directory, uri) else importLink(directory, url)
+				}
+				files = savedFiles()
+				message = 0
+			} catch (e: CancellationException) { throw e }
+			catch (_: Exception) { message = R.string.import_error }
+			finally { importing = false }
+		}
+	}
+
+	fun start() {
+		if (recorder != null) return
+		try {
+			val file = File.createTempFile("capture-", ".part", directory)
+			pending = file
+			@Suppress("DEPRECATION")
+			val session = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(getApplication()) else MediaRecorder()
+			recorder = session
+			session.setAudioSource(MediaRecorder.AudioSource.MIC)
+			session.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+			session.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+			session.setOutputFile(file.absolutePath)
+			session.prepare()
+			session.start()
+			started = SystemClock.elapsedRealtime()
+			message = 0
+		} catch (_: Exception) {
+			release()
+			message = R.string.record_error
+		}
+	}
+
+	fun refresh() { files = savedFiles() }
+
+	fun peakAmplitude(): Int = try { recorder?.maxAmplitude ?: 0 } catch (_: IllegalStateException) { 0 }
+
+	fun finish() {
+		val session = recorder ?: return
+		try {
+			session.stop()
+			val file = requireNotNull(pending)
+			check(file.length() > 0 && file.renameTo(File(directory, "${System.currentTimeMillis()}.m4a")))
+			files = savedFiles()
+		} catch (_: Exception) {
+			message = R.string.record_error
+		} finally {
+			release()
+		}
+	}
+
+	private fun release() {
+		runCatching { recorder?.release() }
+		recorder = null
+		pending?.delete()
+		pending = null
+		started = 0
+	}
+
+	override fun onCleared() { finish() }
+}

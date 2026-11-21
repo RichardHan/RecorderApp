@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+	<string name="app_name">OpenRouter Recorder</string>
+	<string name="studio">Recording studio</string>
+	<string name="record">Start recording</string>
+	<string name="stop">Finish recording</string>
+	<string name="active">Recording</string>
+	<string name="ready">Ready to record</string>
+	<string name="library">Recordings</string>
+	<string name="empty">Your recordings will appear here.</string>
+	<string name="permission">Allow microphone access in Settings to record.</string>
+	<string name="record_error">Could not save the recording. Try recording again.</string>
+	<string name="foreground">Leaving the app ends and saves the recording.</string>
+	<string name="model">Transcription model</string>
+	<string name="configure">Model and connection</string>
+	<string name="custom">Custom API endpoint</string>
+	<string name="standard">OpenRouter</string>
+	<string name="key">API key (this session)</string>
+	<string name="base">HTTPS base URL</string>
+	<string name="model_id">Model ID</string>
+	<string name="refresh">Load available models</string>
+	<string name="upload">Send for transcription</string>
+	<string name="sending">Transcribing…</string>
+	<string name="confirm">Send this recording?</string>
+	<string name="disclose">Send the audio to %1$s using %2$s. Your provider may charge your account.</string>
+	<string name="cancel">Cancel</string>
+	<string name="done">Done</string>
+	<string name="invalid">Enter an HTTPS endpoint, a model ID and an API key.</string>
+	<string name="failed">Could not complete the request. Check your connection, key and selected model.</string>
+	<string name="http_error">Provider returned HTTP %1$d.</string>
+	<string name="download_model">Download offline summary model · Qwen3 (328 MiB)</string>
+	<string name="remove_model">Remove offline summary model</string>
+	<string name="summary_error">Local summary failed. Check model download, memory and storage.</string>
+	<string name="summarize">Summarize on this device</string>
+	<string name="import_file">Import audio file</string>
+	<string name="import_url">Import link</string>
+	<string name="audio_url">HTTPS audio or YouTube URL</string>
+	<string name="import_error">Could not import this link or audio format.</string>
+	<string name="video_model">YouTube video model</string>
+	<string name="video_disclose">Send this YouTube link to OpenRouter to transcribe the video. The video model may charge your account.</string>
+	<string name="trim">Trim recording</string>
+	<string name="preview_clip">Preview selection</string>
+	<string name="save_clip">Save as new recording</string>
+	<string name="clip_error">Could not open or trim this audio.</string>
+</resources>

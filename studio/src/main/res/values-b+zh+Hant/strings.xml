@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+	<string name="app_name">OpenRouter Recorder</string>
+	<string name="studio">錄音室</string>
+	<string name="record">開始錄音</string>
+	<string name="stop">完成錄音</string>
+	<string name="active">錄音中</string>
+	<string name="ready">準備錄音</string>
+	<string name="library">錄音檔</string>
+	<string name="empty">錄音完成後會顯示在這裡。</string>
+	<string name="permission">請在設定允許麥克風權限以錄音。</string>
+	<string name="record_error">無法儲存錄音，請重新錄製。</string>
+	<string name="foreground">離開 App 時會結束並儲存錄音。</string>
+	<string name="model">轉錄模型</string>
+	<string name="configure">模型與連線</string>
+	<string name="custom">自訂 API 端點</string>
+	<string name="standard">OpenRouter</string>
+	<string name="key">API 金鑰（限本次使用）</string>
+	<string name="base">HTTPS 基底網址</string>
+	<string name="model_id">模型 ID</string>
+	<string name="refresh">載入可用模型</string>
+	<string name="upload">傳送並轉錄</string>
+	<string name="sending">轉錄中…</string>
+	<string name="confirm">傳送這段錄音？</string>
+	<string name="disclose">將音訊傳送至 %1$s，由 %2$s 轉錄。服務商可能會向你的帳戶收費。</string>
+	<string name="cancel">取消</string>
+	<string name="done">完成</string>
+	<string name="invalid">請填寫 HTTPS 端點、模型 ID 和 API 金鑰。</string>
+	<string name="failed">請求失敗，請檢查連線、金鑰與模型。</string>
+	<string name="http_error">服務商回傳 HTTP %1$d。</string>
+	<string name="download_model">下載離線摘要模型 · Qwen3（328 MiB）</string>
+	<string name="remove_model">移除離線摘要模型</string>
+	<string name="summary_error">本機摘要作業失敗，請檢查模型下載、記憶體與儲存空間。</string>
+	<string name="summarize">在手機上產生摘要</string>
+	<string name="import_file">匯入音檔</string>
+	<string name="import_url">匯入連結</string>
+	<string name="audio_url">HTTPS 音檔或 YouTube 網址</string>
+	<string name="import_error">無法匯入這個連結或音訊格式。</string>
+	<string name="video_model">YouTube 影片模型</string>
+	<string name="video_disclose">將這個 YouTube 連結送到 OpenRouter 轉錄影片，影片模型可能產生費用。</string>
+	<string name="trim">修剪錄音</string>
+	<string name="preview_clip">試聽選取範圍</string>
+	<string name="save_clip">另存為新錄音</string>
+	<string name="clip_error">無法開啟或修剪這段音訊。</string>
+</resources>
