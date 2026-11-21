@@ -1,5 +1,8 @@
 package com.eva.feature_onboarding.composables
 
+import com.eva.feature_onboarding.R as StringsRes
+import com.eva.utils.UiStrings
+
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -96,7 +99,7 @@ internal fun ImportantPermissionsPage(
 	) {
 		Image(
 			painter = painterResource(R.drawable.ic_security),
-			contentDescription = "Permission security",
+			contentDescription = UiStrings.get(StringsRes.string.feature_onboarding_permission_security, "Permission security"),
 			colorFilter = ColorFilter.tint(color = MaterialTheme.colorScheme.tertiary),
 			modifier = Modifier.size(100.dp)
 		)

@@ -1,5 +1,6 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
@@ -40,7 +41,7 @@ class ActionItemsListContentTest {
 		}
 
 		compose.onNodeWithText("寫報價單").assertIsDisplayed()
-		compose.onNodeWithContentDescription("刪除待辦").performClick()
+		compose.onNodeWithContentDescription(compose.activity.getString(R.string.feature_player_delete_action_item)).performClick()
 		assertEquals(1L, deleted)
 	}
 
@@ -63,7 +64,7 @@ class ActionItemsListContentTest {
 
 		compose.onNodeWithText("約會議").performClick()
 		assertEquals(5L, editing)
-		compose.onNodeWithText("儲存").assertIsDisplayed()
+		compose.onNodeWithText(compose.activity.getString(R.string.feature_player_save)).assertIsDisplayed()
 	}
 
 	@Test

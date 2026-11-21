@@ -1,5 +1,9 @@
 package com.eva.feature_recorder.composable
 
+import com.eva.feature_recorder.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -46,7 +50,7 @@ internal fun RecordingNotesChip(viewModel: RecordingNotesViewModel = hiltViewMod
 
 	AssistChip(
 		onClick = { editing = true },
-		label = { Text(if (text.isBlank()) "備註" else "備註（${text.length} 字）") },
+		label = { Text(if (text.isBlank()) UiStrings.get(StringsRes.string.feature_recorder_notes, "備註") else UiStrings.get(StringsRes.string.feature_recorder_notes_characters, "備註（%1\$s 字）", text.length)) },
 		modifier = Modifier.heightIn(min = 48.dp),
 	)
 
@@ -54,39 +58,39 @@ internal fun RecordingNotesChip(viewModel: RecordingNotesViewModel = hiltViewMod
 		var draft by remember { mutableStateOf(text) }
 		AlertDialog(
 			onDismissRequest = { editing = false },
-			title = { Text("這段錄音的備註") },
+			title = { Text(stringResource(StringsRes.string.feature_recorder_recording_notes)) },
 			text = {
 				Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
 					OutlinedTextField(
 						value = draft,
 						onValueChange = { draft = it.take(RecordingNotes.MAX_CHARS) },
-						label = { Text("議程、人名、背景（最多 ${RecordingNotes.MAX_CHARS} 字）") },
+						label = { Text(stringResource(StringsRes.string.feature_recorder_agenda_names_or_background_up_to_characters, (RecordingNotes.MAX_CHARS).toString())) },
 						minLines = 3,
 						modifier = Modifier.fillMaxWidth(),
 					)
 					Text(
-						"存檔時會綁到這段錄音；取消錄音會一起捨棄。只有在你已開啟的雲端重點／摘要裡才會送出，並標註為「只供參考」。",
+						stringResource(StringsRes.string.feature_recorder_notes_are_linked_to_the_saved_recording),
 						style = MaterialTheme.typography.bodySmall,
 					)
 				}
 			},
-			confirmButton = { TextButton({ viewModel.save(draft); editing = false }) { Text("儲存") } },
-			dismissButton = { TextButton({ editing = false }) { Text("取消") } },
+			confirmButton = { TextButton({ viewModel.save(draft); editing = false }) { Text(stringResource(StringsRes.string.feature_recorder_save)) } },
+			dismissButton = { TextButton({ editing = false }) { Text(stringResource(StringsRes.string.feature_recorder_cancel)) } },
 		)
 	}
 
 	leftover?.let { note ->
 		AlertDialog(
 			onDismissRequest = {},
-			title = { Text("上次有未綁定的備註") },
+			title = { Text(stringResource(StringsRes.string.feature_recorder_unsaved_notes_from_last_time)) },
 			text = {
 				Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-					Text("App 上次關閉時，還有一份沒有綁到任何錄音的備註。要套用到下一段（或目前這段）錄音，還是捨棄？")
+					Text(stringResource(StringsRes.string.feature_recorder_notes_from_the_last_session_have_no))
 					Text(note.text.take(300) + if (note.text.length > 300) "…" else "", style = MaterialTheme.typography.bodySmall)
 				}
 			},
-			confirmButton = { TextButton(viewModel::applyLeftover) { Text("套用") } },
-			dismissButton = { TextButton(viewModel::discardLeftover) { Text("捨棄") } },
+			confirmButton = { TextButton(viewModel::applyLeftover) { Text(stringResource(StringsRes.string.feature_recorder_apply)) } },
+			dismissButton = { TextButton(viewModel::discardLeftover) { Text(stringResource(StringsRes.string.feature_recorder_discard)) } },
 		)
 	}
 }

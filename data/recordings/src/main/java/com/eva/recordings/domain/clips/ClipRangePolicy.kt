@@ -1,5 +1,8 @@
 package com.eva.recordings.domain.clips
 
+import com.eva.recordings.R as StringsRes
+import com.eva.utils.UiStrings
+
 /** Why a clip range cannot be saved; null from [ClipRangePolicy.validate] means it can. */
 enum class ClipRangeProblem {
 	START_AFTER_END,
@@ -57,7 +60,7 @@ object ClipRangePolicy {
 	}
 
 	/** Default title is just the real range (no generated title). */
-	fun defaultTitle(startMs: Long, endMs: Long): String = "片段 ${formatMs(startMs)}–${formatMs(endMs)}"
+	fun defaultTitle(startMs: Long, endMs: Long): String = UiStrings.get(StringsRes.string.data_recordings_clip, "片段 %1\$s–%2\$s", formatMs(startMs), formatMs(endMs))
 
 	fun formatMs(ms: Long): String {
 		val total = ms.coerceAtLeast(0L) / 1000
@@ -78,9 +81,9 @@ object ClipRangePolicy {
 	}
 
 	fun problemMessage(problem: ClipRangeProblem, maxMs: Long = DEFAULT_MAX_CLIP_MS): String = when (problem) {
-		ClipRangeProblem.START_AFTER_END -> "結束時間必須晚於開始時間"
-		ClipRangeProblem.OUT_OF_RECORDING -> "時間超出錄音範圍"
-		ClipRangeProblem.TOO_SHORT -> "片段至少要 1 秒"
-		ClipRangeProblem.TOO_LONG -> "片段最長 ${maxMs.coerceIn(MIN_CLIP_MS, HARD_MAX_CLIP_MS) / 60_000} 分鐘"
+		ClipRangeProblem.START_AFTER_END -> UiStrings.get(StringsRes.string.data_recordings_end_time_must_be_after_start_time, "結束時間必須晚於開始時間")
+		ClipRangeProblem.OUT_OF_RECORDING -> UiStrings.get(StringsRes.string.data_recordings_time_outside_the_recording, "時間超出錄音範圍")
+		ClipRangeProblem.TOO_SHORT -> UiStrings.get(StringsRes.string.data_recordings_clips_must_be_at_least_one_second, "片段至少要 1 秒")
+		ClipRangeProblem.TOO_LONG -> UiStrings.get(StringsRes.string.data_recordings_maximum_clip_length_minutes, "片段最長 %1\$s 分鐘", maxMs.coerceIn(MIN_CLIP_MS, HARD_MAX_CLIP_MS) / 60_000)
 	}
 }

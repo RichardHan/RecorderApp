@@ -1,5 +1,8 @@
 package com.eva.cloudtranscribe.model
 
+import com.eva.cloudtranscribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import kotlinx.serialization.Serializable
 
 /** Wire protocol used to reach the user's configured endpoint. No automatic fallback between them. */
@@ -15,7 +18,7 @@ data class CloudSettings(
 	val providerType: ProviderType = ProviderType.OPENAI_COMPATIBLE,
 	val baseUrl: String = "",
 	val transcribeModel: String = DEFAULT_MODEL,
-	val summaryModel: String = DEFAULT_MODEL,
+	val summaryModel: String = FLASH_MODEL,
 	val reasoningEffort: ReasoningEffort = ReasoningEffort.LOW,
 	val chunkSeconds: Int = DEFAULT_CHUNK_SECONDS,
 	val workers: Int = DEFAULT_WORKERS,
@@ -32,6 +35,8 @@ data class CloudSettings(
 	val redactPiiForCloud: Boolean = false,
 	/** Opt-in: one extra summary request (text only) after each SUCCESSFUL cloud transcription. Off by default. */
 	val autoSummaryAfterTranscript: Boolean = false,
+	/** After a successful post-recording summary with real points, auto-rename if the file still has its original name. Default ON. */
+	val autoTitleAfterSummary: Boolean = true,
 	/** Local notification when background cloud transcription / summary finishes. Off by default. */
 	val notifyWhenDone: Boolean = false,
 	/** Ask NEW summaries to cite cloud segments (longer prompt and reply → more tokens). Off by default. */
@@ -40,7 +45,11 @@ data class CloudSettings(
 	val followUpInstructions: String = "",
 	/** Spelling hints for CLOUD transcription only (empty = prompt unchanged). Sent with audio only when cloud transcription runs. */
 	val customVocabulary: List<VocabularyTerm> = emptyList(),
+	val speakerDiarization: Boolean = false,
 ) {
+	val transcriptionEffort: ReasoningEffort get() =
+		if (speakerDiarization || transcribeModel == DEFAULT_MODEL) ReasoningEffort.OFF else reasoningEffort
+
 	val normalizedChunkSeconds: Int get() = chunkSeconds.coerceIn(MIN_CHUNK_SECONDS, MAX_CHUNK_SECONDS)
 
 	/** Format actually used for a new summary; a blank custom prompt degrades to the concise default. */
@@ -50,15 +59,17 @@ data class CloudSettings(
 
 	/** Returns a human readable problem or null when usable. */
 	fun validate(hasApiKey: Boolean): String? = when {
-		baseUrl.isBlank() -> "尚未設定 API Endpoint"
-		!baseUrl.trim().startsWith("https://", ignoreCase = true) -> "Endpoint 必須是 https://"
-		transcribeModel.isBlank() -> "尚未設定模型名稱"
-		!hasApiKey -> "尚未設定 API Key"
+		baseUrl.isBlank() -> UiStrings.get(StringsRes.string.data_cloudtranscribe_api_endpoint_missing, "尚未設定 API Endpoint")
+		!baseUrl.trim().startsWith("https://", ignoreCase = true) -> UiStrings.get(StringsRes.string.data_cloudtranscribe_endpoint_must_use_https, "Endpoint 必須是 https://")
+		transcribeModel.isBlank() -> UiStrings.get(StringsRes.string.data_cloudtranscribe_model_name_missing, "尚未設定模型名稱")
+		!hasApiKey -> UiStrings.get(StringsRes.string.data_cloudtranscribe_api_key_missing, "尚未設定 API Key")
 		else -> null
 	}
 
 	companion object {
-		const val DEFAULT_MODEL = "gemini-3.8-flash"
+		const val SPEAKER_MODEL = "gemini-3.5-transcribe"
+		const val FLASH_MODEL = "gemini-3.8-flash"
+		const val DEFAULT_MODEL = "gemini-4-argon"
 		const val DEFAULT_CHUNK_SECONDS = 300
 		const val MIN_CHUNK_SECONDS = 60
 		const val MAX_CHUNK_SECONDS = 900
@@ -119,6 +130,7 @@ data class Provenance(
 	val summaryFormat: String? = null,
 	/** True when a summary was requested with segment citations. */
 	val citations: Boolean? = null,
+	val speakerDiarization: Boolean = false,
 )
 
 /**

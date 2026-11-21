@@ -1,6 +1,13 @@
 package com.eva.feature_settings.composables.audio
 
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.os.PowerManager
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import com.eva.feature_settings.R as SettingsRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,6 +54,19 @@ internal fun AudioSettingsTabContent(
 		contentPadding = contentPadding,
 		verticalArrangement = Arrangement.spacedBy(8.dp)
 	) {
+		item {
+			TextButton(onClick = {
+				val systemLanguages = Intent(Settings.ACTION_LOCALE_SETTINGS)
+				val intent = if (Build.VERSION.SDK_INT >= 33) {
+					Intent(Settings.ACTION_APP_LOCALE_SETTINGS, Uri.fromParts("package", context.packageName, null))
+				} else systemLanguages
+				try {
+					context.startActivity(intent)
+				} catch (_: android.content.ActivityNotFoundException) {
+					context.startActivity(systemLanguages)
+				}
+			}) { Text(stringResource(SettingsRes.string.feature_settings_app_language)) }
+		}
 		if (!isIgnoreOptimization) {
 			item {
 				IgnoreBatteryOptimizationCard(

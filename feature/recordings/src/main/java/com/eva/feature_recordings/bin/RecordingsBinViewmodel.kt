@@ -1,5 +1,7 @@
 package com.eva.feature_recordings.bin
 
+import com.eva.utils.UiStrings
+
 import android.app.RecoverableSecurityException
 import android.os.Build
 import androidx.activity.result.IntentSenderRequest
@@ -108,12 +110,12 @@ internal class RecordingsBinViewmodel @Inject constructor(
 	private fun onRecordingsRestore() = viewModelScope.launch {
 		when (val result = provider.restoreRecordingsFromTrash(selectedRecordings)) {
 			is Resource.Error -> {
-				val message = result.message ?: "Cannot restore items"
+				val message = result.message ?: UiStrings.get(com.eva.feature_recordings.R.string.feature_recordings_message_cannot_restore_items, "Cannot restore items")
 				_uiEvents.emit(UIEvents.ShowSnackBar(message))
 			}
 
 			is Resource.Success -> {
-				val message = result.message ?: "Items restored"
+				val message = result.message ?: UiStrings.get(com.eva.feature_recordings.R.string.feature_recordings_message_items_restored, "Items restored")
 				_uiEvents.emit(UIEvents.ShowToast(message))
 			}
 
@@ -134,12 +136,12 @@ internal class RecordingsBinViewmodel @Inject constructor(
 							return@onEach
 						}
 						val message =
-							result.error.message ?: result.message ?: "Cannot delete items"
+							result.error.message ?: result.message ?: UiStrings.get(com.eva.feature_recordings.R.string.feature_recordings_message_cannot_delete_items, "Cannot delete items")
 						_uiEvents.emit(UIEvents.ShowSnackBar(message))
 					}
 
 					is Resource.Success -> {
-						val message = result.message ?: "Items deleted successfully"
+						val message = result.message ?: UiStrings.get(com.eva.feature_recordings.R.string.feature_recordings_message_items_deleted_successfully, "Items deleted successfully")
 						_uiEvents.emit(UIEvents.ShowToast(message))
 					}
 

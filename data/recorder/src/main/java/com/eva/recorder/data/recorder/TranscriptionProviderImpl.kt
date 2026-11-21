@@ -1,5 +1,8 @@
 package com.eva.recorder.data.recorder
 
+import com.eva.recorder.R as StringsRes
+import com.eva.utils.UiStrings
+
 import android.util.Log
 import com.eva.datastore.domain.repository.TranscriptionSettingsRepo
 import com.eva.recorder.domain.recorder.AudioByteDataProvider
@@ -111,7 +114,7 @@ internal class TranscriptionProviderImpl(
 
 	private suspend fun startRun(modelId: String): Result<LiveAsrRun> {
 		val model = repository.readModelByLanguage(modelId).getOrElse {
-			return Result.failure(IllegalStateException("找不到選定的離線模型，請到設定重新選擇"))
+			return Result.failure(IllegalStateException(UiStrings.get(StringsRes.string.data_recorder_offline_model_not_found_select_it_again, "找不到選定的離線模型，請到設定重新選擇")))
 		}
 		lastEngine = model.engine
 		return if (OfflineEngines.isSherpa(model.engine)) {
@@ -120,7 +123,7 @@ internal class TranscriptionProviderImpl(
 			val offsetMs = samplesSeen * 1000 / 16_000
 			Result.success(SherpaRun(offsetMs))
 		} else {
-			if (transcriptor.setUp(modelId).isFailure) return Result.failure(IllegalStateException("Vosk 模型載入失敗"))
+			if (transcriptor.setUp(modelId).isFailure) return Result.failure(IllegalStateException(UiStrings.get(StringsRes.string.data_recorder_could_not_load_vosk_model, "Vosk 模型載入失敗")))
 			Result.success(VoskRun())
 		}
 	}
@@ -162,7 +165,7 @@ internal class TranscriptionProviderImpl(
 		private val feeder: Job = runScope.launch(start = CoroutineStart.UNDISPATCHED) {
 			source.stream.collect { (buffer, size) ->
 				if (size <= 0) return@collect
-				if (queue.trySend(buffer.copyOf(size)).isFailure) { dropped += size; _warning.value = "辨識跟不上，部分音訊未辨識（錄音完整保存）" }
+				if (queue.trySend(buffer.copyOf(size)).isFailure) { dropped += size; _warning.value = UiStrings.get(StringsRes.string.data_recorder_recognition_fell_behind_some_audio_was_skipped, "辨識跟不上，部分音訊未辨識（錄音完整保存）") }
 			}
 		}
 		private val worker: Job = runScope.launch {
@@ -171,7 +174,7 @@ internal class TranscriptionProviderImpl(
 					val r = transcriptor.recognizeAudio(chunk, chunk.size) ?: continue
 					if (r.fullResult.isNotBlank()) { finals.value = finals.value + r.fullResult; _partial.value = "" } else _partial.value = r.partial
 				} catch (e: CancellationException) { throw e } catch (e: Exception) {
-					failed++; Log.e(TAG, "VOSK ERROR", e); _warning.value = "辨識錯誤：${e.message}"
+					failed++; Log.e(TAG, "VOSK ERROR", e); _warning.value = UiStrings.get(StringsRes.string.data_recorder_recognition_error, "辨識錯誤：%1\$s", e.message)
 				}
 			}
 		}
@@ -189,7 +192,7 @@ internal class TranscriptionProviderImpl(
 					if (tail.isNotBlank()) finals.value = finals.value + tail
 					_partial.value = ""
 				} catch (e: CancellationException) { throw e } catch (e: Exception) {
-					failed++; _warning.value = "最後一段辨識失敗：${e.message}"
+					failed++; _warning.value = UiStrings.get(StringsRes.string.data_recorder_final_segment_failed, "最後一段辨識失敗：%1\$s", e.message)
 				}
 			}
 			runScope.cancel()
@@ -210,7 +213,7 @@ internal class TranscriptionProviderImpl(
 
 	override suspend fun finishTranscription(): LiveTranscript? {
 		val agg = controller.finishAll() ?: return null
-		val gapNote = if (agg.hadGaps) "\n[即時字幕未涵蓋全部錄音，部分期間未辨識（錄音完整保存，可事後重轉）]" else ""
+		val gapNote = if (agg.hadGaps) UiStrings.get(StringsRes.string.data_recorder_n_live_captions_missed_some_audio_the, "\n[即時字幕未涵蓋全部錄音，部分期間未辨識（錄音完整保存，可事後重轉）]") else ""
 		return LiveTranscript(
 			modelId = agg.modelIds.joinToString(" / "), engine = lastEngine,
 			text = agg.text + gapNote, decodedSegments = agg.decoded, failedSegments = agg.failed,

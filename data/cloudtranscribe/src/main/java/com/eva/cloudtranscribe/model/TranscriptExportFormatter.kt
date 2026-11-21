@@ -1,5 +1,8 @@
 package com.eva.cloudtranscribe.model
 
+import com.eva.cloudtranscribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -7,7 +10,7 @@ import java.util.Locale
 enum class TranscriptExportFormat(val extension: String, val mimeType: String, val label: String) {
 	TXT("txt", "text/plain", "TXT"),
 	MARKDOWN("md", "text/markdown", "Markdown"),
-	SRT("srt", "application/x-subrip", "SRT 字幕"),
+	SRT("srt", "application/x-subrip", UiStrings.get(StringsRes.string.data_cloudtranscribe_srt_subtitles, "SRT 字幕")),
 }
 
 data class ExportBookmark(val atMs: Long, val text: String)
@@ -62,56 +65,56 @@ object TranscriptExportFormatter {
 		}
 
 	private fun txt(record: TranscriptRecord, extras: TranscriptExportExtras): String = buildString {
-		extras.title?.takeIf { it.isNotBlank() }?.let { appendLine("標題：${it.trim()}") }
-		extras.recordedAt?.let { appendLine("錄音時間：${DATE.format(it)}") }
+		extras.title?.takeIf { it.isNotBlank() }?.let { appendLine(UiStrings.get(StringsRes.string.data_cloudtranscribe_title, "標題：%1\$s", it.trim())) }
+		extras.recordedAt?.let { appendLine(UiStrings.get(StringsRes.string.data_cloudtranscribe_recorded_alt, "錄音時間：%1\$s", DATE.format(it))) }
 		extras.summary?.takeIf { it.isNotBlank() }?.let { summary ->
 			appendLine()
-			appendLine("【重點／摘要${extras.summaryModel?.let { "（模型：$it）" }.orEmpty()}】")
+			appendLine(UiStrings.get(StringsRes.string.data_cloudtranscribe_highlights_summary_alt, "【重點／摘要%1\$s】", extras.summaryModel?.let { UiStrings.get(StringsRes.string.data_cloudtranscribe_model, "（模型：%1\$s）", it) }.orEmpty()))
 			appendLine(summary.trim())
 		}
 		if (extras.bookmarks.isNotEmpty()) {
 			appendLine()
-			appendLine("【書籤】")
-			extras.bookmarks.sortedBy { it.atMs }.forEach { appendLine("- [${clock(it.atMs)}] ${it.text.ifBlank { "（無文字）" }}") }
+			appendLine(UiStrings.get(StringsRes.string.data_cloudtranscribe_bookmarks_alt, "【書籤】"))
+			extras.bookmarks.sortedBy { it.atMs }.forEach { appendLine("- [${clock(it.atMs)}] ${it.text.ifBlank { UiStrings.get(StringsRes.string.data_cloudtranscribe_no_text, "（無文字）") }}") }
 		}
 		if (isNotEmpty()) appendLine("\n----------------------------------------\n")
 		append(TranscriptTextExport.render(record))
 	}
 
 	private fun markdown(record: TranscriptRecord, extras: TranscriptExportExtras): String = buildString {
-		appendLine("# ${extras.title?.trim()?.takeIf { it.isNotEmpty() }?.let(::escapeMd) ?: "RecorderApp 逐字稿"}")
+		appendLine("# ${extras.title?.trim()?.takeIf { it.isNotEmpty() }?.let(::escapeMd) ?: UiStrings.get(StringsRes.string.data_cloudtranscribe_recorderapp_transcript, "RecorderApp 逐字稿")}")
 		appendLine()
-		extras.recordedAt?.let { appendLine("- 錄音時間：${DATE.format(it)}") }
-		appendLine("- 來源：${if (record.source == TranscriptSource.OFFLINE) "離線" else "雲端"}｜模型：${escapeMd(record.provenance.model)}")
-		appendLine("- 狀態：${record.status.name}")
-		if (record.status != RunStatus.SUCCESS) appendLine("\n> ⚠ 轉錄未完成或非完整成功，可能有遺漏。")
+		extras.recordedAt?.let { appendLine(UiStrings.get(StringsRes.string.data_cloudtranscribe_recorded, "- 錄音時間：%1\$s", DATE.format(it))) }
+		appendLine(UiStrings.get(StringsRes.string.data_cloudtranscribe_source_model, "- 來源：%1\$s｜模型：%2\$s", if (record.source == TranscriptSource.OFFLINE) UiStrings.get(StringsRes.string.data_cloudtranscribe_offline, "離線") else UiStrings.get(StringsRes.string.data_cloudtranscribe_cloud, "雲端"), escapeMd(record.provenance.model)))
+		appendLine(UiStrings.get(StringsRes.string.data_cloudtranscribe_status, "- 狀態：%1\$s", record.status.name))
+		if (record.status != RunStatus.SUCCESS) appendLine(UiStrings.get(StringsRes.string.data_cloudtranscribe_n_transcription_was_incomplete_and_may_contain, "\n> ⚠ 轉錄未完成或非完整成功，可能有遺漏。"))
 		record.warnings.forEach { appendLine("\n> ⚠ ${escapeMd(it)}") }
 		extras.summary?.takeIf { it.isNotBlank() }?.let { summary ->
 			appendLine()
-			appendLine("## 重點／摘要${extras.summaryModel?.let { "（模型：${escapeMd(it)}）" }.orEmpty()}")
+			appendLine(UiStrings.get(StringsRes.string.data_cloudtranscribe_highlights_summary, "## 重點／摘要%1\$s", extras.summaryModel?.let { UiStrings.get(StringsRes.string.data_cloudtranscribe_model, "（模型：%1\$s）", escapeMd(it)) }.orEmpty()))
 			appendLine()
 			appendLine(summary.trim())
 		}
 		if (extras.bookmarks.isNotEmpty()) {
 			appendLine()
-			appendLine("## 書籤")
+			appendLine(UiStrings.get(StringsRes.string.data_cloudtranscribe_bookmarks, "## 書籤"))
 			appendLine()
-			extras.bookmarks.sortedBy { it.atMs }.forEach { appendLine("- [${clock(it.atMs)}] ${escapeMd(it.text.ifBlank { "（無文字）" })}") }
+			extras.bookmarks.sortedBy { it.atMs }.forEach { appendLine("- [${clock(it.atMs)}] ${escapeMd(it.text.ifBlank { UiStrings.get(StringsRes.string.data_cloudtranscribe_no_text, "（無文字）") })}") }
 		}
 		appendLine()
-		appendLine("## 逐字稿")
+		appendLine(UiStrings.get(StringsRes.string.data_cloudtranscribe_transcript, "## 逐字稿"))
 		appendLine()
 		val segments = flatten(record)
 		if (segments.isEmpty()) {
-			appendLine("_來源未提供分段時間_")
+			appendLine(UiStrings.get(StringsRes.string.data_cloudtranscribe_no_segment_timestamps_available, "_來源未提供分段時間_"))
 			appendLine()
 			appendLine(record.text.trim())
 		} else segments.forEach { segment ->
-			val time = if (segment.startMs >= 0 && segment.endMs > segment.startMs) "${clock(segment.startMs)}–${clock(segment.endMs)}" else "時間未核實"
+			val time = if (segment.startMs >= 0 && segment.endMs > segment.startMs) "${clock(segment.startMs)}–${clock(segment.endMs)}" else UiStrings.get(StringsRes.string.data_cloudtranscribe_time_unverified, "時間未核實")
 			val text = when (segment.status) {
-				SegmentStatus.OK -> segment.text.trim().ifBlank { "_來源文字空白_" }
-				SegmentStatus.SILENT -> "_來源標為靜音_"
-				else -> "_未完成／不可採用的片段：${segment.status.name}_"
+				SegmentStatus.OK -> segment.text.trim().ifBlank { UiStrings.get(StringsRes.string.data_cloudtranscribe_empty_source_text, "_來源文字空白_") }
+				SegmentStatus.SILENT -> UiStrings.get(StringsRes.string.data_cloudtranscribe_marked_as_silence, "_來源標為靜音_")
+				else -> UiStrings.get(StringsRes.string.data_cloudtranscribe_incomplete_or_unusable_segment, "_未完成／不可採用的片段：%1\$s_", segment.status.name)
 			}
 			appendLine("**[$time]** $text")
 			appendLine()

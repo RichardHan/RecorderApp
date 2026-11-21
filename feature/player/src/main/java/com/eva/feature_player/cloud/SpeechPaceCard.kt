@@ -1,5 +1,9 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,9 +34,9 @@ internal fun paceClock(ms: Long): String {
 
 /** Pure text for tests. */
 internal fun paceSummary(r: SpeechPaceReport): String = buildString {
-	append("共 ${r.units} 字")
-	r.perMinute?.let { append("・平均每分鐘 ${it.toInt()} 字（含段內停頓）") }
-	if (r.perMinute == null) append("・沒有時間戳，無法計算語速")
+	append(UiStrings.get(StringsRes.string.feature_player_characters, "共 %1\$s 字", r.units))
+	r.perMinute?.let { append(UiStrings.get(StringsRes.string.feature_player_average_characters_min_including_pauses, "・平均每分鐘 %1\$s 字（含段內停頓）", it.toInt())) }
+	if (r.perMinute == null) append(UiStrings.get(StringsRes.string.feature_player_no_timestamps_available_for_pace_calculation, "・沒有時間戳，無法計算語速"))
 }
 
 /** Local pace/filler card; uses the same default transcript as the player. Nothing leaves the phone. */
@@ -46,17 +50,17 @@ internal fun SpeechPaceCard(transcripts: List<TranscriptRecord>, onSeekTo: (Long
 	if (r.units == 0) return
 	Card {
 		Column(Modifier.padding(12.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-			Text("說話節奏（本機計算）", style = MaterialTheme.typography.titleSmall)
+			Text(stringResource(StringsRes.string.feature_player_speaking_pace_on_device), style = MaterialTheme.typography.titleSmall)
 			Text(paceSummary(r), style = MaterialTheme.typography.bodySmall)
-			PaceRow("最快", r.fastest, onSeekTo)
-			PaceRow("最慢", r.slowest, onSeekTo)
-			if (r.fillers.isEmpty()) Text("沒有偵測到常見贅詞", style = MaterialTheme.typography.bodySmall)
+			PaceRow(UiStrings.get(StringsRes.string.feature_player_fastest, "最快"), r.fastest, onSeekTo)
+			PaceRow(UiStrings.get(StringsRes.string.feature_player_slowest, "最慢"), r.slowest, onSeekTo)
+			if (r.fillers.isEmpty()) Text(stringResource(StringsRes.string.feature_player_no_common_fillers_detected), style = MaterialTheme.typography.bodySmall)
 			else Text(
-				"常見贅詞：" + r.fillers.joinToString("、") { "${it.first} ${it.second}" } + "（每千字 ${"%.1f".format(r.fillersPerThousand)} 次）",
+				stringResource(StringsRes.string.feature_player_common_fillers) + r.fillers.joinToString("、") { "${it.first} ${it.second}" } + UiStrings.get(StringsRes.string.feature_player_per_thousand_characters, "（每千字 %1\$s 次）", "%.1f".format(r.fillersPerThousand)),
 				style = MaterialTheme.typography.bodySmall,
 			)
 			Text(
-				"統計整段錄音所有人（沒有說話者分離）；雲端轉錄常省略「嗯、呃」，贅詞可能偏低。只供參考，不是評分。",
+				stringResource(StringsRes.string.feature_player_includes_all_speakers_cloud_transcripts_may_omit),
 				style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
 			)
 		}
@@ -67,7 +71,7 @@ internal fun SpeechPaceCard(transcripts: List<TranscriptRecord>, onSeekTo: (Long
 private fun PaceRow(label: String, line: PacedLine?, onSeekTo: (Long) -> Unit) {
 	line ?: return
 	Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-		Text("$label：每分鐘 ${line.perMinute.toInt()} 字", style = MaterialTheme.typography.bodySmall)
+		Text(stringResource(StringsRes.string.feature_player_characters_min, (label).toString(), (line.perMinute.toInt()).toString()), style = MaterialTheme.typography.bodySmall)
 		AssistChip(onClick = { onSeekTo(line.startMs) }, label = { Text(paceClock(line.startMs)) })
 	}
 }

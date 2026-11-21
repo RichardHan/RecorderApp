@@ -1,5 +1,8 @@
 package com.eva.cloudtranscribe.live
 
+import com.eva.cloudtranscribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 /** Settings + configuration that decide recording-start defaults and whether a chip can be used. */
 data class LiveToggleInputs(
 	/** Settings default for on-device live captions. */
@@ -54,9 +57,9 @@ sealed class LiveToggleAction {
  * Per-recording on/off never writes settings; each new recording starts from [LiveToggleInputs] defaults.
  */
 object RecorderLiveTogglePolicy {
-	const val HINT_SLACK_NEEDS_CLOUD = "需開雲端即時才有新重點"
-	const val HINT_UNSET = "未設定"
-	const val HINT_NO_MODEL = "未選模型"
+	val HINT_SLACK_NEEDS_CLOUD: String get() = UiStrings.get(StringsRes.string.data_cloudtranscribe_enable_live_cloud_transcription_for_new_highlights, "需開雲端即時才有新重點")
+	val HINT_UNSET: String get() = UiStrings.get(StringsRes.string.data_cloudtranscribe_not_configured, "未設定")
+	val HINT_NO_MODEL: String get() = UiStrings.get(StringsRes.string.data_cloudtranscribe_no_model_selected, "未選模型")
 
 	fun idleState(inputs: LiveToggleInputs, pending: LiveTogglePending? = null): LiveToggleSnapshot =
 		resolve(inputs, pending, inRecording = false)

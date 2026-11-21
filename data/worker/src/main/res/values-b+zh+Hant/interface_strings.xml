@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+	<string name="data_worker_clearing_trash">正在清空垃圾桶</string>
+	<string name="data_worker_downloading">下載中</string>
+	<string name="data_worker_extracting_model_large_models_may_take_several">解壓安裝（大模型需數分鐘）</string>
+	<string name="data_worker_preparing_download">準備下載</string>
+	<string name="data_worker_removing_expired_recordings">正在移除過期錄音</string>
+	<string name="data_worker_verifying_files">驗證檔案</string>
+</resources>

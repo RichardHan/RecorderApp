@@ -1,0 +1,4 @@
+<resources>
+	<string name="feature_categories_select_recordings">Select recordings</string>
+	<string name="feature_categories_cannot_find_a_category_fallback_to_create">Cannot Find a category Fallback to create</string>
+</resources>

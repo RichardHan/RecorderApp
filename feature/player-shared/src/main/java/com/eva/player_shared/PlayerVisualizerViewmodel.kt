@@ -1,5 +1,8 @@
 package com.eva.player_shared
 
+import com.eva.utils.UiStrings
+import com.eva.feature_player_core.R as StringsRes
+
 import androidx.lifecycle.viewModelScope
 import com.com.visualizer.data.ext.compressFloatArray
 import com.com.visualizer.domain.AudioVisualizer
@@ -137,7 +140,7 @@ class PlayerVisualizerViewmodel @AssistedInject constructor(
             visuals.updateArrayViaConfigs(configs, RecorderConstants.RECORDER_AMPLITUDES_BUFFER_SIZE)
                 .compressFloatArray(RecorderConstants.RECORDER_AMPLITUDES_BUFFER_SIZE)
         } catch (_: IllegalStateException) {
-            uiEvent.emit(UIEvents.ShowSnackBar("Failed to compute visuals"))
+            uiEvent.emit(UIEvents.ShowSnackBar(UiStrings.get(StringsRes.string.feature_player_shared_failed_to_compute_visuals, "Failed to compute visuals")))
             floatArrayOf()
         }
     }
@@ -158,7 +161,7 @@ class PlayerVisualizerViewmodel @AssistedInject constructor(
 
         uiEvent.emit(
             UIEvents.ShowSnackBarWithActions(
-                message = message ?: "Failed to load visualization data",
+                message = message ?: UiStrings.get(StringsRes.string.feature_player_shared_message_failed_to_load_visualization_data, "Failed to load visualization data"),
                 actionText = "Retry",
                 action = ::retryVisualization,
             ),

@@ -1,5 +1,7 @@
 package com.eva.player.data.player
 
+import com.eva.utils.UiStrings
+
 import android.content.ComponentName
 import android.content.Context
 import android.util.Log
@@ -130,10 +132,10 @@ internal class MediaControllerProvider(private val context: Context) : AudioFile
 	override suspend fun preparePlayer(audio: AudioFileModel): Result<Boolean> {
 		if (_controller == null) {
 			Log.d(TAG, "CONTROLLER IS NOT SET")
-			return Result.failure(Exception("Controller is not set"))
+			return Result.failure(Exception(UiStrings.get(com.eva.player.R.string.data_player_message_controller_is_not_set, "Controller is not set")))
 		}
 		Log.d(TAG, "PREPARING PLAYER")
-		return player?.preparePlayer(audio) ?: Result.failure(Exception("Player is not set"))
+		return player?.preparePlayer(audio) ?: Result.failure(Exception(UiStrings.get(com.eva.player.R.string.data_player_message_player_is_not_set, "Player is not set")))
 	}
 
 	override fun cleanUp() {

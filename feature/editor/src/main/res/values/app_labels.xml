@@ -1,0 +1,5 @@
+<resources>
+	<string name="feature_editor_no_audio_model_found">No Audio model found</string>
+	<string name="feature_editor_cancelled">Cancelled</string>
+	<string name="feature_editor_some_error">Some error</string>
+</resources>

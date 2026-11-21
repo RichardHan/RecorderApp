@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <string name="categories_create_success">Category Created Successfully</string>
-  <string name="categories_updated" translatable="false">Recordings moved to %s category.</string>
+  <string name="categories_updated">Recordings moved to %s category.</string>
   <string name="categories_deleted">Deleted Categories</string>
   <string name="recordings_add_to_favourite_success">Favourites marked</string>
   <string name="recordings_remove_favourite_failed">Favourites removed</string>

@@ -1,5 +1,8 @@
 package com.eva.cloudtranscribe.engine
 
+import com.eva.cloudtranscribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import com.eva.cloudtranscribe.api.AudioPayload
 import com.eva.cloudtranscribe.api.CallOutcome
 import com.eva.cloudtranscribe.api.CloudAiClient
@@ -97,7 +100,7 @@ class CloudTranscriptionEngine(
 		var usedAltPrompt = false
 		while (attempts < config.maxAttempts + (if (usedAltPrompt) 1 else 0)) {
 			if (requests.incrementAndGet() > budget) {
-				return SegmentResult(index, start, end, SegmentStatus.FAILED, attempts = attempts, error = "已達請求上限，停止以避免額外計費")
+				return SegmentResult(index, start, end, SegmentStatus.FAILED, attempts = attempts, error = UiStrings.get(StringsRes.string.data_cloudtranscribe_request_limit_reached_stopped_to_avoid_additional, "已達請求上限，停止以避免額外計費"))
 			}
 			attempts++
 			val prompt = if (usedAltPrompt) config.alternatePrompt else config.prompt
@@ -105,7 +108,7 @@ class CloudTranscriptionEngine(
 				is CallOutcome.Text -> return textResult(index, start, end, outcome.text, attempts)
 				CallOutcome.ContentFiltered -> return splitFiltered(index, start, end, source, attempts, budget)
 				CallOutcome.Empty -> {
-					if (usedAltPrompt) return SegmentResult(index, start, end, SegmentStatus.EMPTY, attempts = attempts, error = "模型回傳空白（非靜音判定）")
+					if (usedAltPrompt) return SegmentResult(index, start, end, SegmentStatus.EMPTY, attempts = attempts, error = UiStrings.get(StringsRes.string.data_cloudtranscribe_empty_model_response_silence_was_not_confirmed, "模型回傳空白（非靜音判定）"))
 					usedAltPrompt = true
 					delay(config.retryBaseDelayMs)
 				}
@@ -116,7 +119,7 @@ class CloudTranscriptionEngine(
 				}
 			}
 		}
-		return SegmentResult(index, start, end, SegmentStatus.FAILED, attempts = attempts, error = lastError ?: "失敗")
+		return SegmentResult(index, start, end, SegmentStatus.FAILED, attempts = attempts, error = lastError ?: UiStrings.get(StringsRes.string.data_cloudtranscribe_failed, "失敗"))
 	}
 
 	/** No-speech marker → SILENT; pathological repetition → FAILED with raw text kept for diagnosis (not used as transcript). */
@@ -131,13 +134,13 @@ class CloudTranscriptionEngine(
 	private suspend fun splitFiltered(index: Int, start: Long, end: Long, source: AudioRangeSource, attempts: Int, budget: Int): SegmentResult {
 		val minMs = config.minSplitSeconds * 1000L
 		val parts = ((end - start) / minMs).coerceAtMost(3).toInt()
-		if (parts < 2) return SegmentResult(index, start, end, SegmentStatus.CONTENT_FILTERED, attempts = attempts, error = "內容過濾，片段過短無法再切")
+		if (parts < 2) return SegmentResult(index, start, end, SegmentStatus.CONTENT_FILTERED, attempts = attempts, error = UiStrings.get(StringsRes.string.data_cloudtranscribe_content_filtered_segment_too_short_to_split, "內容過濾，片段過短無法再切"))
 		val step = (end - start) / parts
 		val sub = (0 until parts).map { i ->
 			val s = start + i * step
 			val e = if (i == parts - 1) end else s + step
 			if (requests.incrementAndGet() > budget) {
-				SegmentResult(i, s, e, SegmentStatus.FAILED, error = "已達請求上限")
+				SegmentResult(i, s, e, SegmentStatus.FAILED, error = UiStrings.get(StringsRes.string.data_cloudtranscribe_request_limit_reached, "已達請求上限"))
 			} else when (val outcome = client.transcribe(config.prompt, withContext(Dispatchers.Default) { source.encode(s, e) })) {
 				is CallOutcome.Text -> textResult(i, s, e, outcome.text, 1)
 				CallOutcome.ContentFiltered -> SegmentResult(i, s, e, SegmentStatus.CONTENT_FILTERED, attempts = 1)
@@ -164,17 +167,17 @@ class CloudTranscriptionEngine(
 			val range = "${fmt(seg.startMs)}–${fmt(seg.endMs)}"
 			val body = when (seg.status) {
 				SegmentStatus.OK -> if (seg.parts.isEmpty()) seg.text else partsText(seg)
-				SegmentStatus.SILENT -> "[靜音 $range]"
-				SegmentStatus.CONTENT_FILTERED -> if (seg.parts.isEmpty()) "[⚠ 內容過濾，未轉錄 $range]" else partsText(seg)
-				SegmentStatus.EMPTY -> "[⚠ 模型空白回應，未轉錄 $range，可重試]"
-				SegmentStatus.FAILED -> "[⚠ 轉錄失敗 $range：${seg.error ?: ""}，可重試]"
+				SegmentStatus.SILENT -> UiStrings.get(StringsRes.string.data_cloudtranscribe_silence, "[靜音 %1\$s]", range)
+				SegmentStatus.CONTENT_FILTERED -> if (seg.parts.isEmpty()) UiStrings.get(StringsRes.string.data_cloudtranscribe_filtered_no_transcript_for, "[⚠ 內容過濾，未轉錄 %1\$s]", range) else partsText(seg)
+				SegmentStatus.EMPTY -> UiStrings.get(StringsRes.string.data_cloudtranscribe_empty_response_for_retry_available, "[⚠ 模型空白回應，未轉錄 %1\$s，可重試]", range)
+				SegmentStatus.FAILED -> UiStrings.get(StringsRes.string.data_cloudtranscribe_transcription_failed_at_retry_available, "[⚠ 轉錄失敗 %1\$s：%2\$s，可重試]", range, seg.error ?: "")
 			}
 			if (config.hallucinationWarning && median != null && seg.status == SegmentStatus.OK && seg.text.length > median * 2.5) {
-				warnings += "片段 ${seg.index + 1}/$total 長度異常，可能幻覺"
-				"[⚠ 可能幻覺 — 片段 ${seg.index + 1}/$total，長度遠超中位數]\n$body"
+				warnings += UiStrings.get(StringsRes.string.data_cloudtranscribe_segment_is_unusually_long_check_for_invented, "片段 %1\$s/%2\$s 長度異常，可能幻覺", seg.index + 1, total)
+				UiStrings.get(StringsRes.string.data_cloudtranscribe_segment_is_much_longer_than_the_median, "[⚠ 可能幻覺 — 片段 %1\$s/%2\$s，長度遠超中位數]\n%3\$s", seg.index + 1, total, body)
 			} else body
 		}
-		results.filter { !it.isFinal }.forEach { warnings += "片段 ${it.index + 1} (${fmt(it.startMs)}–${fmt(it.endMs)}) 狀態 ${it.status}" }
+		results.filter { !it.isFinal }.forEach { warnings += UiStrings.get(StringsRes.string.data_cloudtranscribe_segment, "片段 %1\$s (%2\$s–%3\$s) 狀態 %4\$s", it.index + 1, fmt(it.startMs), fmt(it.endMs), it.status) }
 		val status = when {
 			results.isEmpty() -> RunStatus.FAILED
 			results.all { it.isFinal } -> RunStatus.SUCCESS
@@ -185,7 +188,7 @@ class CloudTranscriptionEngine(
 	}
 
 	private fun partsText(seg: SegmentResult) = seg.parts.joinToString("\n") { p ->
-		if (p.status == SegmentStatus.OK) p.text else "[⚠ ${if (p.status == SegmentStatus.CONTENT_FILTERED) "內容過濾" else "未完成"}，未轉錄 ${fmt(p.startMs)}–${fmt(p.endMs)}]"
+		if (p.status == SegmentStatus.OK) p.text else UiStrings.get(StringsRes.string.data_cloudtranscribe_no_transcript_for, "[⚠ %1\$s，未轉錄 %2\$s–%3\$s]", if (p.status == SegmentStatus.CONTENT_FILTERED) UiStrings.get(StringsRes.string.data_cloudtranscribe_filtered, "內容過濾") else UiStrings.get(StringsRes.string.data_cloudtranscribe_incomplete, "未完成"), fmt(p.startMs), fmt(p.endMs))
 	}
 
 	companion object {

@@ -39,7 +39,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
 import com.eva.ui.R
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,7 +93,7 @@ internal fun SearchBarTextField(
 								RecognizerIntent.EXTRA_LANGUAGE_MODEL,
 								RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
 							)
-							putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.ENGLISH)
+							putExtra(RecognizerIntent.EXTRA_LANGUAGE, context.resources.configuration.locales[0].toLanguageTag())
 							putExtra(
 								RecognizerIntent.EXTRA_LANGUAGE_MODEL,
 								RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH

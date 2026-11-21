@@ -34,6 +34,7 @@ object CloudUsage {
 		zone: ZoneId,
 		nowMillis: Long,
 		months: Int = MONTHS,
+		titleRequestAtMillis: List<Long> = emptyList(),
 	): List<MonthUsage> {
 		val current = monthOf(nowMillis, zone)
 		val wanted = (0 until months).map { current.minusMonths(it.toLong()) }
@@ -47,6 +48,10 @@ object CloudUsage {
 		summaries.forEach { s ->
 			val m = monthOf(s.createdAtMillis, zone)
 			byMonth[m]?.let { u -> byMonth[m] = u.copy(summaries = u.summaries + 1) }
+		}
+		titleRequestAtMillis.forEach { at ->
+			val m = monthOf(at, zone)
+			byMonth[m]?.let { u -> byMonth[m] = u.copy(requests = u.requests + 1) }
 		}
 		return wanted.map { byMonth.getValue(it) }
 	}

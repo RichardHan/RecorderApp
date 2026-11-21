@@ -1,0 +1,8 @@
+<resources>
+	<string name="feature_categories_message_cannot_delete_category">Cannot delete category</string>
+	<string name="feature_categories_message_cannot_have_empty_values">Cannot have empty values</string>
+	<string name="feature_categories_message_cannot_perform_edit">Cannot perform edit</string>
+	<string name="feature_categories_message_cannot_update_category">Cannot update category</string>
+	<string name="feature_categories_message_category_set">Category set</string>
+	<string name="feature_categories_message_deleted_categories_successfully">Deleted categories successfully</string>
+</resources>

@@ -1,5 +1,6 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -18,7 +19,7 @@ class CleanupListTest {
 		var seek: Long? = null
 		val rows = listOf(CleanupRowUi(0, "我們開始。", "嗯 我們 我們開始", 0), CleanupRowUi(3, "下週交付。", "呃 下週交付", 4200))
 		compose.setContent { MaterialTheme { CleanupList(rows, compare = true, onSeek = { seek = it }) } }
-		compose.onNodeWithText("原文：呃 下週交付").assertIsDisplayed()
+		compose.onNodeWithText(compose.activity.getString(R.string.cleanup_original_prefix, "呃 下週交付")).assertIsDisplayed()
 		compose.onNodeWithTag("cleanup-row-3").performClick()
 		compose.waitForIdle()
 		assertEquals(4200L, seek)

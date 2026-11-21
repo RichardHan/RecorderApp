@@ -1,5 +1,6 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
@@ -46,8 +47,8 @@ class ChaptersListTest {
 				ChaptersList(rows = rows, onSeek = {}, onRename = { _, _ -> }, onDelete = { deleted = it })
 			}
 		}
-		compose.onAllNodesWithContentDescription("刪除章節").fetchSemanticsNodes()
-		compose.onAllNodesWithContentDescription("刪除章節")[0].performClick()
+		compose.onAllNodesWithContentDescription(compose.activity.getString(R.string.feature_player_delete_chapter)).fetchSemanticsNodes()
+		compose.onAllNodesWithContentDescription(compose.activity.getString(R.string.feature_player_delete_chapter))[0].performClick()
 		assertEquals(1L, deleted)
 	}
 

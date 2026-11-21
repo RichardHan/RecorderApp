@@ -1,5 +1,9 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -53,34 +57,34 @@ internal fun OutlineCard(
 	Card {
 		Column(Modifier.padding(12.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
 			Row(Modifier.fillMaxWidth().clickable(role = Role.Button) { open = !open }) {
-				Text((if (open) "▾ " else "▸ ") + "大綱", style = MaterialTheme.typography.titleSmall)
+				Text((if (open) "▾ " else "▸ ") + UiStrings.get(StringsRes.string.feature_player_outline, "大綱"), style = MaterialTheme.typography.titleSmall)
 			}
 			if (!open) return@Column
 			if (empty) {
-				Text("還沒有可整理的摘要（或摘要為「目前無重點」）。", style = MaterialTheme.typography.bodySmall)
+				Text(stringResource(StringsRes.string.feature_player_no_summary_with_highlights_available_yet), style = MaterialTheme.typography.bodySmall)
 				return@Column
 			}
 			if (saved != null) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-				FilterChip(mode == OutlineMode.LOCAL, { mode = OutlineMode.LOCAL }, { Text("本機大綱") })
-				FilterChip(mode == OutlineMode.AI, { mode = OutlineMode.AI }, { Text("AI 大綱") })
+				FilterChip(mode == OutlineMode.LOCAL, { mode = OutlineMode.LOCAL }, { Text(stringResource(StringsRes.string.feature_player_local_outline)) })
+				FilterChip(mode == OutlineMode.AI, { mode = OutlineMode.AI }, { Text(stringResource(StringsRes.string.feature_player_ai_outline)) })
 			}
 			if (mode == OutlineMode.AI && OutlineRules.isStale(saved, summaryId, summaryText)) {
-				Text("摘要已更新，AI 大綱可能已過期（不會自動重算）", style = MaterialTheme.typography.bodySmall,
+				Text(stringResource(StringsRes.string.feature_player_summary_updated_generate_the_ai_outline_again), style = MaterialTheme.typography.bodySmall,
 					color = MaterialTheme.colorScheme.secondary)
 			}
 			OutlineTree(nodes)
 			Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
 				OutlinedButton(enabled = !viewModel.working, onClick = { confirm = true }) {
-					Text(if (viewModel.working) "整理中…" else "整理成大綱（AI）")
+					Text(if (viewModel.working) UiStrings.get(StringsRes.string.feature_player_organizing, "整理中…") else UiStrings.get(StringsRes.string.feature_player_generate_ai_outline, "整理成大綱（AI）"))
 				}
-				if (viewModel.working) TextButton(onClick = viewModel::cancel) { Text("取消") }
-				if (saved != null && !viewModel.working) TextButton(onClick = viewModel::restoreLocal) { Text("回復本機大綱") }
+				if (viewModel.working) TextButton(onClick = viewModel::cancel) { Text(stringResource(StringsRes.string.feature_player_cancel)) }
+				if (saved != null && !viewModel.working) TextButton(onClick = viewModel::restoreLocal) { Text(stringResource(StringsRes.string.feature_player_restore_local_outline)) }
 			}
-			TextButton(onClick = { clipboard.setText(AnnotatedString(SummaryOutline.asText(nodes))) }) { Text("複製大綱") }
+			TextButton(onClick = { clipboard.setText(AnnotatedString(SummaryOutline.asText(nodes))) }) { Text(stringResource(StringsRes.string.feature_player_copy_outline)) }
 			viewModel.message?.let { msg ->
 				Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
 					Text(msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-					TextButton(onClick = viewModel::dismissMessage) { Text("知道了") }
+					TextButton(onClick = viewModel::dismissMessage) { Text(stringResource(StringsRes.string.feature_player_got_it)) }
 				}
 			}
 		}
@@ -88,13 +92,13 @@ internal fun OutlineCard(
 
 	if (confirm && summaryId != null && summaryText != null) AlertDialog(
 		onDismissRequest = { confirm = false },
-		title = { Text("用 AI 整理成大綱？") },
+		title = { Text(stringResource(StringsRes.string.feature_player_generate_an_ai_outline)) },
 		text = {
-			Text("只會把這份摘要文字（不是整份逐字稿、也不含音訊）送到目前設定的摘要服務，使用已儲存的 API Key，仍可能產生 token 費用。" +
-				"結果最多兩層、20 個節點；格式不符、失敗或取消時保留本機大綱。")
+			Text(stringResource(StringsRes.string.feature_player_only_the_summary_text_will_be_sent) +
+				UiStrings.get(StringsRes.string.feature_player_up_to_two_levels_and_20_entries, "結果最多兩層、20 個節點；格式不符、失敗或取消時保留本機大綱。"))
 		},
-		confirmButton = { TextButton({ confirm = false; viewModel.organise(summaryId, summaryText) }) { Text("送出並整理") } },
-		dismissButton = { TextButton({ confirm = false }) { Text("取消") } },
+		confirmButton = { TextButton({ confirm = false; viewModel.organise(summaryId, summaryText) }) { Text(stringResource(StringsRes.string.feature_player_send_and_organize)) } },
+		dismissButton = { TextButton({ confirm = false }) { Text(stringResource(StringsRes.string.feature_player_cancel)) } },
 	)
 }
 
@@ -103,8 +107,8 @@ internal fun OutlineCard(
 internal fun OutlineTree(nodes: List<OutlineNode>) {
 	var collapsed by remember(nodes) { mutableStateOf(emptySet<Int>()) }
 	Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-		TextButton(onClick = { collapsed = emptySet() }) { Text("全部展開") }
-		TextButton(onClick = { collapsed = nodes.indices.toSet() }) { Text("全部摺疊") }
+		TextButton(onClick = { collapsed = emptySet() }) { Text(stringResource(StringsRes.string.feature_player_expand_all)) }
+		TextButton(onClick = { collapsed = nodes.indices.toSet() }) { Text(stringResource(StringsRes.string.feature_player_collapse_all)) }
 	}
 	Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
 		nodes.forEachIndexed { i, node ->

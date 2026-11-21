@@ -1,5 +1,11 @@
 package com.eva.feature_settings.composables.transcribe
 
+import com.eva.transcribe.domain.models.localizedName
+
+import com.eva.feature_settings.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import android.text.format.Formatter
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -142,7 +148,7 @@ internal fun STTModelOptionCard(
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_check_plain),
-                    contentDescription = "Model selected",
+                    contentDescription = UiStrings.get(StringsRes.string.feature_settings_model_selected, "Model selected"),
                     tint = contentColorFor(if (enabled) cardContainerColor else disabledContainerColor),
                 )
             }
@@ -177,13 +183,13 @@ internal fun STTModelOptionCard(
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         Text(
-                            text = sttModel.model.displayName,
+                            text = sttModel.model.localizedName(),
                             style = MaterialTheme.typography.titleMedium,
                             color = if (enabled) MaterialTheme.colorScheme.onBackground
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            "下載 $formattedSize · " + if (resourceText.isNotBlank()) resourceText else sttModel.model.recognitionMode(),
+                            UiStrings.get(StringsRes.string.feature_settings_download, "下載 %1\$s · ", formattedSize) + if (resourceText.isNotBlank()) resourceText else sttModel.model.recognitionMode(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -196,10 +202,10 @@ internal fun STTModelOptionCard(
                         tooltip = {
                             PlainTooltip {
                                 val modelText = when (sttModel.model.state) {
-                                    STTModelState.UN_AVAILABLE -> "Downloadable"
-                                    STTModelState.DOWNLOADING -> "Downloading"
-                                    STTModelState.DOWNLOADED -> "Ready"
-                                    STTModelState.UPDATE_AVAILABLE -> "Update Available"
+                                    STTModelState.UN_AVAILABLE -> UiStrings.get(StringsRes.string.feature_settings_downloadable, "Downloadable")
+                                    STTModelState.DOWNLOADING -> UiStrings.get(StringsRes.string.feature_settings_downloading, "Downloading")
+                                    STTModelState.DOWNLOADED -> UiStrings.get(StringsRes.string.feature_settings_ready, "Ready")
+                                    STTModelState.UPDATE_AVAILABLE -> UiStrings.get(StringsRes.string.feature_settings_update_available, "Update Available")
                                 }
                                 Text(text = modelText)
                             }
@@ -219,12 +225,12 @@ internal fun STTModelOptionCard(
                             when (sttModel.model.state) {
                                 STTModelState.UN_AVAILABLE, STTModelState.DOWNLOADING, STTModelState.UPDATE_AVAILABLE -> Icon(
                                     painter = painterResource(R.drawable.ic_download_rounded),
-                                    contentDescription = "Model downloadable",
+                                    contentDescription = UiStrings.get(StringsRes.string.feature_settings_model_downloadable, "Model downloadable"),
                                 )
 
                                 STTModelState.DOWNLOADED -> Icon(
                                     painter = painterResource(R.drawable.ic_checked_batch),
-                                    contentDescription = "Model already present",
+                                    contentDescription = UiStrings.get(StringsRes.string.feature_settings_model_already_present, "Model already present"),
                                 )
                             }
                         }
@@ -249,7 +255,7 @@ internal fun STTModelOptionCard(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.tertiary,
                         )
-                        androidx.compose.material3.TextButton(onClick = onCancelDownload) { Text("取消（保留已下載部分）") }
+                        androidx.compose.material3.TextButton(onClick = onCancelDownload) { Text(stringResource(StringsRes.string.feature_settings_cancel_and_keep_downloaded_data)) }
                     }
                 }
             }

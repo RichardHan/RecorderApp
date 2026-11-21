@@ -1,5 +1,9 @@
 package com.eva.feature_recorder.composable
 
+import com.eva.feature_recorder.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -45,12 +49,12 @@ internal fun RecorderLiveToggleChips(
 	if (needModel) {
 		AlertDialog(
 			onDismissRequest = { needModel = false },
-			title = { Text("尚未選本機模型") },
-			text = { Text("請先在設定中選擇並下載離線辨識模型。模型可在本機字幕關閉時選取。") },
+			title = { Text(stringResource(StringsRes.string.feature_recorder_no_on_device_model_selected)) },
+			text = { Text(stringResource(StringsRes.string.feature_recorder_choose_and_download_an_offline_speech_model)) },
 			confirmButton = {
-				TextButton(onClick = { needModel = false; onNeedLocalModel() }) { Text("開啟設定") }
+				TextButton(onClick = { needModel = false; onNeedLocalModel() }) { Text(stringResource(StringsRes.string.feature_recorder_open_settings_alt)) }
 			},
-			dismissButton = { TextButton(onClick = { needModel = false }) { Text("取消") } },
+			dismissButton = { TextButton(onClick = { needModel = false }) { Text(stringResource(StringsRes.string.feature_recorder_cancel)) } },
 		)
 	}
 
@@ -87,7 +91,7 @@ internal fun RecorderLiveToggleChips(
 			modifier = Modifier.fillMaxWidth(),
 		) {
 			LiveToggleChip(
-				label = "本機字幕",
+				label = UiStrings.get(StringsRes.string.feature_recorder_local_captions, "本機字幕"),
 				selected = ui.localOn,
 				enabled = ui.localEnabled,
 				hint = ui.localHint,
@@ -98,7 +102,7 @@ internal fun RecorderLiveToggleChips(
 				},
 			)
 			LiveToggleChip(
-				label = "雲端即時",
+				label = UiStrings.get(StringsRes.string.feature_recorder_live_cloud, "雲端即時"),
 				selected = ui.cloudOn,
 				enabled = ui.cloudEnabled,
 				hint = ui.cloudHint,
@@ -140,7 +144,7 @@ private fun LiveToggleChip(
 	hint: String?,
 	onClick: () -> Unit,
 ) {
-	val state = if (!enabled) "未設定" else if (selected) "開" else "關"
+	val state = if (!enabled) UiStrings.get(StringsRes.string.feature_recorder_not_configured, "未設定") else if (selected) UiStrings.get(StringsRes.string.feature_recorder_on, "開") else UiStrings.get(StringsRes.string.feature_recorder_off, "關")
 	val description = buildString {
 		append(label)
 		append("：")
@@ -151,14 +155,14 @@ private fun LiveToggleChip(
 		selected = selected,
 		onClick = onClick,
 		enabled = enabled,
-		label = { Text("$label ${if (selected) "開" else "關"}", style = MaterialTheme.typography.labelMedium) },
+		label = { Text("$label ${if (selected) UiStrings.get(StringsRes.string.feature_recorder_on, "開") else UiStrings.get(StringsRes.string.feature_recorder_off, "關")}", style = MaterialTheme.typography.labelMedium) },
 		modifier = androidx.compose.ui.Modifier.semantics { contentDescription = description },
 	)
 }
 
 /** Chip labels used by tests. */
 internal fun liveToggleChipLabel(kind: LiveToggleKind, on: Boolean): String = when (kind) {
-	LiveToggleKind.LOCAL -> if (on) "本機字幕 開" else "本機字幕 關"
-	LiveToggleKind.CLOUD -> if (on) "雲端即時 開" else "雲端即時 關"
-	LiveToggleKind.SLACK -> if (on) "Slack 開" else "Slack 關"
+	LiveToggleKind.LOCAL -> if (on) UiStrings.get(StringsRes.string.feature_recorder_local_captions_on, "本機字幕 開") else UiStrings.get(StringsRes.string.feature_recorder_local_captions_off, "本機字幕 關")
+	LiveToggleKind.CLOUD -> if (on) UiStrings.get(StringsRes.string.feature_recorder_live_cloud_on, "雲端即時 開") else UiStrings.get(StringsRes.string.feature_recorder_live_cloud_off, "雲端即時 關")
+	LiveToggleKind.SLACK -> if (on) UiStrings.get(StringsRes.string.feature_recorder_slack_on, "Slack 開") else UiStrings.get(StringsRes.string.feature_recorder_slack_off, "Slack 關")
 }

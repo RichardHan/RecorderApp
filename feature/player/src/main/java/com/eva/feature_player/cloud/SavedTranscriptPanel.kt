@@ -1,5 +1,8 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+
 import kotlinx.datetime.toJavaLocalDateTime
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -112,14 +115,14 @@ class SavedTranscriptViewModel @Inject constructor(private val store: Transcript
 	}
 
 	fun saveLine(entry: SavedTranscriptEntry, key: String, text: String) = update(entry) { raw, edits, now ->
-		if (!TranscriptEditing.canEdit(raw)) return@update Result.failure(IllegalStateException("仍在轉錄，完成後才能修改"))
+		if (!TranscriptEditing.canEdit(raw)) return@update Result.failure(IllegalStateException(UiStrings.get(StringsRes.string.feature_player_wait_for_transcription_to_finish_before_editing, "仍在轉錄，完成後才能修改")))
 		val next = TranscriptEditing.withLine(raw, edits, key, text, now)
-			?: return@update Result.failure(IllegalArgumentException("沒有變更，或會把整份逐字稿清空，未儲存"))
+			?: return@update Result.failure(IllegalArgumentException(UiStrings.get(StringsRes.string.feature_player_no_changes_saved_the_text_was_unchanged, "沒有變更，或會把整份逐字稿清空，未儲存")))
 		Result.success(next)
 	}
 
 	fun undo(entry: SavedTranscriptEntry) = update(entry) { _, edits, now ->
-		TranscriptEditing.undo(edits, now)?.let { Result.success(it) } ?: Result.failure(IllegalStateException("沒有可還原的修改"))
+		TranscriptEditing.undo(edits, now)?.let { Result.success(it) } ?: Result.failure(IllegalStateException(UiStrings.get(StringsRes.string.feature_player_no_edit_to_undo, "沒有可還原的修改")))
 	}
 
 	/** The original changed after the user corrected it: keep the corrections (re-anchored) or drop them. */
@@ -127,12 +130,12 @@ class SavedTranscriptViewModel @Inject constructor(private val store: Transcript
 		if (!keep) {
 			viewModelScope.launch {
 				writes.withLock { withContext(Dispatchers.IO) { store.deleteEdits(entry.raw.recordingId, entry.raw.id) } }
-				_message.value = "已捨棄先前的修改，顯示原始逐字稿"
+				_message.value = UiStrings.get(StringsRes.string.feature_player_edits_discarded_showing_the_original_transcript, "已捨棄先前的修改，顯示原始逐字稿")
 				_records.value = read(entry.raw.recordingId)
 			}
 			return
 		}
-		update(entry) { raw, edits, now -> edits?.let { Result.success(TranscriptEditing.rebase(raw, it, now)) } ?: Result.failure(IllegalStateException("沒有修改")) }
+		update(entry) { raw, edits, now -> edits?.let { Result.success(TranscriptEditing.rebase(raw, it, now)) } ?: Result.failure(IllegalStateException(UiStrings.get(StringsRes.string.feature_player_no_changes, "沒有修改"))) }
 	}
 
 	fun dismissMessage() { _message.value = null }
@@ -144,14 +147,14 @@ class SavedTranscriptViewModel @Inject constructor(private val store: Transcript
 				withContext(Dispatchers.IO) {
 					runCatching {
 						// re-read both files so a background re-save of the original is never silently overwritten
-						val raw = store.transcript(recordingId, entry.raw.id) ?: error("找不到這份逐字稿")
-						if (raw.updatedAtMillis != entry.raw.updatedAtMillis) error("原文剛剛更新了，請重新查看後再修改")
+						val raw = store.transcript(recordingId, entry.raw.id) ?: error(UiStrings.get(StringsRes.string.feature_player_transcript_not_found, "找不到這份逐字稿"))
+						if (raw.updatedAtMillis != entry.raw.updatedAtMillis) error(UiStrings.get(StringsRes.string.feature_player_source_updated_review_the_latest_version_before, "原文剛剛更新了，請重新查看後再修改"))
 						val next = change(raw, store.edits(recordingId, raw.id), System.currentTimeMillis()).getOrThrow()
 						store.saveEdits(next)
 					}
 				}
 			}
-			_message.value = outcome.fold({ "已儲存在手機上（原始逐字稿保留）" }, { it.message ?: "儲存失敗" })
+			_message.value = outcome.fold({ UiStrings.get(StringsRes.string.feature_player_saved_on_device_original_transcript_kept, "已儲存在手機上（原始逐字稿保留）") }, { it.message ?: UiStrings.get(StringsRes.string.feature_player_could_not_save, "儲存失敗") })
 			_records.value = read(recordingId)
 		}
 	}
@@ -194,9 +197,9 @@ internal fun SavedTranscriptPanel(
 				photoVm.photos::add, photoVm.photos::caption, photoVm.photos::delete, onSeekTo)
 			val list = records
 			when {
-				list == null -> Text("讀取逐字稿…", style = MaterialTheme.typography.labelMedium)
+				list == null -> Text(stringResource(StringsRes.string.feature_player_loading_transcript), style = MaterialTheme.typography.labelMedium)
 				list.isEmpty() -> Text(
-					"這段錄音還沒有已儲存的逐字稿（可從上方「雲端轉錄」選單建立）",
+					stringResource(StringsRes.string.feature_player_no_saved_transcript_open_cloud_transcription_above),
 					style = MaterialTheme.typography.labelMedium,
 					color = MaterialTheme.colorScheme.onSurfaceVariant,
 				)
@@ -411,7 +414,7 @@ internal fun TranscriptLines(
 			Text(stringResource(R.string.transcript_search_hint), style = MaterialTheme.typography.labelSmall)
 		}
 		if (!timed) Text(
-			"此逐字稿沒有時間戳，顯示全文（不跟隨播放位置）",
+			stringResource(StringsRes.string.feature_player_this_transcript_has_no_timestamps_the_full),
 			style = MaterialTheme.typography.labelSmall,
 			color = MaterialTheme.colorScheme.onSurfaceVariant,
 		)
@@ -471,7 +474,7 @@ private fun SourcePicker(
 	onSelect: (String) -> Unit,
 ) {
 	var open by remember { mutableStateOf(false) }
-	val label = (if (list.size > 1) "逐字稿（${list.size} 份）：" else "逐字稿：") +
+	val label = (if (list.size > 1) UiStrings.get(StringsRes.string.feature_player_transcripts, "逐字稿（%1\$s 份）：", list.size) else UiStrings.get(StringsRes.string.feature_player_transcript_alt, "逐字稿：")) +
 		PlaybackTranscripts.label(selected)
 	Box(modifier) {
 		AssistChip(

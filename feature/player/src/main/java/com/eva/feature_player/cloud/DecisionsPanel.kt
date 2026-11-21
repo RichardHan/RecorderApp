@@ -1,5 +1,9 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -51,15 +55,15 @@ fun DecisionsPanel(
 
 	Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.medium, modifier = modifier) {
 		Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-			Text("決議", style = MaterialTheme.typography.titleSmall)
-			Text("已經做成的決定／共識，和待辦分開。", style = MaterialTheme.typography.bodySmall,
+			Text(stringResource(StringsRes.string.feature_player_decisions), style = MaterialTheme.typography.titleSmall)
+			Text(stringResource(StringsRes.string.feature_player_decisions_and_agreements_reached_during_the_meeting), style = MaterialTheme.typography.bodySmall,
 				color = MaterialTheme.colorScheme.onSurfaceVariant)
 			if (viewModel.possiblyStale) {
-				Text("逐字稿已更新，抽出的決議可能已過期（不會自動重算）", style = MaterialTheme.typography.bodySmall,
+				Text(stringResource(StringsRes.string.feature_player_transcript_updated_extract_decisions_again_to_refresh), style = MaterialTheme.typography.bodySmall,
 					color = MaterialTheme.colorScheme.secondary)
 			}
 			if (viewModel.decisions.isEmpty()) {
-				Text("尚無決議。可以手動新增，或按下方按鈕從逐字稿抽出。", style = MaterialTheme.typography.bodySmall)
+				Text(stringResource(StringsRes.string.feature_player_no_decisions_yet_add_one_manually_or), style = MaterialTheme.typography.bodySmall)
 			} else {
 				DecisionsList(
 					rows = viewModel.decisions.map { DecisionRowUi(it.id, it.text, it.startMs, !it.isExtracted) },
@@ -73,25 +77,25 @@ fun DecisionsPanel(
 				OutlinedTextField(
 					value = newText,
 					onValueChange = { newText = it.take(200) },
-					label = { Text("手動新增決議") },
+					label = { Text(stringResource(StringsRes.string.feature_player_add_decision_manually)) },
 					singleLine = true,
 					modifier = Modifier.weight(1f),
 				)
-				TextButton(enabled = newText.isNotBlank(), onClick = { viewModel.add(newText); newText = "" }) { Text("新增") }
+				TextButton(enabled = newText.isNotBlank(), onClick = { viewModel.add(newText); newText = "" }) { Text(stringResource(StringsRes.string.feature_player_add)) }
 			}
 			Button(
 				enabled = viewModel.canExtract && !viewModel.extracting,
 				onClick = { confirm = true },
 				modifier = Modifier.fillMaxWidth(),
-			) { Text(if (viewModel.extracting) "抽出決議中…" else "抽出決議") }
-			if (viewModel.extracting) TextButton(onClick = viewModel::cancelExtraction) { Text("取消") }
+			) { Text(if (viewModel.extracting) UiStrings.get(StringsRes.string.feature_player_extracting_decisions, "抽出決議中…") else UiStrings.get(StringsRes.string.feature_player_extract_decisions_alt, "抽出決議")) }
+			if (viewModel.extracting) TextButton(onClick = viewModel::cancelExtraction) { Text(stringResource(StringsRes.string.feature_player_cancel)) }
 			viewModel.blockedReason?.let {
 				Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 			}
 			viewModel.message?.let { msg ->
 				Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
 					Text(msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-					TextButton(onClick = viewModel::dismissMessage) { Text("知道了") }
+					TextButton(onClick = viewModel::dismissMessage) { Text(stringResource(StringsRes.string.feature_player_got_it)) }
 				}
 			}
 		}
@@ -100,14 +104,14 @@ fun DecisionsPanel(
 	if (confirm) {
 		AlertDialog(
 			onDismissRequest = { confirm = false },
-			title = { Text("抽出決議？") },
+			title = { Text(stringResource(StringsRes.string.feature_player_extract_decisions)) },
 			text = {
-				Text("會把一份帶句子編號的完整逐字稿送到目前設定的摘要服務（使用已儲存的 API Key），可能產生 token 費用。" +
-					"模型只回傳決議文字與句子編號，時間由本機換算，不會捏造；不會推測負責人。" +
-					"新的結果會取代上次抽出的決議，手動新增的會保留；失敗或取消不會儲存任何內容。")
+				Text(stringResource(StringsRes.string.feature_player_send_the_full_transcript_with_sentence_numbers) +
+					UiStrings.get(StringsRes.string.feature_player_the_model_returns_decisions_and_sentence_numbers, "模型只回傳決議文字與句子編號，時間由本機換算，不會捏造；不會推測負責人。") +
+					UiStrings.get(StringsRes.string.feature_player_new_results_replace_previously_extracted_decisions_manual, "新的結果會取代上次抽出的決議，手動新增的會保留；失敗或取消不會儲存任何內容。"))
 			},
-			confirmButton = { TextButton({ confirm = false; viewModel.extract() }) { Text("送出並抽出") } },
-			dismissButton = { TextButton({ confirm = false }) { Text("取消") } },
+			confirmButton = { TextButton({ confirm = false; viewModel.extract() }) { Text(stringResource(StringsRes.string.feature_player_send_and_extract)) } },
+			dismissButton = { TextButton({ confirm = false }) { Text(stringResource(StringsRes.string.feature_player_cancel)) } },
 		)
 	}
 }
@@ -126,14 +130,14 @@ internal fun DecisionsList(
 			Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
 				val time = row.startMs
 				Text(
-					time?.let(::formatChapterTime) ?: (if (row.manual) "手動" else "—"),
+					time?.let(::formatChapterTime) ?: (if (row.manual) UiStrings.get(StringsRes.string.feature_player_manual, "手動") else "—"),
 					style = MaterialTheme.typography.labelMedium,
 					modifier = Modifier.padding(end = 8.dp),
 				)
 				if (editingId == row.id) {
 					var text by remember(row.id) { mutableStateOf(row.text) }
 					OutlinedTextField(value = text, onValueChange = { text = it.take(200) }, modifier = Modifier.weight(1f))
-					TextButton(onClick = { onEdit(row.id, text); editingId = null }) { Text("儲存") }
+					TextButton(onClick = { onEdit(row.id, text); editingId = null }) { Text(stringResource(StringsRes.string.feature_player_save)) }
 				} else {
 					Text(
 						row.text,
@@ -145,7 +149,7 @@ internal fun DecisionsList(
 					IconButton(onClick = { editingId = row.id }) { Text("✎") }
 				}
 				IconButton(onClick = { onDelete(row.id) }) {
-					Icon(Icons.Default.Delete, contentDescription = "刪除決議")
+					Icon(Icons.Default.Delete, contentDescription = stringResource(StringsRes.string.feature_player_delete_decision))
 				}
 			}
 		}

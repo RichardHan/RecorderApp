@@ -1,5 +1,7 @@
 package com.eva.recorder.data
 
+import com.eva.utils.UiStrings
+
 import android.content.Context
 import android.content.Intent
 import android.util.Log
@@ -71,7 +73,7 @@ internal class RecorderActionHandlerImpl(
 			}
 			Resource.Success(data = Unit)
 		} catch (e: SecurityException) {
-			Log.d(TAG, "SECURITY EXCEPTION", e)
+			Log.d(TAG, UiStrings.get(com.eva.recorder.R.string.data_recorder_message_security_exception, "SECURITY EXCEPTION"), e)
 			Resource.Error<Unit, Exception>(e)
 		} catch (e: IllegalStateException) {
 			Log.d(TAG, "SERVICE CANNOT BE STARTED", e)

@@ -1,5 +1,8 @@
 package com.eva.feature_settings.composables.cloudai
 
+import com.eva.feature_settings.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Surface
@@ -53,6 +56,7 @@ import com.eva.cloudtranscribe.model.ReasoningEffort
 import com.eva.cloudtranscribe.model.SummaryFormat
 import com.eva.cloudtranscribe.secure.ApiKeyStore
 import com.eva.cloudtranscribe.settings.CloudSettingsRepository
+import com.eva.cloudtranscribe.settings.ModelShortcuts
 import com.eva.feature_settings.composables.drive.DriveSettingsContent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -75,6 +79,10 @@ internal class CloudAiSettingsViewModel @Inject constructor(
 	private val keys: ApiKeyStore,
 ) : ViewModel() {
 	val settings: StateFlow<CloudSettings?> = repo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+	val recentTranscribeModels: StateFlow<List<String>> =
+		repo.recentTranscribeModels.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+	val recentSummaryModels: StateFlow<List<String>> =
+		repo.recentSummaryModels.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 	val hasKey: StateFlow<Boolean> = keys.hasKey
 	var savedKey by mutableStateOf(keys.read())
 		private set
@@ -98,12 +106,12 @@ internal class CloudAiSettingsViewModel @Inject constructor(
 			try {
 				val s = repo.settings.first()
 				val result = withContext(Dispatchers.IO) { ConnectionProbe.run(s, keys.read(), transport) }
-				testResult = if (timedOut) "整體測試逾時（20 秒），已停止；未重試。" else result
+				testResult = if (timedOut) UiStrings.get(StringsRes.string.feature_settings_test_timed_out_after_20_seconds_no, "整體測試逾時（20 秒），已停止；未重試。") else result
 			} catch (e: CancellationException) {
-				testResult = "已取消測試；已送出的 API 請求可能仍計費。"
+				testResult = UiStrings.get(StringsRes.string.feature_settings_test_canceled_requests_already_sent_may_still, "已取消測試；已送出的 API 請求可能仍計費。")
 				throw e
 			} catch (e: Exception) {
-				testResult = "無法讀取已儲存設定／Key，請檢查後再試。"
+				testResult = UiStrings.get(StringsRes.string.feature_settings_could_not_read_the_saved_settings_or, "無法讀取已儲存設定／Key，請檢查後再試。")
 			} finally {
 				watchdog.cancel()
 				transport.cancel()
@@ -115,7 +123,11 @@ internal class CloudAiSettingsViewModel @Inject constructor(
 	fun cancelTest() { probeTransport?.cancel(); testJob?.cancel() }
 	override fun onCleared() { probeTransport?.cancel(); super.onCleared() }
 
-	fun save(s: CloudSettings) = viewModelScope.launch { repo.update { s } }
+	fun save(s: CloudSettings) = viewModelScope.launch {
+		repo.update { s }
+		repo.recordRecentTranscribe(s.transcribeModel)
+		repo.recordRecentSummary(s.summaryModel)
+	}
 	fun saveKey(key: String) {
 		if (key.isBlank()) return
 		keys.save(key)
@@ -131,6 +143,8 @@ internal fun CloudAiSettingsContent(
 ) {
 	val saved by viewModel.settings.collectAsStateWithLifecycle()
 	val hasKey by viewModel.hasKey.collectAsStateWithLifecycle()
+	val recentTranscribe by viewModel.recentTranscribeModels.collectAsStateWithLifecycle()
+	val recentSummary by viewModel.recentSummaryModels.collectAsStateWithLifecycle()
 	val current = saved ?: return
 	var draft by remember(current) { mutableStateOf(current) }
 	var keyInput by remember { mutableStateOf("") }
@@ -145,7 +159,7 @@ internal fun CloudAiSettingsContent(
 	val dirtyDraft = draft != current || vocabulary != current.customVocabulary
 	val saveDraft = {
 		viewModel.save(draft.copy(chunkSeconds = draft.normalizedChunkSeconds, workers = draft.normalizedWorkers, customVocabulary = vocabulary))
-		savedMsg = "已儲存"
+		savedMsg = UiStrings.get(StringsRes.string.feature_settings_saved, "已儲存")
 	}
 	Box(modifier.fillMaxSize()) {
 	Column(
@@ -153,24 +167,52 @@ internal fun CloudAiSettingsContent(
 		verticalArrangement = Arrangement.spacedBy(12.dp),
 	) {
 		InfoLine(
-			"只有按下按鈕或開啟自動功能時才會上傳到你設定的服務。",
-			"雲端轉錄與摘要只在你按下按鈕（或開啟自動轉錄）時，才會把錄音上傳到下方設定的服務。行動網路可能產生流量費用，服務本身也可能計費。",
+			UiStrings.get(StringsRes.string.feature_settings_uploads_occur_when_you_request_them_or, "只有按下按鈕或開啟自動功能時才會上傳到你設定的服務。"),
+			UiStrings.get(StringsRes.string.feature_settings_cloud_transcription_and_summaries_upload_recordings_to, "雲端轉錄與摘要只在你按下按鈕（或開啟自動轉錄）時，才會把錄音上傳到下方設定的服務。行動網路可能產生流量費用，服務本身也可能計費。"),
 		)
 		RecordingStartDefaultsSection()
-		SettingsCard("連線", if (hasKey) current.transcribeModel.ifBlank { "尚未設定模型" } else "尚未設定 API Key", "ai-conn") {
-			Text("介面格式", style = MaterialTheme.typography.bodyLarge)
+		SettingsCard(UiStrings.get(StringsRes.string.feature_settings_connection, "連線"), if (hasKey) current.transcribeModel.ifBlank { UiStrings.get(StringsRes.string.feature_settings_no_model_configured, "尚未設定模型") } else UiStrings.get(StringsRes.string.feature_settings_api_key_missing, "尚未設定 API Key"), "ai-conn") {
+			Text(stringResource(StringsRes.string.feature_settings_api_format), style = MaterialTheme.typography.bodyLarge)
 			Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-				FilterChip(draft.providerType == ProviderType.OPENAI_COMPATIBLE, { draft = draft.copy(providerType = ProviderType.OPENAI_COMPATIBLE) }, { Text("OpenAI 相容服務") })
-				FilterChip(draft.providerType == ProviderType.GEMINI_NATIVE, { draft = draft.copy(providerType = ProviderType.GEMINI_NATIVE) }, { Text("Gemini 原生") })
+				FilterChip(draft.providerType == ProviderType.OPENAI_COMPATIBLE, { draft = draft.copy(providerType = ProviderType.OPENAI_COMPATIBLE) }, { Text(stringResource(StringsRes.string.feature_settings_openai_compatible_service)) })
+				FilterChip(draft.providerType == ProviderType.GEMINI_NATIVE, { draft = draft.copy(providerType = ProviderType.GEMINI_NATIVE, speakerDiarization = false) }, { Text(stringResource(StringsRes.string.feature_settings_native_gemini)) })
 			}
 			OutlinedTextField(draft.baseUrl, { draft = draft.copy(baseUrl = it.trim()) }, Modifier.fillMaxWidth(),
-				label = { Text("API Endpoint") },
-				supportingText = { Text(if (draft.providerType == ProviderType.GEMINI_NATIVE) "如 https://generativelanguage.googleapis.com/v1beta" else "不含 /chat/completions") },
+				label = { Text(UiStrings.get(StringsRes.string.feature_settings_api_endpoint, "API Endpoint")) },
+				supportingText = { Text(if (draft.providerType == ProviderType.GEMINI_NATIVE) UiStrings.get(StringsRes.string.feature_settings_for_example_https_generativelanguage_googleapis_com_v1beta, "如 https://generativelanguage.googleapis.com/v1beta") else UiStrings.get(StringsRes.string.feature_settings_exclude_chat_completions, "不含 /chat/completions")) },
 				singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
 				isError = draft.baseUrl.isNotBlank() && !draft.baseUrl.startsWith("https://"))
-			OutlinedTextField(draft.transcribeModel, { draft = draft.copy(transcribeModel = it.trim()) }, Modifier.fillMaxWidth(), label = { Text("轉錄模型") }, singleLine = true)
-			OutlinedTextField(draft.summaryModel, { draft = draft.copy(summaryModel = it.trim()) }, Modifier.fillMaxWidth(), label = { Text("摘要模型") }, singleLine = true)
-			Text("API Key", style = MaterialTheme.typography.bodyLarge)
+			if (draft.providerType == ProviderType.OPENAI_COMPATIBLE) {
+				Text(stringResource(R.string.cloud_transcription_mode), style = MaterialTheme.typography.bodyLarge)
+				FilterChip(!draft.speakerDiarization && draft.transcribeModel == CloudSettings.DEFAULT_MODEL, {
+					draft = draft.copy(transcribeModel = CloudSettings.DEFAULT_MODEL, speakerDiarization = false)
+				}, { Text(stringResource(R.string.cloud_mode_argon)) })
+				FilterChip(!draft.speakerDiarization && draft.transcribeModel == CloudSettings.FLASH_MODEL, {
+					draft = draft.copy(transcribeModel = CloudSettings.FLASH_MODEL, speakerDiarization = false)
+				}, { Text(stringResource(R.string.cloud_mode_flash)) })
+				FilterChip(draft.speakerDiarization, {
+					draft = draft.copy(transcribeModel = CloudSettings.SPEAKER_MODEL, speakerDiarization = true)
+				}, { Text(stringResource(R.string.cloud_mode_speakers)) })
+				Text(stringResource(R.string.cloud_mode_benchmark), style = MaterialTheme.typography.bodySmall)
+				if (draft.speakerDiarization) Text(stringResource(R.string.cloud_mode_speakers_hint), style = MaterialTheme.typography.bodySmall)
+			}
+			OutlinedTextField(draft.transcribeModel, { draft = draft.copy(transcribeModel = it.trim(), speakerDiarization = false) }, Modifier.fillMaxWidth(), label = { Text(stringResource(StringsRes.string.feature_settings_transcription_model)) }, singleLine = true)
+			ModelShortcutChips(
+				current = draft.transcribeModel,
+				recents = recentTranscribe,
+				presets = ModelShortcuts.PRESETS,
+				onPick = { draft = draft.copy(transcribeModel = it, speakerDiarization = draft.providerType == ProviderType.OPENAI_COMPATIBLE && it == CloudSettings.SPEAKER_MODEL) },
+				testTag = "transcribe-model-shortcuts",
+			)
+			OutlinedTextField(draft.summaryModel, { draft = draft.copy(summaryModel = it.trim()) }, Modifier.fillMaxWidth(), label = { Text(stringResource(StringsRes.string.feature_settings_summary_model)) }, singleLine = true)
+			ModelShortcutChips(
+				current = draft.summaryModel,
+				recents = recentSummary,
+				presets = ModelShortcuts.PRESETS,
+				onPick = { draft = draft.copy(summaryModel = it) },
+				testTag = "summary-model-shortcuts",
+			)
+			Text(UiStrings.get(StringsRes.string.feature_settings_api_key, "API Key"), style = MaterialTheme.typography.bodyLarge)
 			Text(stringResource(if (hasKey) R.string.cloud_api_key_saved else R.string.cloud_api_key_missing), style = MaterialTheme.typography.bodySmall)
 			viewModel.savedKey?.let { key ->
 				SelectionContainer {
@@ -178,117 +220,122 @@ internal fun CloudAiSettingsContent(
 						readOnly = true, label = { Text(stringResource(R.string.cloud_api_key_saved_label)) })
 				}
 			}
-			OutlinedTextField(keyInput, { keyInput = it }, Modifier.fillMaxWidth(), label = { Text(if (hasKey) "輸入新 Key 以取代" else "貼上 API Key") },
+			OutlinedTextField(keyInput, { keyInput = it }, Modifier.fillMaxWidth(), label = { Text(if (hasKey) UiStrings.get(StringsRes.string.feature_settings_enter_a_replacement_key, "輸入新 Key 以取代") else UiStrings.get(StringsRes.string.feature_settings_paste_api_key, "貼上 API Key")) },
 				singleLine = true, visualTransformation = PasswordVisualTransformation(),
 				keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false))
 			Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-				Button(enabled = keyInput.isNotBlank(), onClick = { viewModel.saveKey(keyInput); keyInput = "" }) { Text("儲存 Key") }
-				OutlinedButton(enabled = hasKey, onClick = { viewModel.removeKey() }) { Text("移除 Key") }
+				Button(enabled = keyInput.isNotBlank(), onClick = { viewModel.saveKey(keyInput); keyInput = "" }) { Text(stringResource(StringsRes.string.feature_settings_save_key)) }
+				OutlinedButton(enabled = hasKey, onClick = { viewModel.removeKey() }) { Text(stringResource(StringsRes.string.feature_settings_remove_key)) }
 			}
 			val dirty = dirtyDraft || keyInput.isNotBlank()
-			Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-				OutlinedButton(
-					enabled = !dirty && !viewModel.testing && hasKey && current.baseUrl.isNotBlank() && current.transcribeModel.isNotBlank(),
-					onClick = { confirmTest = true },
-				) { Text(if (viewModel.testing) "連線測試中…" else "測試連線") }
-				if (viewModel.testing) TextButton(onClick = { viewModel.cancelTest() }) { Text("取消測試") }
+			if (draft.speakerDiarization) {
+				Text(stringResource(R.string.cloud_mode_audio_test), style = MaterialTheme.typography.bodySmall)
+			} else {
+				Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+					OutlinedButton(
+						enabled = !dirty && !viewModel.testing && hasKey && current.baseUrl.isNotBlank() && current.transcribeModel.isNotBlank(),
+						onClick = { confirmTest = true },
+					) { Text(if (viewModel.testing) UiStrings.get(StringsRes.string.feature_settings_testing_connection, "連線測試中…") else UiStrings.get(StringsRes.string.feature_settings_test_connection, "測試連線")) }
+					if (viewModel.testing) TextButton(onClick = { viewModel.cancelTest() }) { Text(stringResource(StringsRes.string.feature_settings_cancel_test)) }
+				}
+				InfoLine(
+					if (dirty) UiStrings.get(StringsRes.string.feature_settings_save_changes_before_testing_the_test_uses, "測試只用已儲存設定，請先儲存。") else UiStrings.get(StringsRes.string.feature_settings_sends_one_short_text_request_no_audio, "只送一次極短文字，不上傳錄音。"),
+					UiStrings.get(StringsRes.string.feature_settings_sends_one_short_text_request_a_small, "按測試只會送出一次極短文字（可能產生少量 API 費用），不會上傳錄音，也不會自動重試。僅文字連線測試，不代表支援音訊。"),
+				)
+				viewModel.testResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 			}
-			InfoLine(
-				if (dirty) "測試只用已儲存設定，請先儲存。" else "只送一次極短文字，不上傳錄音。",
-				"按測試只會送出一次極短文字（可能產生少量 API 費用），不會上傳錄音，也不會自動重試。僅文字連線測試，不代表支援音訊。",
-			)
-			viewModel.testResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-			draft.validate(hasKey)?.let { Text("尚未可用：$it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+			draft.validate(hasKey)?.let { Text(stringResource(StringsRes.string.feature_settings_unavailable, (it).toString()), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 		}
-		SettingsCard("摘要", summaryFormatLabel(current.summaryFormat) + "・自動摘要" + onOff(current.autoSummaryAfterTranscript), "ai-summary") {
-			Text("摘要格式", style = MaterialTheme.typography.bodyLarge)
+		SettingsCard(UiStrings.get(StringsRes.string.feature_settings_summary, "摘要"), summaryFormatLabel(current.summaryFormat) + UiStrings.get(StringsRes.string.feature_settings_auto_summary, "・自動摘要") + onOff(current.autoSummaryAfterTranscript) + stringResource(StringsRes.string.auto_title_short) + onOff(current.autoTitleAfterSummary), "ai-summary") {
+			Text(stringResource(StringsRes.string.feature_settings_summary_format), style = MaterialTheme.typography.bodyLarge)
 			Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
 				SummaryFormat.entries.forEach { format ->
 					FilterChip(selected = draft.summaryFormat == format, onClick = { draft = draft.copy(summaryFormat = format) }, label = { Text(summaryFormatLabel(format)) })
 				}
 			}
-			Text("只影響之後產生的摘要", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+			Text(stringResource(StringsRes.string.feature_settings_applies_to_future_summaries), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 			if (draft.summaryFormat == SummaryFormat.CUSTOM) {
 				OutlinedTextField(
 					draft.customSummaryInstructions,
 					{ draft = draft.copy(customSummaryInstructions = it.take(CloudSettings.MAX_SUMMARY_INSTRUCTIONS)) },
 					Modifier.fillMaxWidth(),
-					label = { Text("自訂格式說明（空白時退回精簡）") },
+					label = { Text(stringResource(StringsRes.string.feature_settings_custom_format_instructions_blank_uses_concise_format)) },
 					minLines = 3, maxLines = 8,
-					supportingText = { Text("只描述排版與取捨；沒說的不寫。") },
+					supportingText = { Text(stringResource(StringsRes.string.feature_settings_describe_the_layout_and_what_to_include)) },
 				)
 			}
-			SettingSwitch("附來源時間", draft.summaryCitations, "只限雲端逐字稿；會多用 token") { draft = draft.copy(summaryCitations = it) }
-			SettingSwitch("轉錄後自動摘要", draft.autoSummaryAfterTranscript, androidx.compose.ui.res.stringResource(com.eva.feature_settings.R.string.auto_summary_cost_hint)) { if (it) confirmAutoSummary = true else draft = draft.copy(autoSummaryAfterTranscript = false) }
+			SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_include_source_timestamps, "附來源時間"), draft.summaryCitations, UiStrings.get(StringsRes.string.feature_settings_for_cloud_transcripts_uses_additional_tokens, "只限雲端逐字稿；會多用 token")) { draft = draft.copy(summaryCitations = it) }
+			SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_summarize_after_transcription, "轉錄後自動摘要"), draft.autoSummaryAfterTranscript, androidx.compose.ui.res.stringResource(com.eva.feature_settings.R.string.auto_summary_cost_hint)) { if (it) confirmAutoSummary = true else draft = draft.copy(autoSummaryAfterTranscript = false) }
+			SettingSwitch(stringResource(StringsRes.string.auto_title_setting), draft.autoTitleAfterSummary, stringResource(StringsRes.string.auto_title_cost_hint)) { draft = draft.copy(autoTitleAfterSummary = it) }
 		}
-		SettingsCard("轉錄", "自動轉錄" + onOff(current.autoAfterRecording) + "・詞彙 ${current.customVocabulary.size} 個", "ai-transcribe") {
+		SettingsCard(UiStrings.get(StringsRes.string.feature_settings_transcription, "轉錄"), UiStrings.get(StringsRes.string.feature_settings_automatic_transcription, "自動轉錄") + onOff(current.autoAfterRecording) + UiStrings.get(StringsRes.string.feature_settings_vocabulary_terms, "・詞彙 %1\$s 個", current.customVocabulary.size), "ai-transcribe") {
 			CustomVocabularySection(peopleText = peopleText, termsText = termsText, kept = vocabulary.size, onPeople = { peopleText = it }, onTerms = { termsText = it })
-			SettingSwitch("錄音後自動雲端轉錄", draft.autoAfterRecording) { if (it) confirmAuto = true else draft = draft.copy(autoAfterRecording = false) }
-			if (draft.autoAfterRecording) SettingSwitch("只在 Wi‑Fi", draft.autoWifiOnly, "或不計量網路") { draft = draft.copy(autoWifiOnly = it) }
-			SettingSwitch("完成時通知", draft.notifyWhenDone, "鎖定畫面不顯示內容") { draft = draft.copy(notifyWhenDone = it) }
+			SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_automatically_transcribe_saved_recordings_in_the_cloud, "錄音後自動雲端轉錄"), draft.autoAfterRecording) { if (it) confirmAuto = true else draft = draft.copy(autoAfterRecording = false) }
+			if (draft.autoAfterRecording) SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_wi_fi_only, "只在 Wi‑Fi"), draft.autoWifiOnly, UiStrings.get(StringsRes.string.feature_settings_or_an_unmetered_network, "或不計量網路")) { draft = draft.copy(autoWifiOnly = it) }
+			SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_notify_on_completion, "完成時通知"), draft.notifyWhenDone, UiStrings.get(StringsRes.string.feature_settings_hide_content_on_lock_screen, "鎖定畫面不顯示內容")) { draft = draft.copy(notifyWhenDone = it) }
 		}
 		LiveCloudSettingsSection()
 		SlackSyncSettingsSection()
-		SettingsCard("隱私", "遮個資" + onOff(current.redactPiiForCloud), "ai-privacy") {
-			SettingSwitch("送出前遮蔽個資", draft.redactPiiForCloud, "電話、Email、身分證號、卡號；摘要／章節") { draft = draft.copy(redactPiiForCloud = it) }
-			if (draft.redactPiiForCloud) InfoLine("只替換送出的文字，原稿不變。", "只在本機替換送出的文字，原始逐字稿不變；雲端音訊轉錄無法遮蔽。格式比對無法保證找出所有個資，人名不遮蔽。")
+		SettingsCard(UiStrings.get(StringsRes.string.feature_settings_privacy, "隱私"), UiStrings.get(StringsRes.string.feature_settings_mask_personal_data, "遮個資") + onOff(current.redactPiiForCloud), "ai-privacy") {
+			SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_mask_personal_data_before_sending, "送出前遮蔽個資"), draft.redactPiiForCloud, UiStrings.get(StringsRes.string.feature_settings_phone_numbers_emails_id_and_card_numbers, "電話、Email、身分證號、卡號；摘要／章節")) { draft = draft.copy(redactPiiForCloud = it) }
+			if (draft.redactPiiForCloud) InfoLine(UiStrings.get(StringsRes.string.feature_settings_mask_outgoing_text_only_keep_the_original, "只替換送出的文字，原稿不變。"), UiStrings.get(StringsRes.string.feature_settings_masks_outgoing_text_locally_the_original_transcript, "只在本機替換送出的文字，原始逐字稿不變；雲端音訊轉錄無法遮蔽。格式比對無法保證找出所有個資，人名不遮蔽。"))
 		}
-		SettingsCard("進階", "分段 ${current.normalizedChunkSeconds} 秒・同時 ${current.normalizedWorkers} 段", "ai-advanced", initiallyExpanded = false) {
-			Text("reasoning_effort", style = MaterialTheme.typography.bodyLarge)
+		SettingsCard(UiStrings.get(StringsRes.string.feature_settings_advanced, "進階"), UiStrings.get(StringsRes.string.feature_settings_second_segments_at_once, "分段 %1\$s 秒・同時 %2\$s 段", current.normalizedChunkSeconds, current.normalizedWorkers), "ai-advanced", initiallyExpanded = false) {
+			Text(UiStrings.get(StringsRes.string.feature_settings_reasoning_effort, "reasoning_effort"), style = MaterialTheme.typography.bodyLarge)
 			Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-				ReasoningEffort.entries.forEach { e -> FilterChip(draft.reasoningEffort == e, { draft = draft.copy(reasoningEffort = e) }, { Text(e.wire ?: "off") }) }
+				ReasoningEffort.entries.forEach { e -> FilterChip(draft.reasoningEffort == e, { draft = draft.copy(reasoningEffort = e) }, { Text(e.wire ?: UiStrings.get(StringsRes.string.feature_settings_off, "off")) }) }
 			}
-			Text("名稱含 transcribe / flash-lite 的模型一律不送", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+			Text(stringResource(StringsRes.string.feature_settings_never_sent_for_models_with_transcribe_or), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 			OutlinedTextField(draft.chunkSeconds.toString(), { v -> v.toIntOrNull()?.let { draft = draft.copy(chunkSeconds = it) } }, Modifier.fillMaxWidth(),
-				label = { Text("分段秒數") }, supportingText = { Text("60–900，預設 300") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+				label = { Text(stringResource(StringsRes.string.feature_settings_segment_length_in_seconds)) }, supportingText = { Text(stringResource(StringsRes.string.feature_settings_60_900_default_300)) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
 			OutlinedTextField(draft.workers.toString(), { v -> v.toIntOrNull()?.let { draft = draft.copy(workers = it) } }, Modifier.fillMaxWidth(),
-				label = { Text("同時上傳段數") }, supportingText = { Text("1–6，預設 2") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-			SettingSwitch("略過近乎無聲的段落", draft.skipSilentChunks, "小聲說話可能被誤判") { draft = draft.copy(skipSilentChunks = it) }
-			SettingSwitch("幻覺長度警示", draft.hallucinationWarning) { draft = draft.copy(hallucinationWarning = it) }
+				label = { Text(stringResource(StringsRes.string.feature_settings_concurrent_uploads)) }, supportingText = { Text(stringResource(StringsRes.string.feature_settings_1_6_default_2)) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+			SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_skip_nearly_silent_segments, "略過近乎無聲的段落"), draft.skipSilentChunks, UiStrings.get(StringsRes.string.feature_settings_quiet_speech_may_be_skipped, "小聲說話可能被誤判")) { draft = draft.copy(skipSilentChunks = it) }
+			SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_warn_about_unusually_long_transcripts, "幻覺長度警示"), draft.hallucinationWarning) { draft = draft.copy(hallucinationWarning = it) }
 		}
-		SettingsCard("用量", "本機紀錄估算", "ai-usage", initiallyExpanded = false) { CloudUsageSection() }
+		SettingsCard(UiStrings.get(StringsRes.string.feature_settings_usage, "用量"), UiStrings.get(StringsRes.string.feature_settings_estimate_from_local_history, "本機紀錄估算"), "ai-usage", initiallyExpanded = false) { CloudUsageSection() }
 		savedMsg?.takeIf { !dirtyDraft }?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
 	}
 	if (dirtyDraft) Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth(), tonalElevation = 3.dp, shadowElevation = 6.dp) {
 		Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-			Text("有未儲存的變更", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-			TextButton({ draft = current; peopleText = CustomVocabulary.format(current.customVocabulary, VocabularyKind.PERSON); termsText = CustomVocabulary.format(current.customVocabulary, VocabularyKind.OTHER) }) { Text("捨棄") }
-			Button(onClick = saveDraft) { Text("儲存") }
+			Text(stringResource(StringsRes.string.feature_settings_unsaved_changes), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+			TextButton({ draft = current; peopleText = CustomVocabulary.format(current.customVocabulary, VocabularyKind.PERSON); termsText = CustomVocabulary.format(current.customVocabulary, VocabularyKind.OTHER) }) { Text(stringResource(StringsRes.string.feature_settings_discard)) }
+			Button(onClick = saveDraft) { Text(stringResource(StringsRes.string.feature_settings_save)) }
 		}
 	}
 	}
 
 	if (confirmTest) AlertDialog(
 		onDismissRequest = { confirmTest = false },
-		title = { Text("測試已儲存設定？") },
-		text = { Text("會使用已儲存的供應商、Endpoint、API Key 與轉錄模型，送出一次『回覆 OK』的文字請求。可能產生少量 API 費用；沒有任何錄音上傳，不自動重試。") },
-		confirmButton = { TextButton(onClick = { confirmTest = false; viewModel.testSavedSettings() }) { Text("同意費用，測試一次") } },
-		dismissButton = { TextButton(onClick = { confirmTest = false }) { Text("取消") } },
+		title = { Text(stringResource(StringsRes.string.feature_settings_test_saved_settings)) },
+		text = { Text(stringResource(StringsRes.string.feature_settings_sends_one_short_text_request_asking_for)) },
+		confirmButton = { TextButton(onClick = { confirmTest = false; viewModel.testSavedSettings() }) { Text(stringResource(StringsRes.string.feature_settings_accept_charges_and_test_once)) } },
+		dismissButton = { TextButton(onClick = { confirmTest = false }) { Text(stringResource(StringsRes.string.feature_settings_cancel)) } },
 	)
 
 	if (confirmAutoSummary) AlertDialog(
 		onDismissRequest = { confirmAutoSummary = false },
-		title = { Text("開啟自動摘要？") },
+		title = { Text(stringResource(StringsRes.string.feature_settings_enable_automatic_summaries)) },
 		text = { Text(androidx.compose.ui.res.stringResource(com.eva.feature_settings.R.string.auto_summary_cost_details)) },
-		confirmButton = { TextButton({ draft = draft.copy(autoSummaryAfterTranscript = true); confirmAutoSummary = false }) { Text("我了解，開啟") } },
-		dismissButton = { TextButton({ confirmAutoSummary = false }) { Text("取消") } },
+		confirmButton = { TextButton({ draft = draft.copy(autoSummaryAfterTranscript = true); confirmAutoSummary = false }) { Text(stringResource(StringsRes.string.feature_settings_accept_and_enable)) } },
+		dismissButton = { TextButton({ confirmAutoSummary = false }) { Text(stringResource(StringsRes.string.feature_settings_cancel)) } },
 	)
 
 	if (confirmAuto) AlertDialog(
 		onDismissRequest = { confirmAuto = false },
-		title = { Text("開啟自動雲端轉錄？") },
-		text = { Text("每次錄音成功儲存後，會自動把整段錄音上傳到你設定的服務轉錄（取消的錄音不會上傳）。可能產生行動數據與 API 費用；失敗只會重試同一個服務，不會改用其他供應商。") },
-		confirmButton = { TextButton({ draft = draft.copy(autoAfterRecording = true); confirmAuto = false }) { Text("我了解，開啟") } },
-		dismissButton = { TextButton({ confirmAuto = false }) { Text("取消") } },
+		title = { Text(stringResource(StringsRes.string.feature_settings_enable_automatic_cloud_transcription)) },
+		text = { Text(stringResource(StringsRes.string.feature_settings_each_saved_recording_is_uploaded_to_your)) },
+		confirmButton = { TextButton({ draft = draft.copy(autoAfterRecording = true); confirmAuto = false }) { Text(stringResource(StringsRes.string.feature_settings_accept_and_enable)) } },
+		dismissButton = { TextButton({ confirmAuto = false }) { Text(stringResource(StringsRes.string.feature_settings_cancel)) } },
 	)
 }
 
 /** UI label for a summary format; the prompt text lives in Prompts, never here. */
 internal fun summaryFormatLabel(format: SummaryFormat): String = when (format) {
-	SummaryFormat.CONCISE -> "精簡（預設）"
-	SummaryFormat.DECISIONS_AND_ACTIONS -> "決議與待辦"
-	SummaryFormat.BULLETS_AND_OPEN_QUESTIONS -> "條列＋未解問題"
-	SummaryFormat.CUSTOM -> "自訂"
+	SummaryFormat.CONCISE -> UiStrings.get(StringsRes.string.feature_settings_concise_default, "精簡（預設）")
+	SummaryFormat.DECISIONS_AND_ACTIONS -> UiStrings.get(StringsRes.string.feature_settings_decisions_and_action_items, "決議與待辦")
+	SummaryFormat.BULLETS_AND_OPEN_QUESTIONS -> UiStrings.get(StringsRes.string.feature_settings_bullets_and_open_questions, "條列＋未解問題")
+	SummaryFormat.CUSTOM -> UiStrings.get(StringsRes.string.feature_settings_custom, "自訂")
 }
 
 /** Spelling hints for cloud transcription; one term per line. Offline recognition is unaffected. */
@@ -300,13 +347,13 @@ internal fun CustomVocabularySection(
 	onPeople: (String) -> Unit,
 	onTerms: (String) -> Unit,
 ) {
-	Text("自訂詞彙", style = MaterialTheme.typography.bodyLarge)
+	Text(stringResource(StringsRes.string.feature_settings_custom_vocabulary), style = MaterialTheme.typography.bodyLarge)
 	InfoLine(
-		"每行一個，只當雲端轉錄的拼寫參考。",
-		"每行一個，最多 ${CustomVocabulary.MAX_TERMS} 個、每個 ${CustomVocabulary.MAX_LENGTH} 字內。只在雲端轉錄執行時隨音訊一起送到上方設定的服務，" +
-			"每次請求的 token 會略增；只當拼寫參考，不會自動取代已存的逐字稿，離線字幕不受影響。錄音中修改的話，下一次錄音才套用。",
+		UiStrings.get(StringsRes.string.feature_settings_one_term_per_line_as_a_spelling, "每行一個，只當雲端轉錄的拼寫參考。"),
+		UiStrings.get(StringsRes.string.feature_settings_one_term_per_line_up_to_terms, "每行一個，最多 %1\$s 個、每個 %2\$s 字內。只在雲端轉錄執行時隨音訊一起送到上方設定的服務，", CustomVocabulary.MAX_TERMS, CustomVocabulary.MAX_LENGTH) +
+			UiStrings.get(StringsRes.string.feature_settings_each_request_uses_slightly_more_tokens_terms, "每次請求的 token 會略增；只當拼寫參考，不會自動取代已存的逐字稿，離線字幕不受影響。錄音中修改的話，下一次錄音才套用。"),
 	)
-	OutlinedTextField(peopleText, onPeople, Modifier.fillMaxWidth().testTag("vocabulary-people"), label = { Text("人名") }, minLines = 2, maxLines = 6)
-	OutlinedTextField(termsText, onTerms, Modifier.fillMaxWidth().testTag("vocabulary-terms"), label = { Text("專有名詞、縮寫") }, minLines = 2, maxLines = 6)
-	Text("儲存後會保留 $kept 個詞（自動去掉重複、空白與換行符號）", style = MaterialTheme.typography.labelSmall)
+	OutlinedTextField(peopleText, onPeople, Modifier.fillMaxWidth().testTag("vocabulary-people"), label = { Text(UiStrings.get(StringsRes.string.feature_settings_names, "人名")) }, minLines = 2, maxLines = 6)
+	OutlinedTextField(termsText, onTerms, Modifier.fillMaxWidth().testTag("vocabulary-terms"), label = { Text(UiStrings.get(StringsRes.string.feature_settings_terms_and_abbreviations, "專有名詞、縮寫")) }, minLines = 2, maxLines = 6)
+	Text(stringResource(StringsRes.string.feature_settings_terms_will_be_saved_after_removing_duplicates, (kept).toString()), style = MaterialTheme.typography.labelSmall)
 }

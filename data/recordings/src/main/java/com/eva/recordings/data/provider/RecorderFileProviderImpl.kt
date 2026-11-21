@@ -1,5 +1,7 @@
 package com.eva.recordings.data.provider
 
+import com.eva.utils.UiStrings
+
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.ContentValues
@@ -61,7 +63,7 @@ internal class RecorderFileProviderImpl(
 				// file don't exist
 				if (!file.exists()) {
 					Log.d(LOGGER_TAG, "FILE DON'T EXISTS")
-					return@withContext Result.failure(Exception("File missing exception"))
+					return@withContext Result.failure(Exception(UiStrings.get(com.eva.recordings.R.string.data_recordings_message_file_missing_exception, "File missing exception")))
 				}
 				// content uri cannot be created
 				val contentUri = createContentUriAndCopy(file, mimeType)

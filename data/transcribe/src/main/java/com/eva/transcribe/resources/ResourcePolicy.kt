@@ -1,5 +1,8 @@
 package com.eva.transcribe.resources
 
+import com.eva.transcribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 /** Single admission policy shared by the downloader, recognizer and settings. All units are bytes. */
 object ResourcePolicy {
     const val FILE_BUFFER = 3584L * 1024 * 1024
@@ -39,4 +42,4 @@ data class ModelResources(
 
 /** Only an actual system low-memory state produces text; per-model storage/RAM demand warnings live in resourceDescription. */
 fun resourceWarning(s: ResourceSnapshot): String? =
-    if (s.lowMemory == true) "⚠ 手機 RAM 不足（系統低記憶體）" else null
+    if (s.lowMemory == true) UiStrings.get(StringsRes.string.data_transcribe_device_memory_is_low, "⚠ 手機 RAM 不足（系統低記憶體）") else null

@@ -1,5 +1,8 @@
 package com.eva.recordings.data.provider
 
+import com.eva.recordings.R as StringsRes
+import com.eva.utils.UiStrings
+
 import android.util.Log
 import com.eva.database.dao.RecordingClipsDao
 import com.eva.database.entity.RecordingClipEntity
@@ -61,7 +64,7 @@ internal class RecordingClipsProviderImpl(
 		val extension = exportedFile.extension.ifBlank { "m4a" }
 		val target = File(clipsDirectory(audioId), "clip_${createdAt}_${startMs}-${endMs}.$extension")
 		try {
-			if (!exportedFile.exists()) return@withContext Result.failure(IllegalStateException("匯出檔不存在"))
+			if (!exportedFile.exists()) return@withContext Result.failure(IllegalStateException(UiStrings.get(StringsRes.string.data_recordings_exported_file_missing, "匯出檔不存在")))
 			if (!exportedFile.renameTo(target)) {
 				exportedFile.copyTo(target, overwrite = true)
 				exportedFile.delete()
@@ -69,7 +72,7 @@ internal class RecordingClipsProviderImpl(
 			val model = RecordingClipModel(
 				id = 0L,
 				sourceAudioId = audioId,
-				title = cleanTitle(title).ifEmpty { "片段" },
+				title = cleanTitle(title).ifEmpty { UiStrings.get(StringsRes.string.data_recordings_clip_alt, "片段") },
 				startMs = startMs,
 				endMs = endMs,
 				filePath = target.absolutePath,

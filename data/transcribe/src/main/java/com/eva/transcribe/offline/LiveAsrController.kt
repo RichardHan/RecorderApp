@@ -1,5 +1,8 @@
 package com.eva.transcribe.offline
 
+import com.eva.transcribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -89,7 +92,7 @@ class LiveAsrController(
 		if (current != null) stopLocked()
 		when {
 			!enabled -> { if (everStarted) hadGaps = true; publish(LiveAsrStatus.OFF, null) }
-			modelId == null -> { if (everStarted) hadGaps = true; publish(LiveAsrStatus.NO_MODEL, "尚未選擇離線模型，請到設定下載／選擇") }
+			modelId == null -> { if (everStarted) hadGaps = true; publish(LiveAsrStatus.NO_MODEL, UiStrings.get(StringsRes.string.data_transcribe_download_and_select_an_offline_model_in, "尚未選擇離線模型，請到設定下載／選擇")) }
 			else -> startLocked(modelId)
 		}
 	}
@@ -98,7 +101,7 @@ class LiveAsrController(
 		publish(LiveAsrStatus.LOADING, null, modelId)
 		val run = startRun(modelId).getOrElse { e ->
 			if (everStarted) hadGaps = true
-			publish(LiveAsrStatus.ERROR, "離線模型載入失敗：${e.message ?: e.javaClass.simpleName}", modelId)
+			publish(LiveAsrStatus.ERROR, UiStrings.get(StringsRes.string.data_transcribe_could_not_load_offline_model, "離線模型載入失敗：%1\$s", e.message ?: e.javaClass.simpleName), modelId)
 			return
 		}
 		if (everStarted || capturedSamples() > 0L) hadGaps = true // initial uncovered audio or gap between runs

@@ -1,5 +1,8 @@
 package com.eva.cloudtranscribe.live
 
+import com.eva.cloudtranscribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import com.eva.cloudtranscribe.api.CallOutcome
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -182,7 +185,7 @@ class LiveCloudSession(
 			_state.update {
 				it.copy(
 					skippedMs = it.skippedMs + lost,
-					cloudSpans = (it.cloudSpans + CloudSpan(dropped.startMs, dropped.endMs, "", ok = false, error = "雲端跟不上，此段未上傳（錄音完整保存，可事後重轉）")).sortedBy { s -> s.startMs },
+					cloudSpans = (it.cloudSpans + CloudSpan(dropped.startMs, dropped.endMs, "", ok = false, error = UiStrings.get(StringsRes.string.data_cloudtranscribe_upload_fell_behind_this_segment_was_skipped, "雲端跟不上，此段未上傳（錄音完整保存，可事後重轉）"))).sortedBy { s -> s.startMs },
 				)
 			}
 		}
@@ -361,7 +364,7 @@ class LiveCloudSession(
 				else -> CloudSpan(chunk.startMs, chunk.endMs, cleaned(outcome.text))
 			}
 			CallOutcome.Empty -> CloudSpan(chunk.startMs, chunk.endMs, "")
-			CallOutcome.ContentFiltered -> CloudSpan(chunk.startMs, chunk.endMs, "", ok = false, error = "內容被服務過濾")
+			CallOutcome.ContentFiltered -> CloudSpan(chunk.startMs, chunk.endMs, "", ok = false, error = UiStrings.get(StringsRes.string.data_cloudtranscribe_content_filtered_by_service, "內容被服務過濾"))
 			is CallOutcome.Failure -> CloudSpan(chunk.startMs, chunk.endMs, "", ok = false, error = outcome.message)
 		}
 	}
@@ -415,8 +418,8 @@ class LiveCloudSession(
 					it.copy(
 						summaryError = when (outcome) {
 							is CallOutcome.Failure -> outcome.message
-							CallOutcome.ContentFiltered -> "摘要內容被服務過濾"
-							else -> "摘要回應為空"
+							CallOutcome.ContentFiltered -> UiStrings.get(StringsRes.string.data_cloudtranscribe_summary_filtered_by_service, "摘要內容被服務過濾")
+							else -> UiStrings.get(StringsRes.string.data_cloudtranscribe_empty_summary_response, "摘要回應為空")
 						},
 						phase = if (transcribing) LiveCloudPhase.TRANSCRIBING else LiveCloudPhase.IDLE,
 					)

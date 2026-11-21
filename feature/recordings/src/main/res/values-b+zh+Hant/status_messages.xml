@@ -1,0 +1,15 @@
+<resources>
+	<string name="feature_recordings_message_access_not_allowed">沒有存取權限</string>
+	<string name="feature_recordings_message_added_to_favourites">已加入我的最愛</string>
+	<string name="feature_recordings_message_cannot_delete_items">無法刪除項目</string>
+	<string name="feature_recordings_message_cannot_have_blank_values">名稱不能留白</string>
+	<string name="feature_recordings_message_cannot_move_items_to_trash">無法將項目移至垃圾桶</string>
+	<string name="feature_recordings_message_cannot_restore_items">無法還原項目</string>
+	<string name="feature_recordings_message_item_clicked">開啟項目</string>
+	<string name="feature_recordings_message_item_selected">選取項目</string>
+	<string name="feature_recordings_message_items_deleted_successfully">已刪除項目</string>
+	<string name="feature_recordings_message_items_restored">已還原項目</string>
+	<string name="feature_recordings_message_moved_items_to_trash">已將項目移至垃圾桶</string>
+	<string name="feature_recordings_message_recording_not_found">找不到錄音</string>
+	<string name="feature_recordings_message_renamed_recording_successfully">已重新命名錄音</string>
+</resources>

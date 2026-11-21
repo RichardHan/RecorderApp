@@ -1,5 +1,8 @@
 package com.eva.cloudtranscribe.slack
 
+import com.eva.cloudtranscribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.BackoffPolicy
@@ -163,7 +166,7 @@ class SlackSendWorker @AssistedInject constructor(
 		}
 		val text = if (payload == null) inputData.getString(KEY_TEXT) else runCatching { payloads.read(payload) }.getOrNull()
 		if (text == null) {
-			state.setError("待送訊息內容已遺失，未送出")
+			state.setError(UiStrings.get(StringsRes.string.data_cloudtranscribe_queued_message_content_unavailable_nothing_was_sent, "待送訊息內容已遺失，未送出"))
 			return finished()
 		}
 		val kind = inputData.getString(KEY_KIND)?.let { name -> SlackMessageKind.entries.firstOrNull { it.name == name } }

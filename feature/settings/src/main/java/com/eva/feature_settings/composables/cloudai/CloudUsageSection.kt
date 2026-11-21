@@ -1,5 +1,8 @@
 package com.eva.feature_settings.composables.cloudai
 
+import com.eva.feature_settings.R as StringsRes
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,7 +46,8 @@ internal class CloudUsageViewModel @Inject constructor(private val store: Transc
 					val ids = store.recordingIds()
 					val transcripts = ids.flatMap { runCatching { store.transcripts(it) }.getOrDefault(emptyList()) }
 					val summaries = ids.flatMap { runCatching { store.summaries(it) }.getOrDefault(emptyList()) }
-					CloudUsage.summarize(transcripts, summaries, ZoneId.systemDefault(), System.currentTimeMillis())
+					val titleRequests = ids.flatMap { runCatching { store.autoTitleMarker(it)?.requestAtMillis.orEmpty() }.getOrDefault(emptyList()) }
+					CloudUsage.summarize(transcripts, summaries, ZoneId.systemDefault(), System.currentTimeMillis(), titleRequestAtMillis = titleRequests)
 				}
 			} finally {
 				loading = false
@@ -64,7 +68,7 @@ internal fun CloudUsageSection(viewModel: CloudUsageViewModel = hiltViewModel())
 		val usage = viewModel.usage
 		when {
 			usage == null -> CircularProgressIndicator()
-			usage.all { it.cloudTranscripts == 0 && it.summaries == 0 } -> Text("最近 ${CloudUsage.MONTHS} 個月還沒有雲端轉錄紀錄", style = MaterialTheme.typography.bodySmall)
+			usage.all { it.cloudTranscripts == 0 && it.summaries == 0 } -> Text(stringResource(StringsRes.string.feature_settings_no_cloud_transcription_history_in_the_last, (CloudUsage.MONTHS).toString()), style = MaterialTheme.typography.bodySmall)
 			else -> usage.forEach {
 				val args = usageArgs(it)
 				Text(androidx.compose.ui.res.stringResource(com.eva.feature_settings.R.string.cloud_usage_month, args[0], args[1], args[2], args[3], args[4]), style = MaterialTheme.typography.bodySmall)

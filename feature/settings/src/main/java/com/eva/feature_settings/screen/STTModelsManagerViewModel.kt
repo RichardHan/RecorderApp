@@ -1,5 +1,8 @@
 package com.eva.feature_settings.screen
 
+import com.eva.feature_settings.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.lifecycle.viewModelScope
 import com.eva.datastore.domain.models.TranscriptionSettings
 import com.eva.datastore.domain.repository.TranscriptionSettingsRepo
@@ -65,7 +68,7 @@ internal class STTModelsManagerViewModel @Inject constructor(
         settingsRepo.settingsFlow.onEach { settings ->
             if (settings.modelId == "vosk-en-in-small") {
                 settingsRepo.onUpdateModelId(null)
-                uiEvent.emit(UIEvents.ShowSnackBar("English (India) 已移除；舊檔案保留，請重新選擇逐字稿模型"))
+                uiEvent.emit(UIEvents.ShowSnackBar(UiStrings.get(StringsRes.string.feature_settings_english_india_was_removed_existing_files_are, "English (India) 已移除；舊檔案保留，請重新選擇逐字稿模型")))
             }
         }.launchIn(viewModelScope)
     }
@@ -93,9 +96,9 @@ internal class STTModelsManagerViewModel @Inject constructor(
 
     private fun onSelectInvalidModel(model: STTModel) = viewModelScope.launch {
         val event = when (model.state) {
-            STTModelState.UN_AVAILABLE -> UIEvents.ShowSnackBar("請先按模型右側的下載鍵（會先顯示大小與網路選項）")
+            STTModelState.UN_AVAILABLE -> UIEvents.ShowSnackBar(UiStrings.get(StringsRes.string.feature_settings_tap_the_download_button_beside_the_model, "請先按模型右側的下載鍵（會先顯示大小與網路選項）"))
 
-            STTModelState.DOWNLOADING -> UIEvents.ShowToast("Downloading model")
+            STTModelState.DOWNLOADING -> UIEvents.ShowToast(UiStrings.get(StringsRes.string.feature_settings_downloading_model, "Downloading model"))
             else -> return@launch
         }
         uiEvent.emit(event)
@@ -106,13 +109,13 @@ internal class STTModelsManagerViewModel @Inject constructor(
         sttModelDeleteController.observeWorker(workerId)
             .onEach { res ->
                 val event = when (res) {
-                    is WorkResource.Blocked -> UIEvents.ShowToast("Cannot delete the model now")
+                    is WorkResource.Blocked -> UIEvents.ShowToast(UiStrings.get(StringsRes.string.feature_settings_cannot_delete_the_model_now, "Cannot delete the model now"))
                     is WorkResource.Canceled if (res.reason.isNotBlank()) -> UIEvents.ShowSnackBar(res.reason)
-                    is WorkResource.Enqueued -> UIEvents.ShowToast("Deleting model files")
+                    is WorkResource.Enqueued -> UIEvents.ShowToast(UiStrings.get(StringsRes.string.feature_settings_deleting_model_files, "Deleting model files"))
                     is WorkResource.Failed if (res.reason.isNotBlank()) -> UIEvents.ShowSnackBar(res.reason)
                     is WorkResource.Running if (res.message.isNotBlank()) -> UIEvents.ShowSnackBar(res.message)
                     is WorkResource.Success if (!res.message.isNullOrBlank()) ->
-                        UIEvents.ShowSnackBar(res.message ?: "Success")
+                        UIEvents.ShowSnackBar(res.message ?: UiStrings.get(StringsRes.string.feature_settings_success, "Success"))
 
                     else -> return@onEach
                 }
@@ -126,8 +129,8 @@ internal class STTModelsManagerViewModel @Inject constructor(
         sttModelDownloader.observeWorker(workerId)
             .onEach { res ->
                 val event = when (res) {
-                    is WorkResource.Blocked -> UIEvents.ShowToast("Cannot download the model now")
-                    is WorkResource.Enqueued -> UIEvents.ShowSnackBar("Starting your download shortly")
+                    is WorkResource.Blocked -> UIEvents.ShowToast(UiStrings.get(StringsRes.string.feature_settings_cannot_download_the_model_now, "Cannot download the model now"))
+                    is WorkResource.Enqueued -> UIEvents.ShowSnackBar(UiStrings.get(StringsRes.string.feature_settings_starting_your_download_shortly, "Starting your download shortly"))
                     is WorkResource.Canceled if (res.reason.isNotBlank()) -> UIEvents.ShowSnackBar(res.reason)
                     is WorkResource.Failed if (res.reason.isNotBlank()) -> UIEvents.ShowSnackBar(res.reason)
                     is WorkResource.Success if (res.message?.isNotBlank() == true) ->
@@ -153,7 +156,7 @@ internal class STTModelsManagerViewModel @Inject constructor(
                 when (resModels) {
                     is Resource.Error -> {
                         val message = resModels.message ?: resModels.error.message
-                        ?: "Unable to load transcription models"
+                        ?: UiStrings.get(StringsRes.string.feature_settings_unable_to_load_transcription_models, "Unable to load transcription models")
                         uiEvent.emit(UIEvents.ShowSnackBar(message))
                     }
 

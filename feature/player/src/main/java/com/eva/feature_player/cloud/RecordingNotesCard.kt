@@ -1,5 +1,9 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -70,18 +74,18 @@ internal fun RecordingNotesCard(recordingId: Long, viewModel: RecordingNotesView
 	var draft by remember(viewModel.note) { mutableStateOf(viewModel.note?.text.orEmpty()) }
 	Card {
 		Column(Modifier.padding(12.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-			Text("這段錄音的備註", style = MaterialTheme.typography.titleSmall)
+			Text(stringResource(StringsRes.string.feature_player_recording_notes), style = MaterialTheme.typography.titleSmall)
 			if (editing) {
 				OutlinedTextField(draft, { draft = it.take(RecordingNotes.MAX_CHARS) }, minLines = 3, modifier = Modifier.fillMaxWidth())
 				Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-					TextButton({ viewModel.save(draft); editing = false }) { Text("儲存") }
-					TextButton({ draft = viewModel.note?.text.orEmpty(); editing = false }) { Text("取消") }
+					TextButton({ viewModel.save(draft); editing = false }) { Text(stringResource(StringsRes.string.feature_player_save)) }
+					TextButton({ draft = viewModel.note?.text.orEmpty(); editing = false }) { Text(stringResource(StringsRes.string.feature_player_cancel)) }
 				}
 			} else {
-				Text(viewModel.note?.text ?: "（沒有備註）", style = MaterialTheme.typography.bodySmall)
-				TextButton({ editing = true }) { Text(if (viewModel.note == null) "新增備註" else "編輯") }
+				Text(viewModel.note?.text ?: UiStrings.get(StringsRes.string.feature_player_no_notes, "（沒有備註）"), style = MaterialTheme.typography.bodySmall)
+				TextButton({ editing = true }) { Text(if (viewModel.note == null) UiStrings.get(StringsRes.string.feature_player_add_notes, "新增備註") else UiStrings.get(StringsRes.string.feature_player_edit, "編輯")) }
 			}
-			Text("只在你手動或自動（已開啟）產生雲端摘要時，作為「只供參考」送出；修改後只影響之後產生的摘要。",
+			Text(stringResource(StringsRes.string.feature_player_notes_are_sent_as_reference_when_a),
 				style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 		}
 	}

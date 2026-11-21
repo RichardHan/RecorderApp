@@ -1,5 +1,8 @@
 package com.eva.feature_settings.composables.files
 
+import com.eva.feature_settings.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.shrinkHorizontally
@@ -73,7 +76,7 @@ internal fun ExportItemPrefixSelector(
 		leadingContent = {
 			Icon(
 				painter = painterResource(R.drawable.ic_export),
-				contentDescription = "Set edit item prefix"
+				contentDescription = UiStrings.get(StringsRes.string.feature_settings_set_edit_item_prefix, "Set edit item prefix")
 			)
 		},
 		supportingContent = {

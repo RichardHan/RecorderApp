@@ -1,5 +1,7 @@
 package com.eva.editor.data.transformer
 
+import com.eva.utils.UiStrings
+
 import android.content.Context
 import android.text.format.Formatter
 import android.webkit.MimeTypeMap
@@ -141,9 +143,9 @@ internal class AudioTransformerImpl(private val context: Context) : AudioTransfo
 			try {
 				val file = uri.toUri().toFile()
 				if (!file.exists())
-					return@withContext Result.failure(Exception("Wrong file provided"))
+					return@withContext Result.failure(Exception(UiStrings.get(com.eva.editor.R.string.data_editor_message_wrong_file_provided, "Wrong file provided")))
 				if (file.parentFile == _transformerDirectory)
-					return@withContext Result.failure(Exception("Invalid file location"))
+					return@withContext Result.failure(Exception(UiStrings.get(com.eva.editor.R.string.data_editor_message_invalid_file_location, "Invalid file location")))
 				val delete = file.delete()
 				Log.d(TAG, "TEMP REMOVED :$delete")
 				Result.success(delete)

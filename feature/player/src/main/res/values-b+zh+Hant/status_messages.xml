@@ -1,0 +1,4 @@
+<resources>
+	<string name="feature_player_message_cannot_add_bookmark">無法新增書籤</string>
+	<string name="feature_player_message_preparing_player">正在準備播放器</string>
+</resources>

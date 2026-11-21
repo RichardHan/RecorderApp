@@ -1,5 +1,8 @@
 package com.eva.feature_settings.utils
 
+import com.eva.utils.UiStrings
+import com.eva.feature_settings.R as StringsRes
+
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.eva.ui.R
@@ -26,10 +29,10 @@ internal enum class SettingsTabs(
 	/** Short label so all five tabs fit in one row on a narrow phone. */
 	val shortLabel: String
 		get() = when (this) {
-			AUDIO_SETTINGS -> "Audio"
-			FILES_SETTINGS -> "Files"
-			TRANSCRIPTIONS_SETTINGS -> "Transcribe"
-			CLOUD_SETTINGS -> "Cloud"
+			AUDIO_SETTINGS -> UiStrings.get(StringsRes.string.feature_settings_audio, "Audio")
+			FILES_SETTINGS -> UiStrings.get(StringsRes.string.feature_settings_files, "Files")
+			TRANSCRIPTIONS_SETTINGS -> UiStrings.get(StringsRes.string.feature_settings_transcribe, "Transcribe")
+			CLOUD_SETTINGS -> UiStrings.get(StringsRes.string.feature_settings_cloud, "Cloud")
 			AI_SETTINGS -> "AI"
 		}
 }

@@ -1,5 +1,7 @@
 package com.eva.interactions.data
 
+import com.eva.utils.UiStrings
+
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -40,7 +42,7 @@ internal class ShareRecordingsUtilImpl(
 			context.startActivity(intentChooser)
 			Resource.Success(Unit)
 		} catch (e: ActivityNotFoundException) {
-			Resource.Error(e, "No Activity found to share content to")
+			Resource.Error(e, UiStrings.get(com.eva.interactions.R.string.data_interactions_message_no_activity_found_to_share_content_to, "No Activity found to share content to"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e)
@@ -66,7 +68,7 @@ internal class ShareRecordingsUtilImpl(
 			context.startActivity(intentChooser)
 			Resource.Success(Unit)
 		} catch (e: ActivityNotFoundException) {
-			Resource.Error(e, "No Activity found to share content to")
+			Resource.Error(e, UiStrings.get(com.eva.interactions.R.string.data_interactions_message_no_activity_found_to_share_content_to, "No Activity found to share content to"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e)
@@ -93,7 +95,7 @@ internal class ShareRecordingsUtilImpl(
 			context.startActivity(picker)
 			Resource.Success(Unit)
 		} catch (e: ActivityNotFoundException) {
-			Resource.Error(e, "No Activity found to share content to")
+			Resource.Error(e, UiStrings.get(com.eva.interactions.R.string.data_interactions_message_no_activity_found_to_share_content_to, "No Activity found to share content to"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e)

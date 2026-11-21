@@ -1,5 +1,8 @@
 package com.eva.feature_settings.composables.cloudai
 
+import com.eva.feature_settings.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -73,10 +76,10 @@ internal fun InfoLine(short: String, detail: String? = null) {
 	Column {
 		Row(verticalAlignment = Alignment.CenterVertically) {
 			Text(short, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-			if (detail != null) TextButton({ open = !open }) { Text(if (open) "收合" else "ⓘ 詳細") }
+			if (detail != null) TextButton({ open = !open }) { Text(if (open) UiStrings.get(StringsRes.string.feature_settings_collapse, "收合") else UiStrings.get(StringsRes.string.feature_settings_details, "ⓘ 詳細")) }
 		}
 		if (open && detail != null) Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 	}
 }
 
-internal fun onOff(on: Boolean) = if (on) "已開啟" else "關閉"
+internal fun onOff(on: Boolean) = if (on) UiStrings.get(StringsRes.string.setting_state_on, "已開啟") else UiStrings.get(StringsRes.string.setting_state_off, "關閉")

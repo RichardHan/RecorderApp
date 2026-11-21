@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+	<string name="data_transcribe_about_mb_of_ram_needed_mb_available">可用記憶體不足：需要約 %1$s MB，目前可用 %2$s MB。請關閉其他 App 或改用較小模型（錄音不受影響）</string>
+	<string name="data_transcribe_about_seconds_starting_at">[⚠ %1$s 起約 %2$s 秒：%3$s]</string>
+	<string name="data_transcribe_another_offline_model_is_in_use_stop">另一個離線模型（%1$s）正在使用中，請先停止錄音或其他離線轉錄</string>
+	<string name="data_transcribe_could_not_load_offline_model">離線模型載入失敗：%1$s</string>
+	<string name="data_transcribe_device_memory_is_low">⚠ 手機 RAM 不足（系統低記憶體）</string>
+	<string name="data_transcribe_download_and_select_an_offline_model_in">尚未選擇離線模型，請到設定下載／選擇</string>
+	<string name="data_transcribe_download_exceeded_expected_size_and_was_stopped">下載檔比預期大，已中止</string>
+	<string name="data_transcribe_download_interrupted_at_mb_retry_to_resume">下載中斷：已下載 %1$s / %2$s MB，重試會從中斷處續傳</string>
+	<string name="data_transcribe_english_india_was_removed_select_a_model">English (India) 已移除，請在轉錄設定重新選擇模型；舊模型檔案未刪除</string>
+	<string name="data_transcribe_insufficient_storage_about_mb_needed_mb_available">儲存空間不足：需要約 %1$s MB，可用 %2$s MB</string>
+	<string name="data_transcribe_model_checksum_mismatch_the_download_was_deleted">模型檔 SHA-256 驗證失敗（已刪除下載檔，請重試）</string>
+	<string name="data_transcribe_model_download_failed_http">模型下載失敗：HTTP %1$s</string>
+	<string name="data_transcribe_model_not_downloaded">模型尚未下載</string>
+	<string name="data_transcribe_model_path_missing">模型路徑不存在</string>
+	<string name="data_transcribe_need_mb_for_the_download_plus_mb">儲存空間不足：還需下載 %1$s MB，並保留 %2$s MB；可用 %3$s MB</string>
+	<string name="data_transcribe_offline_model_not_loaded">離線模型未載入</string>
+	<string name="data_transcribe_possibly_truncated">%1$s［…可能截斷］</string>
+	<string name="data_transcribe_recognition_failed">辨識失敗：%1$s</string>
+	<string name="data_transcribe_recognition_fell_behind_skipped_a_segment">⚠ 辨識跟不上，已略過一段</string>
+	<string name="data_transcribe_recognition_fell_behind_skipped_a_segment_the">辨識跟不上，已略過一段（錄音完整保存）</string>
+	<string name="data_transcribe_recognition_fell_behind_this_segment_was_skipped">辨識跟不上，此段未辨識（錄音完整保存，可事後重轉）</string>
+	<string name="data_transcribe_recognizing_utterance">（分句辨識中…）</string>
+	<string name="data_transcribe_sherpa_onnx_on_device_recognition_after_pauses">sherpa-onnx · 手機離線分句辨識（停頓後出字）</string>
+	<string name="data_transcribe_this_model_requires_a_64_bit_device">此模型僅支援 64 位元裝置</string>
+	<string name="data_transcribe_vosk_on_device_streaming_recognition">Vosk · 手機離線串流辨識</string>
+</resources>

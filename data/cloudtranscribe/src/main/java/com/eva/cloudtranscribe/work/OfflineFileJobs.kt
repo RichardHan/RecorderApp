@@ -1,5 +1,8 @@
 package com.eva.cloudtranscribe.work
 
+import com.eva.cloudtranscribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import android.content.Context
 import androidx.core.net.toUri
 import androidx.hilt.work.HiltWorker
@@ -53,7 +56,7 @@ class OfflineFileTranscriber @Inject constructor(
 	fun start(recordingId: Long, model: STTModel): String {
 		val id = "offline-${System.currentTimeMillis()}"
 		store.saveTranscript(TranscriptRecord(id, recordingId, TranscriptSource.OFFLINE,
-			Provenance(engine = model.engine, model = model.modelId, audioFormat = "16kHz mono，分句辨識（VAD）", trigger = "file"),
+			Provenance(engine = model.engine, model = model.modelId, audioFormat = UiStrings.get(StringsRes.string.data_cloudtranscribe_16_khz_mono_utterance_recognition_vad, "16kHz mono，分句辨識（VAD）"), trigger = "file"),
 			System.currentTimeMillis(), status = RunStatus.QUEUED))
 		val req = OneTimeWorkRequestBuilder<OfflineFileTranscribeWorker>()
 			.setInputData(workDataOf(CloudJobScheduler.KEY_RECORDING to recordingId, CloudJobScheduler.KEY_RUN to id, KEY_MODEL to model.modelId))
@@ -79,7 +82,7 @@ class OfflineFileTranscribeWorker @AssistedInject constructor(
 		val id = inputData.getString(CloudJobScheduler.KEY_RUN) ?: return Result.failure()
 		val modelId = inputData.getString(OfflineFileTranscriber.KEY_MODEL) ?: return Result.failure()
 		var record = store.transcript(recordingId, id) ?: return Result.failure()
-		runCatching { setForeground(foregroundInfoFor(applicationContext, id.hashCode(), "離線轉錄中…")) }
+		runCatching { setForeground(foregroundInfoFor(applicationContext, id.hashCode(), UiStrings.get(StringsRes.string.data_cloudtranscribe_transcribing_on_device, "離線轉錄中…"))) }
 		val pcm = File(applicationContext.cacheDir, "offline_pcm/$id.pcm")
 		var loaded = false
 		try {
@@ -87,7 +90,7 @@ class OfflineFileTranscribeWorker @AssistedInject constructor(
 			val uri = when (val r = recordings.getVoiceRecordingAsResourceFromId(recordingId)) {
 				is Resource.Success -> r.data.fileUri.toUri()
 				is Resource.Error -> throw r.error
-				else -> error("錄音不存在")
+				else -> error(UiStrings.get(StringsRes.string.data_cloudtranscribe_recording_not_found, "錄音不存在"))
 			}
 			PcmDecoder.decodeToFile(applicationContext, uri, pcm)
 			engine.load(modelId).getOrThrow(); loaded = true
@@ -102,7 +105,7 @@ class OfflineFileTranscribeWorker @AssistedInject constructor(
 			suspend fun handle(u: UtteranceSegmenter.Utterance) {
 				var error: String? = null
 				val text = try { engine.decode(u.samples) } catch (e: CancellationException) { throw e } catch (e: Exception) {
-					failed++; error = e.message ?: e.javaClass.simpleName; "[⚠ ${fmt(u.startSample * 1000 / TARGET_RATE)} 此段辨識失敗：${e.message}]"
+					failed++; error = e.message ?: e.javaClass.simpleName; UiStrings.get(StringsRes.string.data_cloudtranscribe_segment_recognition_failed, "[⚠ %1\$s 此段辨識失敗：%2\$s]", fmt(u.startSample * 1000 / TARGET_RATE), e.message)
 				}
 				if (text.isNotBlank()) texts += text
 				segments += OfflineTranscriptSegments.fromSamples(decoded, u.startSample, u.samples.size, text, error)
@@ -120,7 +123,7 @@ class OfflineFileTranscribeWorker @AssistedInject constructor(
 			store.saveTranscript(record.copy(
 				status = if (failed == 0) RunStatus.SUCCESS else RunStatus.PARTIAL,
 				totalSegments = decoded, completedSegments = decoded - failed,
-				warnings = if (failed > 0) listOf("$failed 段辨識失敗") else emptyList(),
+				warnings = if (failed > 0) listOf(UiStrings.get(StringsRes.string.data_cloudtranscribe_segments_failed, "%1\$s 段辨識失敗", failed)) else emptyList(),
 				updatedAtMillis = System.currentTimeMillis(),
 			))
 			return Result.success()

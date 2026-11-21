@@ -1,5 +1,9 @@
 package com.eva.feature_recorder.composable
 
+import com.eva.feature_recorder.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,12 +33,12 @@ import kotlinx.coroutines.launch
 
 /** Visible status line for the live transcript; pure so it can be unit tested. */
 internal fun liveStatusText(state: LiveTranscriptState, isActive: Boolean): String = when {
-	!isActive -> "按下錄音後，字幕會顯示在這裡"
-	state.status == LiveTranscriptStatus.DISABLED -> "即時字幕已關閉"
-	state.status == LiveTranscriptStatus.NO_MODEL -> "尚未選擇離線模型，請到設定選擇"
-	state.status == LiveTranscriptStatus.LOADING -> "載入模型中…"
-	state.status == LiveTranscriptStatus.ERROR -> "⚠ " + (state.message ?: "即時字幕發生錯誤")
-	else -> "聆聽中…"
+	!isActive -> UiStrings.get(StringsRes.string.feature_recorder_start_recording_to_see_captions_here, "按下錄音後，字幕會顯示在這裡")
+	state.status == LiveTranscriptStatus.DISABLED -> UiStrings.get(StringsRes.string.feature_recorder_live_captions_are_off, "即時字幕已關閉")
+	state.status == LiveTranscriptStatus.NO_MODEL -> UiStrings.get(StringsRes.string.feature_recorder_select_an_offline_model_in_settings, "尚未選擇離線模型，請到設定選擇")
+	state.status == LiveTranscriptStatus.LOADING -> UiStrings.get(StringsRes.string.feature_recorder_loading_model, "載入模型中…")
+	state.status == LiveTranscriptStatus.ERROR -> "⚠ " + (state.message ?: UiStrings.get(StringsRes.string.feature_recorder_live_captions_error, "即時字幕發生錯誤"))
+	else -> UiStrings.get(StringsRes.string.feature_recorder_listening, "聆聽中…")
 }
 
 /** Persistent multi-line live transcript: all finalized lines, scrollable; auto-follows the newest line unless the user scrolled up. */
@@ -79,7 +83,7 @@ internal fun RecorderLiveTranscriptionText(
 				modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 8.dp),
 			) {
 				itemsIndexed(result.finalized) { _, line ->
-					Text(text = if (line.length > 500) line.take(500) + "…（已截斷顯示）" else line, fontFamily = fontFamily, style = MaterialTheme.typography.bodyLarge)
+					Text(text = if (line.length > 500) line.take(500) + UiStrings.get(StringsRes.string.feature_recorder_display_truncated, "…（已截斷顯示）") else line, fontFamily = fontFamily, style = MaterialTheme.typography.bodyLarge)
 				}
 				if (result.partial.isNotBlank()) item {
 					Text(
@@ -95,7 +99,7 @@ internal fun RecorderLiveTranscriptionText(
 				TextButton(
 					onClick = { scope.launch { listState.animateScrollToItem(count - 1) } },
 					modifier = Modifier.align(Alignment.End),
-				) { Text("跳到最新") }
+				) { Text(stringResource(StringsRes.string.feature_recorder_jump_to_latest)) }
 			}
 		}
 	}

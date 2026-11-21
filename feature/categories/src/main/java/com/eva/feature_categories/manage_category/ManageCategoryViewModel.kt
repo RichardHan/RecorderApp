@@ -1,5 +1,7 @@
 package com.eva.feature_categories.manage_category
 
+import com.eva.utils.UiStrings
+
 import androidx.lifecycle.viewModelScope
 import com.eva.categories.domain.models.RecordingCategoryModel
 import com.eva.categories.domain.provider.RecordingCategoryProvider
@@ -80,12 +82,12 @@ internal class ManageCategoryViewModel @Inject constructor(
 	private fun deleteCategory(categoryModel: RecordingCategoryModel) = viewModelScope.launch {
 		when (val result = provider.deleteCategory(categoryModel)) {
 			is Resource.Error -> {
-				val message = result.message ?: "Cannot delete category"
+				val message = result.message ?: UiStrings.get(com.eva.feature_categories.R.string.feature_categories_message_cannot_delete_category, "Cannot delete category")
 				_uiEvents.emit(UIEvents.ShowSnackBar(message))
 			}
 
 			is Resource.Success -> {
-				val message = result.message ?: "Deleted categories successfully"
+				val message = result.message ?: UiStrings.get(com.eva.feature_categories.R.string.feature_categories_message_deleted_categories_successfully, "Deleted categories successfully")
 				_uiEvents.emit(UIEvents.ShowToast(message))
 			}
 

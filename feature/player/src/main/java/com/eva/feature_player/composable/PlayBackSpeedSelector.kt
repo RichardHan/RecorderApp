@@ -1,5 +1,8 @@
 package com.eva.feature_player.composable
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.EaseInBack
 import androidx.compose.animation.core.tween
@@ -96,7 +99,7 @@ fun PlayBackSpeedSelector(
 			) {
 				Icon(
 					painter = painterResource(R.drawable.ic_minus),
-					contentDescription = "Reduce speed",
+					contentDescription = UiStrings.get(StringsRes.string.feature_player_reduce_speed, "Reduce speed"),
 					modifier = Modifier.size(24.dp),
 				)
 			}
@@ -115,7 +118,7 @@ fun PlayBackSpeedSelector(
 			) {
 				Icon(
 					painter = painterResource(R.drawable.ic_plus),
-					contentDescription = "Increase speed",
+					contentDescription = UiStrings.get(StringsRes.string.feature_player_increase_speed, "Increase speed"),
 					modifier = Modifier.size(24.dp),
 				)
 			}

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="ask_across_truncated_sources">僅傳送以下錄音的前段文字（超出長度的內容不會用於回答）：%1$s</string>
-    <string name="ask_across_citation_limit">來源編號只核對是否存在，未驗證回答是否受到內容支持；請開啟錄音核對。</string>
+    <string name="ask_across_truncated_sources">Only the beginning of these transcripts will be sent: %1$s</string>
+    <string name="ask_across_citation_limit">Source IDs have been checked for existence. Open the recording to verify the evidence for the answer.</string>
 </resources>

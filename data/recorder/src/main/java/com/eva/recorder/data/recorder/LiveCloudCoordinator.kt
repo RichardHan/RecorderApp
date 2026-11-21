@@ -1,5 +1,8 @@
 package com.eva.recorder.data.recorder
 
+import com.eva.recorder.R as StringsRes
+import com.eva.utils.UiStrings
+
 import android.util.Log
 import com.eva.cloudtranscribe.api.AudioPayload
 import com.eva.cloudtranscribe.api.CallOutcome
@@ -164,7 +167,7 @@ internal class LiveCloudCoordinator(
 						_state.value = LiveCloudState(
 							active = true,
 							phase = LiveCloudPhase.DONE,
-							transcribeError = "雲端轉錄未啟動：$problem",
+							transcribeError = UiStrings.get(StringsRes.string.data_recorder_cloud_transcription_could_not_start, "雲端轉錄未啟動：%1\$s", problem),
 						)
 					}
 				}
@@ -175,7 +178,7 @@ internal class LiveCloudCoordinator(
 			val summaryKey = if (live.summaryReuseTranscribeKey) asrKey else explicitSummaryKey
 			val summaryProblem = live.validateSummary(explicitSummaryKey != null, asrKey != null)
 			val transport = transportFactory()
-			val asrClient = CloudAiClients.create(cloud, asrKey!!, transport, cloud.transcribeModel)
+			val asrClient = CloudAiClients.transcriber(cloud, asrKey!!, transport)
 			// snapshot per session: vocabulary edits apply from the next recording, never mid-session
 			val transcribePrompt = Prompts.withVocabulary(Prompts.TRANSCRIBE, cloud.customVocabulary)
 			val summaryClient = if (summaryProblem == null && summaryKey != null)
@@ -192,7 +195,7 @@ internal class LiveCloudCoordinator(
 					asrClient.transcribe(job.prompt.ifBlank { transcribePrompt }, AudioPayload(mp3, "mp3"))
 				},
 				summarize = { prompt ->
-					summaryClient?.complete(prompt) ?: CallOutcome.Failure("重點整理未啟動：${summaryProblem ?: "缺少摘要 Key"}", retryable = false)
+					summaryClient?.complete(prompt) ?: CallOutcome.Failure(UiStrings.get(StringsRes.string.data_recorder_highlights_could_not_start, "重點整理未啟動：%1\$s", summaryProblem ?: UiStrings.get(StringsRes.string.data_recorder_summary_key_missing, "缺少摘要 Key")), retryable = false)
 				},
 				transcribeModel = cloud.transcribeModel,
 				meetingNotes = notesOf,
@@ -201,7 +204,7 @@ internal class LiveCloudCoordinator(
 					cloud.customVocabulary.map { it.term },
 					notesOf(),
 				),
-				refine = { prompt ->
+				refine = if (cloud.speakerDiarization && summaryClient == null) null else { prompt ->
 					summaryClient?.complete(prompt) ?: asrClient.complete(prompt)
 				},
 			)
@@ -317,13 +320,13 @@ internal class LiveCloudCoordinator(
 				TranscriptRecord(
 					id = transcriptId, recordingId = recordingId, source = TranscriptSource.CLOUD,
 					provenance = Provenance(engine = "cloud-live", providerType = ProviderType.OPENAI_COMPATIBLE, endpointHost = host,
-						model = model ?: "?", audioFormat = "mp3（即時擷取 PCM）", trigger = "live"),
+						model = model ?: "?", audioFormat = UiStrings.get(StringsRes.string.data_recorder_mp3_from_live_pcm, "mp3（即時擷取 PCM）"), trigger = "live"),
 					createdAtMillis = now, status = if (allOk) RunStatus.SUCCESS else RunStatus.PARTIAL,
 					text = spans.filter { it.covers }.joinToString("\n") { it.text.trim() },
 					totalSegments = spans.size, completedSegments = spans.count { it.ok }, segments = segments,
 					warnings = buildList {
-						if (!allOk) add("部分片段雲端轉錄失敗、未上傳或疑似重複幻覺（原文保留在片段中），可用完整雲端轉錄重轉")
-						add("即時模式：音訊來自錄音時的即時擷取，與存檔可能有極小差異")
+						if (!allOk) add(UiStrings.get(StringsRes.string.data_recorder_some_cloud_segments_failed_were_skipped_or, "部分片段雲端轉錄失敗、未上傳或疑似重複幻覺（原文保留在片段中），可用完整雲端轉錄重轉"))
+						add(UiStrings.get(StringsRes.string.data_recorder_live_audio_may_differ_slightly_from_the, "即時模式：音訊來自錄音時的即時擷取，與存檔可能有極小差異"))
 					},
 				)
 			)

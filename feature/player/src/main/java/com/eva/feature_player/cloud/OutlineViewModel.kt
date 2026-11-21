@@ -1,5 +1,8 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -64,7 +67,7 @@ class OutlineViewModel @Inject constructor(
 				val settings = settingsRepo.current()
 				val key = keys.read()
 				if (settings.baseUrl.isBlank() || key.isNullOrBlank()) {
-					message = "尚未設定雲端摘要服務或 API Key"
+					message = UiStrings.get(StringsRes.string.feature_player_set_a_cloud_summary_service_and_api, "尚未設定雲端摘要服務或 API Key")
 					return@launch
 				}
 				val client = CloudAiClients.create(settings, key, UrlConnectionTransport(), settings.summaryModel)
@@ -72,22 +75,22 @@ class OutlineViewModel @Inject constructor(
 					is CallOutcome.Text -> {
 						val nodes = SummaryOutline.parseAi(outcome.text)
 						if (nodes == null) {
-							message = "回應不是有效的大綱（超過兩層、節點過多或格式錯誤），保留本機大綱"
+							message = UiStrings.get(StringsRes.string.feature_player_outline_exceeded_the_size_or_depth_limit, "回應不是有效的大綱（超過兩層、節點過多或格式錯誤），保留本機大綱")
 							return@launch
 						}
 						val outline = OutlineRules.save(summaryId, summary, nodes, System.currentTimeMillis(), settings.summaryModel)
 						withContext(Dispatchers.IO) { store.saveOutline(id, outline) }
 						saved = outline
-						message = "已整理成大綱"
+						message = UiStrings.get(StringsRes.string.feature_player_outline_ready, "已整理成大綱")
 					}
-					is CallOutcome.Failure -> message = "整理失敗：${outcome.message}（保留本機大綱）"
-					CallOutcome.ContentFiltered -> message = "內容被服務過濾，保留本機大綱"
-					CallOutcome.Empty -> message = "服務回應為空，保留本機大綱"
+					is CallOutcome.Failure -> message = UiStrings.get(StringsRes.string.feature_player_could_not_organize_local_outline_kept, "整理失敗：%1\$s（保留本機大綱）", outcome.message)
+					CallOutcome.ContentFiltered -> message = UiStrings.get(StringsRes.string.feature_player_content_filtered_local_outline_kept, "內容被服務過濾，保留本機大綱")
+					CallOutcome.Empty -> message = UiStrings.get(StringsRes.string.feature_player_empty_response_local_outline_kept, "服務回應為空，保留本機大綱")
 				}
 			} catch (e: CancellationException) {
 				throw e
 			} catch (e: Exception) {
-				message = "整理失敗：${e.message ?: e.javaClass.simpleName}"
+				message = UiStrings.get(StringsRes.string.feature_player_could_not_organize, "整理失敗：%1\$s", e.message ?: e.javaClass.simpleName)
 			} finally {
 				working = false
 			}
@@ -98,7 +101,7 @@ class OutlineViewModel @Inject constructor(
 		job?.cancel()
 		job = null
 		working = false
-		message = "已取消，保留本機大綱"
+		message = UiStrings.get(StringsRes.string.feature_player_canceled_local_outline_kept, "已取消，保留本機大綱")
 	}
 
 	/** "回復本機大綱": drop the AI outline. */

@@ -1,5 +1,8 @@
 package com.eva.feature_editor.composables
 
+import com.eva.feature_editor.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -76,7 +79,7 @@ private fun AudioClipChip(
         ) {
 			Icon(
 				imageVector = Icons.Default.Remove,
-				contentDescription = "Subtract  Action",
+				contentDescription = UiStrings.get(StringsRes.string.feature_editor_subtract_action, "Subtract  Action"),
 				tint = contentColor,
 				modifier = Modifier.size(24.dp)
 			)
@@ -119,7 +122,7 @@ private fun AudioClipChip(
         ) {
 			Icon(
 				imageVector = Icons.Default.Add,
-				contentDescription = "Add Action",
+				contentDescription = UiStrings.get(StringsRes.string.feature_editor_add_action, "Add Action"),
 				tint = contentColor,
 				modifier = Modifier.size(24.dp)
 			)

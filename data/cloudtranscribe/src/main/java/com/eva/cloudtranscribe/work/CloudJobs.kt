@@ -1,5 +1,8 @@
 package com.eva.cloudtranscribe.work
 
+import com.eva.cloudtranscribe.R as StringsRes
+import com.eva.utils.UiStrings
+
 import com.eva.cloudtranscribe.util.boundedRetry
 
 import android.content.Context
@@ -43,6 +46,8 @@ import com.eva.cloudtranscribe.model.TranscriptRecord
 import com.eva.cloudtranscribe.model.TranscriptSource
 import com.eva.cloudtranscribe.secure.ApiKeyStore
 import com.eva.cloudtranscribe.settings.CloudSettingsRepository
+import com.eva.cloudtranscribe.title.AutoTitleRenamer
+import com.eva.cloudtranscribe.title.AutoTitleResult
 import com.eva.cloudtranscribe.store.TranscriptStore
 import com.eva.recordings.domain.provider.VoiceRecordingsProvider
 import com.eva.utils.Resource
@@ -78,7 +83,8 @@ class CloudJobScheduler @Inject constructor(
 		val existing = resumeRunId?.let { store.transcript(recordingId, it) }
 		val snapshot = existing?.provenance ?: Provenance(
 			engine = "cloud", providerType = s.providerType, endpointHost = Redactor.hostOf(s.baseUrl),
-			model = s.transcribeModel, reasoningEffort = s.reasoningEffort.wire,
+			model = s.transcribeModel, reasoningEffort = s.transcriptionEffort.wire,
+			speakerDiarization = s.speakerDiarization,
 			chunkSeconds = s.normalizedChunkSeconds, workers = s.normalizedWorkers,
 			audioFormat = "mp3 16kHz mono 64kbps", trigger = trigger,
 		)
@@ -111,9 +117,9 @@ class CloudJobScheduler @Inject constructor(
 		s.validate(keys.hasKey.value)?.let { return Result.failure(IllegalStateException(it)) }
 		if (automatic) {
 			val source = store.transcript(recordingId, transcriptId)
-				?: return Result.failure(IllegalStateException("來源逐字稿不存在"))
+				?: return Result.failure(IllegalStateException(UiStrings.get(StringsRes.string.data_cloudtranscribe_source_transcript_missing, "來源逐字稿不存在")))
 			if (!AutoSummaryPolicy.shouldStart(s, source.status, source.text, transcriptId, emptyList()))
-				return Result.failure(IllegalStateException("自動摘要條件不符"))
+				return Result.failure(IllegalStateException(UiStrings.get(StringsRes.string.data_cloudtranscribe_automatic_summary_conditions_not_met, "自動摘要條件不符")))
 		}
 		val id = "summary-${UUID.randomUUID()}"
 		val claimed = store.claimSummary(
@@ -137,7 +143,7 @@ class CloudJobScheduler @Inject constructor(
 		} catch (e: CancellationException) {
 			throw e
 		} catch (e: Exception) {
-			store.saveSummary(claimed.copy(status = RunStatus.FAILED, error = "無法排程摘要"))
+			store.saveSummary(claimed.copy(status = RunStatus.FAILED, error = UiStrings.get(StringsRes.string.data_cloudtranscribe_could_not_schedule_summary, "無法排程摘要")))
 			return Result.failure(e)
 		}
 		return Result.success(id)
@@ -184,18 +190,18 @@ class CloudTranscribeWorker @AssistedInject constructor(
 		val recordingId = inputData.getLong(CloudJobScheduler.KEY_RECORDING, -1)
 		val runId = inputData.getString(CloudJobScheduler.KEY_RUN) ?: return Result.failure()
 		val record = store.transcript(recordingId, runId) ?: return Result.failure()
-		val apiKey = keys.read() ?: return fail(record, "找不到 API Key")
+		val apiKey = keys.read() ?: return fail(record, UiStrings.get(StringsRes.string.data_cloudtranscribe_api_key_missing_alt, "找不到 API Key"))
 		val current = settingsRepo.current()
 		val p = record.provenance
 		// Retry/resume always uses the run's own provider/model snapshot — never another provider.
-		val s = current.copy(providerType = p.providerType ?: current.providerType, transcribeModel = p.model)
-		runCatching { setForeground(foregroundInfo("雲端轉錄中…")) }
+		val s = current.copy(providerType = p.providerType ?: current.providerType, transcribeModel = p.model, speakerDiarization = p.speakerDiarization)
+		runCatching { setForeground(foregroundInfo(UiStrings.get(StringsRes.string.data_cloudtranscribe_transcribing_in_the_cloud, "雲端轉錄中…"))) }
 		val pcm = File(applicationContext.cacheDir, "cloud_ai_pcm/$runId.pcm")
 		try {
 			store.saveTranscript(record.copy(status = RunStatus.RUNNING, updatedAtMillis = System.currentTimeMillis()))
 			val uri = recordingUri(recordingId)
 			if (!pcm.exists() || pcm.length() == 0L) PcmDecoder.decodeToFile(applicationContext, uri, pcm)
-			val client = CloudAiClients.create(s, apiKey, UrlConnectionTransport(), p.model)
+			val client = CloudAiClients.transcriber(s, apiKey, UrlConnectionTransport())
 			val engine = CloudTranscriptionEngine(client, store.checkpoints(recordingId, runId), EngineConfig(
 				chunkSeconds = p.chunkSeconds ?: s.normalizedChunkSeconds,
 				workers = p.workers ?: s.normalizedWorkers,
@@ -255,7 +261,7 @@ class CloudTranscribeWorker @AssistedInject constructor(
 		when (val r = recordings.getVoiceRecordingAsResourceFromId(id)) {
 			is Resource.Success -> r.data.fileUri.toUri()
 			is Resource.Error -> throw r.error
-			else -> throw IllegalStateException("錄音不存在")
+			else -> throw IllegalStateException(UiStrings.get(StringsRes.string.data_cloudtranscribe_recording_not_found, "錄音不存在"))
 		}
 	}
 
@@ -270,14 +276,15 @@ class CloudSummaryWorker @AssistedInject constructor(
 	private val settingsRepo: CloudSettingsRepository,
 	private val keys: ApiKeyStore,
 	private val recordings: VoiceRecordingsProvider,
+	private val autoTitle: AutoTitleRenamer,
 ) : CoroutineWorker(context, params) {
 	override suspend fun doWork(): Result {
 		val recordingId = inputData.getLong(CloudJobScheduler.KEY_RECORDING, -1)
 		val id = inputData.getString(CloudJobScheduler.KEY_RUN) ?: return Result.failure()
 		val record = store.summary(recordingId, id) ?: return Result.failure()
-		val apiKey = keys.read() ?: return done(record.copy(status = RunStatus.FAILED, error = "找不到 API Key"))
+		val apiKey = keys.read() ?: return done(record.copy(status = RunStatus.FAILED, error = UiStrings.get(StringsRes.string.data_cloudtranscribe_api_key_missing_alt, "找不到 API Key")))
 		val transcript = store.transcriptWithEdits(recordingId, record.sourceTranscriptId)
-			?: return done(record.copy(status = RunStatus.FAILED, error = "來源逐字稿不存在"))
+			?: return done(record.copy(status = RunStatus.FAILED, error = UiStrings.get(StringsRes.string.data_cloudtranscribe_source_transcript_missing, "來源逐字稿不存在")))
 		val s = settingsRepo.current().let { it.copy(providerType = record.provenance.providerType ?: it.providerType) }
 		val format = record.provenance.summaryFormat
 			?.let { name -> SummaryFormat.entries.firstOrNull { it.name == name } }
@@ -309,18 +316,25 @@ class CloudSummaryWorker @AssistedInject constructor(
 		}
 		val msg = when (val o = last) {
 			is CallOutcome.Failure -> o.message
-			CallOutcome.ContentFiltered -> "內容過濾"
-			CallOutcome.Empty -> "模型空白回應"
-			else -> "失敗"
+			CallOutcome.ContentFiltered -> UiStrings.get(StringsRes.string.data_cloudtranscribe_filtered, "內容過濾")
+			CallOutcome.Empty -> UiStrings.get(StringsRes.string.data_cloudtranscribe_empty_model_response, "模型空白回應")
+			else -> UiStrings.get(StringsRes.string.data_cloudtranscribe_failed, "失敗")
 		}
 		return done(record.copy(status = RunStatus.FAILED, error = msg))
 	}
 
 	private suspend fun done(r: SummaryRecord): Result {
 		store.saveSummary(r)
+		val renamed = if (r.status == RunStatus.SUCCESS)
+			runCatching { autoTitle.applyIfEligible(r.recordingId) }.getOrNull() as? AutoTitleResult.Applied
+		else null
 		runCatching {
-			if (settingsRepo.current().notifyWhenDone) CloudDoneMessages.summary(r.status, recordingTitle(recordings, r.recordingId), r.text)
-				?.let { CloudDoneNotifier.post(applicationContext, r.recordingId, "summary", it) }
+			if (settingsRepo.current().notifyWhenDone) CloudDoneMessages.summary(
+				r.status,
+				renamed?.displayName ?: recordingTitle(recordings, r.recordingId),
+				r.text,
+				autoTitled = renamed != null,
+			)?.let { CloudDoneNotifier.post(applicationContext, r.recordingId, "summary", it) }
 		}
 		return if (r.status == RunStatus.SUCCESS) Result.success() else Result.failure()
 	}
@@ -335,11 +349,11 @@ internal fun foregroundInfoFor(context: Context, id: Int, text: String) = buildF
 private fun buildForeground(context: Context, id: Int, text: String): ForegroundInfo {
 	val channel = "cloud_ai_jobs"
 	NotificationManagerCompat.from(context).createNotificationChannel(
-		NotificationChannelCompat.Builder(channel, NotificationManagerCompat.IMPORTANCE_LOW).setName("雲端轉錄").build(),
+		NotificationChannelCompat.Builder(channel, NotificationManagerCompat.IMPORTANCE_LOW).setName(UiStrings.get(StringsRes.string.data_cloudtranscribe_cloud_transcription, "雲端轉錄")).build(),
 	)
 	val notification = NotificationCompat.Builder(context, channel)
 		.setSmallIcon(android.R.drawable.stat_sys_upload)
-		.setContentTitle("RecorderApp")
+		.setContentTitle(UiStrings.get(StringsRes.string.data_cloudtranscribe_recorderapp, "RecorderApp"))
 		.setContentText(text)
 		.setOngoing(true)
 		.build()

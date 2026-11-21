@@ -1,5 +1,7 @@
 package com.eva.categories.data
 
+import com.eva.utils.UiStrings
+
 import android.content.Context
 import android.database.sqlite.SQLiteException
 import com.eva.categories.domain.exceptions.RecordingCategoryNotFoundException
@@ -45,8 +47,8 @@ internal class RecordingsCategoryProviderImpl(
 			.onStart { emit(Resource.Loading) }
 			.catch { error ->
 				error.printStackTrace()
-				val message = if (error is SQLiteException) "SQL EXCEPTION"
-				else error.message ?: "Unknown error occurred"
+				val message = if (error is SQLiteException) UiStrings.get(com.eva.categories.R.string.data_categories_message_sql_exception, "SQL EXCEPTION")
+				else error.message ?: UiStrings.get(com.eva.categories.R.string.data_categories_message_unknown_error_occurred, "Unknown error occurred")
 				emit(Resource.Error(Exception(error), message))
 			}
 
@@ -58,7 +60,7 @@ internal class RecordingsCategoryProviderImpl(
 
 			return Resource.Success(result.toModel())
 		} catch (e: SQLiteException) {
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.categories.R.string.data_categories_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e)
@@ -82,7 +84,7 @@ internal class RecordingsCategoryProviderImpl(
 		} catch (e: CancellationException) {
 			throw e
 		} catch (e: SQLiteException) {
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.categories.R.string.data_categories_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e)
@@ -114,7 +116,7 @@ internal class RecordingsCategoryProviderImpl(
 		} catch (e: CancellationException) {
 			throw e
 		} catch (e: SQLiteException) {
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.categories.R.string.data_categories_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e)
@@ -141,10 +143,10 @@ internal class RecordingsCategoryProviderImpl(
 		} catch (e: CancellationException) {
 			throw e
 		} catch (e: SQLiteException) {
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.categories.R.string.data_categories_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
-			Resource.Error(e, message = e.message ?: "Some Exception")
+			Resource.Error(e, message = e.message ?: UiStrings.get(com.eva.categories.R.string.data_categories_message_some_exception, "Some Exception"))
 		}
 	}
 
@@ -159,7 +161,7 @@ internal class RecordingsCategoryProviderImpl(
 		} catch (e: CancellationException) {
 			throw e
 		} catch (e: SQLiteException) {
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.categories.R.string.data_categories_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e)
@@ -178,7 +180,7 @@ internal class RecordingsCategoryProviderImpl(
 		} catch (e: CancellationException) {
 			throw e
 		} catch (e: SQLiteException) {
-			Resource.Error(e, "SQL EXCEPTION")
+			Resource.Error(e, UiStrings.get(com.eva.categories.R.string.data_categories_message_sql_exception, "SQL EXCEPTION"))
 		} catch (e: Exception) {
 			e.printStackTrace()
 			Resource.Error(e)

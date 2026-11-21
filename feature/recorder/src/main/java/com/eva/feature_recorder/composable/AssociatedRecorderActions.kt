@@ -1,5 +1,8 @@
 package com.eva.feature_recorder.composable
 
+import com.eva.feature_recorder.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -111,7 +114,7 @@ private fun TranscriptionsDialog(
 						contentColor = MaterialTheme.colorScheme.onPrimaryContainer
 					)
 				) {
-					Text("Open Settings")
+					Text(stringResource(StringsRes.string.feature_recorder_open_settings))
 				}
 			}
 		},
@@ -147,7 +150,7 @@ private fun TranscriptionsDialog(
 
 /** Chip label; pure for tests. */
 internal fun liveToggleLabel(s: TranscriptionSettings): String = when {
-	s.modelId == null -> "即時字幕：未選模型"
-	s.isEnabled -> "即時字幕：開"
-	else -> "即時字幕：關"
+	s.modelId == null -> UiStrings.get(StringsRes.string.feature_recorder_live_captions_no_model_selected, "即時字幕：未選模型")
+	s.isEnabled -> UiStrings.get(StringsRes.string.feature_recorder_live_captions_on, "即時字幕：開")
+	else -> UiStrings.get(StringsRes.string.feature_recorder_live_captions_off, "即時字幕：關")
 }

@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <string name="widget_refresh" translatable="false">Refresh</string>
-  <string name="widget_error_text" translatable="false">Cannot load the widget due to something</string>
-  <string name="widget_error_title" translatable="false">Failed to load widget</string>
-  <string name="recordings_not_found" translatable="false">Cannot find any recordings to show</string>
-  <string name="widget_recordings_description" translatable="false">Sneak peek at your recording at a glance</string>
-  <string name="widget_recordings_no_recordings" translatable="false">No recordings</string>
+  <string name="widget_refresh">Refresh</string>
+  <string name="widget_error_text">Cannot load the widget due to something</string>
+  <string name="widget_error_title">Failed to load widget</string>
+  <string name="recordings_not_found">Cannot find any recordings to show</string>
+  <string name="widget_recordings_description">Sneak peek at your recording at a glance</string>
+  <string name="widget_recordings_no_recordings">No recordings</string>
   <string name="widget_recordings_preview_name" translatable="false">Recording_001</string>
   <string name="widget_recordings_preview_duration" translatable="false">00:00</string>
-  <string name="recordings_load_failed" translatable="false">Cannot load recordings</string>
-  <string name="widget_recorder_description" translatable="false">點一下開始錄音。錄音中會顯示狀態，再點則開啟錄音畫面，不會停止錄音。</string>
-  <string name="recorder_state_recording" translatable="false">錄音中</string>
-  <string name="recorder_state_paused" translatable="false">已暫停</string>
-  <string name="widget_recorder_widget" translatable="false">一鍵錄音</string>
-  <string name="widget_recordings_title" translatable="false">Recordings</string>
-  <string name="widget_recorder_tap_hint" translatable="false">點一下開始</string>
-  <string name="widget_no_recordings" translatable="false">No Recordings</string>
+  <string name="recordings_load_failed">Cannot load recordings</string>
+  <string name="widget_recorder_description">Tap to start recording. Tap again while recording to open the recorder and keep recording.</string>
+  <string name="recorder_state_recording">Recording</string>
+  <string name="recorder_state_paused">Paused</string>
+  <string name="widget_recorder_widget">One-tap recording</string>
+  <string name="widget_recordings_title">Recordings</string>
+  <string name="widget_recorder_tap_hint">Tap to start</string>
+  <string name="widget_no_recordings">No Recordings</string>
 </resources>

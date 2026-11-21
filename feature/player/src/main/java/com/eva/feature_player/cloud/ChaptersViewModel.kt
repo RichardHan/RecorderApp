@@ -1,5 +1,8 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -82,8 +85,8 @@ class ChaptersViewModel @Inject constructor(
 					transcript = selected
 					canGenerate = selected != null && ChapterPlanner.hasTimedSentences(lines)
 					blockedReason = when {
-						selected == null -> "這段錄音還沒有可用的逐字稿"
-						!ChapterPlanner.hasTimedSentences(lines) -> "這份逐字稿沒有真實分句時間，無法產生章節"
+						selected == null -> UiStrings.get(StringsRes.string.feature_player_no_transcript_available_for_this_recording, "這段錄音還沒有可用的逐字稿")
+						!ChapterPlanner.hasTimedSentences(lines) -> UiStrings.get(StringsRes.string.feature_player_chapter_generation_requires_sentence_timestamps, "這份逐字稿沒有真實分句時間，無法產生章節")
 						else -> null
 					}
 					if (selected != null) {
@@ -92,7 +95,7 @@ class ChaptersViewModel @Inject constructor(
 					}
 				}
 				provider.chaptersAsFlow(id)
-					.catch { message = "無法讀取章節：${it.message ?: "未知錯誤"}"; emit(emptyList()) }
+					.catch { message = UiStrings.get(StringsRes.string.feature_player_could_not_load_chapters, "無法讀取章節：%1\$s", it.message ?: UiStrings.get(StringsRes.string.feature_player_unknown_error, "未知錯誤")); emit(emptyList()) }
 					.collect { chapters = it }
 			}
 		}
@@ -106,12 +109,12 @@ class ChaptersViewModel @Inject constructor(
 		val transcript = transcript ?: return
 		val lines = PlaybackTranscripts.lines(transcript)
 		if (!ChapterPlanner.hasTimedSentences(lines)) {
-			message = "這份逐字稿沒有真實分句時間，無法產生章節"
+			message = UiStrings.get(StringsRes.string.feature_player_chapter_generation_requires_sentence_timestamps, "這份逐字稿沒有真實分句時間，無法產生章節")
 			return
 		}
 		val sentences = ChapterPlanner.sentences(lines)
 		if (sentences.isEmpty()) {
-			message = "這份逐字稿沒有可用的分句"
+			message = UiStrings.get(StringsRes.string.feature_player_no_usable_sentences_in_this_transcript, "這份逐字稿沒有可用的分句")
 			return
 		}
 		job?.cancel()
@@ -122,7 +125,7 @@ class ChaptersViewModel @Inject constructor(
 				val settings = settingsRepo.current()
 				val key = keys.read()
 				if (settings.baseUrl.isBlank() || key.isNullOrBlank()) {
-					message = "尚未設定雲端摘要服務或 API Key"
+					message = UiStrings.get(StringsRes.string.feature_player_set_a_cloud_summary_service_and_api, "尚未設定雲端摘要服務或 API Key")
 					return@launch
 				}
 				val client = CloudAiClients.create(settings, key, UrlConnectionTransport(), settings.summaryModel)
@@ -132,7 +135,7 @@ class ChaptersViewModel @Inject constructor(
 					is CallOutcome.Text -> {
 						val drafts = ChapterPlanner.parse(outcome.text, sentences)
 						if (drafts.isNullOrEmpty()) {
-							message = "回應不是有效章節（索引越界或未遞增），未儲存任何內容"
+							message = UiStrings.get(StringsRes.string.feature_player_invalid_chapter_indices_or_ordering_nothing_was, "回應不是有效章節（索引越界或未遞增），未儲存任何內容")
 							return@launch
 						}
 						val revision = ChapterPlanner.revisionOf(transcript.id, transcript.updatedAtMillis)
@@ -152,16 +155,16 @@ class ChaptersViewModel @Inject constructor(
 							},
 						)
 						possiblyStale = this@ChaptersViewModel.transcript?.updatedAtMillis != transcript.updatedAtMillis
-						message = "已產生 ${drafts.size} 個章節"
+						message = UiStrings.get(StringsRes.string.feature_player_generated_chapters, "已產生 %1\$s 個章節", drafts.size)
 					}
-					is CallOutcome.Failure -> message = "產生章節失敗：${outcome.message}"
-					CallOutcome.ContentFiltered -> message = "章節內容被服務過濾，未儲存"
-					CallOutcome.Empty -> message = "服務回應為空，未儲存"
+					is CallOutcome.Failure -> message = UiStrings.get(StringsRes.string.feature_player_could_not_generate_chapters, "產生章節失敗：%1\$s", outcome.message)
+					CallOutcome.ContentFiltered -> message = UiStrings.get(StringsRes.string.feature_player_chapters_filtered_by_service_nothing_was_saved, "章節內容被服務過濾，未儲存")
+					CallOutcome.Empty -> message = UiStrings.get(StringsRes.string.feature_player_empty_response_nothing_was_saved_alt, "服務回應為空，未儲存")
 				}
 			} catch (e: CancellationException) {
 				throw e
 			} catch (e: Exception) {
-				message = "產生章節失敗：${e.message ?: e.javaClass.simpleName}"
+				message = UiStrings.get(StringsRes.string.feature_player_could_not_generate_chapters, "產生章節失敗：%1\$s", e.message ?: e.javaClass.simpleName)
 			} finally {
 				generating = false
 			}
@@ -173,7 +176,7 @@ class ChaptersViewModel @Inject constructor(
 		job?.cancel()
 		job = null
 		generating = false
-		message = "已取消，未儲存任何章節"
+		message = UiStrings.get(StringsRes.string.feature_player_canceled_no_chapters_were_saved, "已取消，未儲存任何章節")
 	}
 
 	fun rename(chapter: RecordingChapterModel, title: String) {

@@ -1,5 +1,8 @@
 package com.eva.feature_editor.viewmodel
 
+import com.eva.utils.UiStrings
+import com.eva.feature_editor.R as StringsRes
+
 import androidx.core.net.toUri
 import androidx.lifecycle.viewModelScope
 import com.eva.editor.domain.AudioConfigToAction
@@ -193,14 +196,14 @@ internal class AudioEditorViewModel @AssistedInject constructor(
 					}
 					_uiEvents.emit(UIEvents.ShowToast(message))
 				},
-				onFailure = { _uiEvents.emit(UIEvents.ShowSnackBar(it.message ?: "Some error")) },
+				onFailure = { _uiEvents.emit(UIEvents.ShowSnackBar(it.message ?: UiStrings.get(StringsRes.string.feature_editor_some_error, "Some error"))) },
 			)
 		}
 	}
 
 	fun onUndoOrRedoConfigs(isUndo: Boolean) = viewModelScope.launch {
 		val fileModel = _currentFile.value ?: run {
-			_uiEvents.emit(UIEvents.ShowToast("No Audio model found"))
+			_uiEvents.emit(UIEvents.ShowToast(UiStrings.get(StringsRes.string.feature_editor_no_audio_model_found, "No Audio model found")))
 			return@launch
 		}
 		// new clipping config
@@ -212,7 +215,7 @@ internal class AudioEditorViewModel @AssistedInject constructor(
 		val result = player.editMediaPortions(fileModel, filteredData)
 		result.fold(
 			onSuccess = {},
-			onFailure = { _uiEvents.emit(UIEvents.ShowSnackBar(it.message ?: "Some error")) },
+			onFailure = { _uiEvents.emit(UIEvents.ShowSnackBar(it.message ?: UiStrings.get(StringsRes.string.feature_editor_message_some_error, "Some error"))) },
 		)
 	}
 
@@ -260,7 +263,7 @@ internal class AudioEditorViewModel @AssistedInject constructor(
 	private fun cancelFinalExport() {
 		_exportJob?.cancel()
 		_exportJob = null
-		viewModelScope.launch { _uiEvents.emit(UIEvents.ShowToast("Cancelled")) }
+		viewModelScope.launch { _uiEvents.emit(UIEvents.ShowToast(UiStrings.get(StringsRes.string.feature_editor_cancelled, "Cancelled"))) }
 	}
 
 	private fun finalExport() {
@@ -275,7 +278,7 @@ internal class AudioEditorViewModel @AssistedInject constructor(
 			result.fold(
 				onSuccess = { data -> _exportFileUri.update { data.toUri().toString() } },
 				onFailure = { exp ->
-					val message = exp.message ?: "Some transformation error"
+					val message = exp.message ?: UiStrings.get(StringsRes.string.feature_editor_message_some_transformation_error, "Some transformation error")
 					_uiEvents.emit(UIEvents.ShowToast(message))
 				},
 			)

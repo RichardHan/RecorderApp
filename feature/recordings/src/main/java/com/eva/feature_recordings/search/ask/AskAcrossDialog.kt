@@ -1,5 +1,9 @@
 package com.eva.feature_recordings.search.ask
 
+import com.eva.feature_recordings.R as StringsRes
+import com.eva.utils.UiStrings
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -37,7 +41,7 @@ internal fun AskAcrossButton(
 	val viewModel = hiltViewModel<AskAcrossViewModel>()
 	var open by rememberSaveable { mutableStateOf(false) }
 	OutlinedButton(onClick = { viewModel.prepare(candidates); open = true }, modifier = modifier) {
-		Text("問 AI（用這些結果）")
+		Text(stringResource(StringsRes.string.feature_recordings_ask_ai_about_these_results))
 	}
 	if (open) AskAcrossDialog(viewModel, onDismiss = { viewModel.reset(); open = false }, onOpenRecording = {
 		viewModel.reset(); open = false; onOpenRecording(it)
@@ -52,7 +56,7 @@ private fun AskAcrossDialog(viewModel: AskAcrossViewModel, onDismiss: () -> Unit
 	val answer = viewModel.answer
 	AlertDialog(
 		onDismissRequest = onDismiss,
-		title = { Text("跨錄音問 AI") },
+		title = { Text(stringResource(StringsRes.string.feature_recordings_ask_ai_across_recordings)) },
 		text = {
 			Column(
 				Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
@@ -61,24 +65,24 @@ private fun AskAcrossDialog(viewModel: AskAcrossViewModel, onDismiss: () -> Unit
 				if (viewModel.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
 				viewModel.message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 				if (plan != null) {
-					Text("來源（${plan.sources.size} 段）：" + plan.sources.joinToString("、") { it.name }, style = MaterialTheme.typography.bodySmall)
+					Text(stringResource(StringsRes.string.feature_recordings_sources_recordings, (plan.sources.size).toString()) + plan.sources.joinToString("、") { it.name }, style = MaterialTheme.typography.bodySmall)
 					val truncated = AskAcross.truncatedSources(plan.sources)
 					if (truncated.isNotEmpty()) Text(
 						androidx.compose.ui.res.stringResource(com.eva.feature_recordings.R.string.ask_across_truncated_sources, truncated.joinToString("、") { it.name }),
 						style = MaterialTheme.typography.bodySmall,
 					)
 					if (answer == null) {
-						OutlinedTextField(question, { question = it }, Modifier.fillMaxWidth(), label = { Text("問題") }, maxLines = 4, enabled = !viewModel.busy)
+						OutlinedTextField(question, { question = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(StringsRes.string.feature_recordings_question)) }, maxLines = 4, enabled = !viewModel.busy)
 						Text(
-							"送出後會把這 ${plan.sources.size} 段錄音的逐字稿文字（約 ${plan.chars} 字）送到 ${plan.host}（模型 ${plan.model}），" +
-								"共 1 次請求，可能產生 API 費用。不上傳音訊、不自動重試，回答不會儲存。",
+							stringResource(StringsRes.string.feature_recordings_sends_transcripts_from_recordings_about_characters_to, (plan.sources.size).toString(), (plan.chars).toString(), (plan.host).toString(), (plan.model).toString()) +
+								UiStrings.get(StringsRes.string.feature_recordings_one_request_api_charges_may_apply_audio, "共 1 次請求，可能產生 API 費用。不上傳音訊、不自動重試，回答不會儲存。"),
 							style = MaterialTheme.typography.bodySmall,
 						)
 					} else {
 						SelectionContainer { Text(answer) }
 						val cited = AskAcross.cited(answer, plan.sources.size)
 						if (cited.isNotEmpty()) {
-							Text("引用的錄音", style = MaterialTheme.typography.titleSmall)
+							Text(stringResource(StringsRes.string.feature_recordings_cited_recordings), style = MaterialTheme.typography.titleSmall)
 							FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
 								cited.forEach { i ->
 									val s = plan.sources[i]
@@ -96,14 +100,14 @@ private fun AskAcrossDialog(viewModel: AskAcrossViewModel, onDismiss: () -> Unit
 				plan != null && answer == null -> TextButton(
 					enabled = !viewModel.busy && question.isNotBlank(),
 					onClick = { viewModel.ask(question) },
-				) { Text("同意費用，送出提問") }
-				answer != null -> TextButton(onClick = { viewModel.clearAnswer() }) { Text("再問一題") }
+				) { Text(stringResource(StringsRes.string.feature_recordings_accept_charges_and_ask)) }
+				answer != null -> TextButton(onClick = { viewModel.clearAnswer() }) { Text(stringResource(StringsRes.string.feature_recordings_ask_another_question)) }
 				else -> {}
 			}
 		},
 		dismissButton = {
 			TextButton(onClick = { if (viewModel.busy) viewModel.cancel() else onDismiss() }) {
-				Text(if (viewModel.busy) "取消" else "關閉")
+				Text(if (viewModel.busy) UiStrings.get(StringsRes.string.feature_recordings_cancel, "取消") else UiStrings.get(StringsRes.string.feature_recordings_close, "關閉"))
 			}
 		},
 	)

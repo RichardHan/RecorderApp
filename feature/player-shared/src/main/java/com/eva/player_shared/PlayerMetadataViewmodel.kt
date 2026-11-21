@@ -1,5 +1,8 @@
 package com.eva.player_shared
 
+import com.eva.utils.UiStrings
+import com.eva.feature_player_core.R as StringsRes
+
 import androidx.lifecycle.viewModelScope
 import com.eva.interactions.domain.AppShortcutFacade
 import com.eva.interactions.domain.ShareRecordingsUtil
@@ -100,7 +103,7 @@ class PlayerMetadataViewmodel @AssistedInject constructor(
 
     private fun shareCurrentAudioFile() = viewModelScope.launch {
         _currentAudio.value?.let(shareRecording::shareAudioFile) ?: run {
-            uiEvent.emit(UIEvents.ShowToast("Cannot share audio file"))
+            uiEvent.emit(UIEvents.ShowToast(UiStrings.get(StringsRes.string.feature_player_shared_cannot_share_audio_file, "Cannot share audio file")))
         }
     }
 

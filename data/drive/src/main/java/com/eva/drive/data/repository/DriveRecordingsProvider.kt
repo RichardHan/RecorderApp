@@ -1,5 +1,7 @@
 package com.eva.drive.data.repository
 
+import com.eva.utils.UiStrings
+
 import android.content.Context
 import androidx.core.net.toUri
 import com.eva.drive.domain.provider.DriveRecording
@@ -39,7 +41,7 @@ internal class DriveRecordingsProvider @Inject constructor(
 						),
 					)
 				}
-				else -> Result.failure(FileNotFoundException("Recording is unavailable"))
+				else -> Result.failure(FileNotFoundException(UiStrings.get(com.eva.drive.R.string.data_drive_message_recording_is_unavailable, "Recording is unavailable")))
 			}
 		} catch (e: CancellationException) {
 			throw e

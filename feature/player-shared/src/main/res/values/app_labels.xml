@@ -1,0 +1,4 @@
+<resources>
+	<string name="feature_player_shared_failed_to_compute_visuals">Failed to compute visuals</string>
+	<string name="feature_player_shared_cannot_share_audio_file">Cannot share audio file</string>
+</resources>

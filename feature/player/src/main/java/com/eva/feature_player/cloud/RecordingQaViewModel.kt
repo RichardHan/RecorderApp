@@ -1,5 +1,8 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -43,7 +46,7 @@ class RecordingQaViewModel @Inject constructor(
 		private set
 	var message by mutableStateOf<String?>(null)
 		private set
-	var blockedReason by mutableStateOf<String?>("讀取逐字稿…")
+	var blockedReason by mutableStateOf<String?>(UiStrings.get(StringsRes.string.feature_player_loading_transcript, "讀取逐字稿…"))
 		private set
 	/** Short description of what a question would send (shown in the confirmation dialog). */
 	var scope by mutableStateOf<String?>(null)
@@ -89,7 +92,7 @@ class RecordingQaViewModel @Inject constructor(
 				val settings = settingsRepo.current()
 				val key = keys.read()
 				if (settings.baseUrl.isBlank() || key.isNullOrBlank()) {
-					message = "尚未設定雲端摘要服務或 API Key"
+					message = UiStrings.get(StringsRes.string.feature_player_set_a_cloud_summary_service_and_api, "尚未設定雲端摘要服務或 API Key")
 					return@launch
 				}
 				val client = CloudAiClients.create(settings, key, UrlConnectionTransport(), settings.summaryModel)
@@ -99,14 +102,14 @@ class RecordingQaViewModel @Inject constructor(
 						withContext(Dispatchers.IO) { store.saveQa(record) }
 						history = listOf(record) + history
 					}
-					is CallOutcome.Failure -> message = "提問失敗（摘要服務）：${outcome.message}"
-					CallOutcome.ContentFiltered -> message = "內容被服務過濾，沒有回答"
-					CallOutcome.Empty -> message = "服務回應為空"
+					is CallOutcome.Failure -> message = UiStrings.get(StringsRes.string.feature_player_summary_service_failed, "提問失敗（摘要服務）：%1\$s", outcome.message)
+					CallOutcome.ContentFiltered -> message = UiStrings.get(StringsRes.string.feature_player_content_filtered_no_answer_available, "內容被服務過濾，沒有回答")
+					CallOutcome.Empty -> message = UiStrings.get(StringsRes.string.feature_player_empty_service_response, "服務回應為空")
 				}
 			} catch (e: CancellationException) {
 				throw e
 			} catch (e: Exception) {
-				message = "提問失敗：${e.message ?: e.javaClass.simpleName}"
+				message = UiStrings.get(StringsRes.string.feature_player_question_failed, "提問失敗：%1\$s", e.message ?: e.javaClass.simpleName)
 			} finally {
 				asking = false
 			}
@@ -117,7 +120,7 @@ class RecordingQaViewModel @Inject constructor(
 		job?.cancel()
 		job = null
 		asking = false
-		message = "已取消，未儲存"
+		message = UiStrings.get(StringsRes.string.feature_player_canceled_nothing_was_saved, "已取消，未儲存")
 	}
 
 	fun delete(record: QaRecord) {
@@ -132,13 +135,13 @@ class RecordingQaViewModel @Inject constructor(
 internal object QaRules {
 
 	fun blockedReason(transcript: TranscriptRecord?, context: QaContext?): String? = when {
-		transcript == null -> "這段錄音還沒有可用的逐字稿"
-		context == null || context.segments.isEmpty() -> "逐字稿是空的或全部失敗，無法提問"
+		transcript == null -> UiStrings.get(StringsRes.string.feature_player_no_transcript_available_for_this_recording, "這段錄音還沒有可用的逐字稿")
+		context == null || context.segments.isEmpty() -> UiStrings.get(StringsRes.string.feature_player_no_usable_transcript_available_for_questions, "逐字稿是空的或全部失敗，無法提問")
 		else -> null
 	}
 
 	fun scope(transcript: TranscriptRecord, context: QaContext): String =
-		"${PlaybackTranscripts.label(transcript)}；" + (context.coverageNote ?: "全文 ${context.totalSegments} 段")
+		"${PlaybackTranscripts.label(transcript)}；" + (context.coverageNote ?: UiStrings.get(StringsRes.string.feature_player_full_transcript_segments, "全文 %1\$s 段", context.totalSegments))
 
 	fun record(
 		recordingId: Long, transcriptId: String, question: String, answer: String, context: QaContext, now: Long, model: String?,

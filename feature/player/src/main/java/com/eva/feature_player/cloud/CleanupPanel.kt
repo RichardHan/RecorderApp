@@ -1,5 +1,8 @@
 package com.eva.feature_player.cloud
 
+import com.eva.feature_player.R as StringsRes
+import com.eva.utils.UiStrings
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -85,7 +88,7 @@ fun CleanupPanel(
 					FilterChip(selected = compare, onClick = { compare = true }, label = { Text(stringResource(R.string.cleanup_view_compare)) })
 					TextButton({
 						val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-						clipboard.setPrimaryClip(ClipData.newPlainText("清稿", TranscriptCleanup.plainText(record)))
+						clipboard.setPrimaryClip(ClipData.newPlainText(UiStrings.get(StringsRes.string.feature_player_clean_transcript, "清稿"), TranscriptCleanup.plainText(record)))
 						Toast.makeText(context, R.string.cleanup_copied, Toast.LENGTH_SHORT).show()
 					}) { Text(stringResource(R.string.cleanup_copy)) }
 					TextButton(onClick = viewModel::delete, enabled = !viewModel.generating) { Text(stringResource(R.string.cleanup_delete)) }

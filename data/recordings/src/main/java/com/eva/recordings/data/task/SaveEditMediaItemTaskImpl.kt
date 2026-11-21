@@ -1,5 +1,7 @@
 package com.eva.recordings.data.task
 
+import com.eva.utils.UiStrings
+
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
@@ -39,7 +41,7 @@ internal class SaveEditMediaItemTaskImpl(
 			// create the content uri
 			val contentUri = createUriForFileName(fileName = fileName, mimeType = mimeType) ?: run {
 				Log.d(TAG, "CANNOT CREATE URI FOR RECORDING")
-				return@coroutineScope Result.failure(Exception("Cannot create file"))
+				return@coroutineScope Result.failure(Exception(UiStrings.get(com.eva.recordings.R.string.data_recordings_message_cannot_create_file, "Cannot create file")))
 			}
 
 			try {

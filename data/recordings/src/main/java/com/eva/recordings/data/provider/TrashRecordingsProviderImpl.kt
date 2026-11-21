@@ -1,5 +1,7 @@
 package com.eva.recordings.data.provider
 
+import com.eva.utils.UiStrings
+
 import android.content.ContentResolver
 import android.content.Context
 import android.database.ContentObserver
@@ -114,10 +116,10 @@ internal class TrashRecordingsProviderImpl(
 					if (cont.isActive) cont.resume(Resource.Success(models))
 				} catch (e: SQLException) {
 					if (cont.isActive)
-						cont.resume(Resource.Error(e, e.localizedMessage ?: "SQL EXCEPTION"))
+						cont.resume(Resource.Error(e, e.localizedMessage ?: UiStrings.get(com.eva.recordings.R.string.data_recordings_message_sql_exception, "SQL EXCEPTION")))
 				} catch (e: SecurityException) {
 					if (cont.isActive)
-						cont.resume(Resource.Error(e, e.localizedMessage ?: "SECURITY EXCEPTION"))
+						cont.resume(Resource.Error(e, e.localizedMessage ?: UiStrings.get(com.eva.recordings.R.string.data_recordings_message_security_exception, "SECURITY EXCEPTION")))
 				} catch (e: Exception) {
 					if (e is CancellationException && cont.isActive) cont.resumeWithException(e)
 					e.printStackTrace()

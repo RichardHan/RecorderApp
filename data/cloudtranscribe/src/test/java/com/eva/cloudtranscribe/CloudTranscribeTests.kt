@@ -3,6 +3,8 @@ package com.eva.cloudtranscribe
 import com.eva.cloudtranscribe.api.AudioPayload
 import com.eva.cloudtranscribe.api.CallOutcome
 import com.eva.cloudtranscribe.api.CloudAiClient
+import com.eva.cloudtranscribe.api.CloudAiClients
+import com.eva.cloudtranscribe.model.CloudSettings
 import com.eva.cloudtranscribe.api.GeminiNativeClient
 import com.eva.cloudtranscribe.api.HttpResponse
 import com.eva.cloudtranscribe.api.HttpTransport
@@ -204,6 +206,37 @@ class AdapterTests {
 		assertEquals("AQID", audio["input_audio"]!!.jsonObject["data"]!!.jsonPrimitive.content)
 		assertEquals("mp3", audio["input_audio"]!!.jsonObject["format"]!!.jsonPrimitive.content)
 		assertFalse(t.body.contains(KEY))
+	}
+
+	@Test fun newSettingsSendArgonAudioAndKeepFlashForSummaries() {
+		val settings = CloudSettings(baseUrl = "https://gateway.example/v1")
+		assertEquals("gemini-3.8-flash", settings.summaryModel)
+		val transport = Capture(HttpResponse(200, """{"choices":[]}"""))
+		CloudAiClients.transcriber(settings, KEY, transport).transcribe("p", AudioPayload(byteArrayOf(1)))
+		val body = Json.parseToJsonElement(transport.body).jsonObject
+		assertEquals("gemini-4-argon", body["model"]!!.jsonPrimitive.content)
+		assertFalse(body.containsKey("reasoning_effort"))
+	}
+
+	@Test fun liteLlmSpeakerModeRoutesAudioAndKeepsSpeakerTurns() {
+		val transport = Capture(HttpResponse(200, """{"candidates":[{"content":{"parts":[
+			{"text":"Hi","audioTranscription":{"text":"Hi","speakerLabel":"spk:3"}},
+			{"audioTranscription":{"text":"你好","speakerLabel":"spk:0"}},
+			{"audioTranscription":{"text":"Bye","speakerLabel":"spk:3"}}]}}]}"""))
+		val settings = CloudSettings(baseUrl = "https://gateway.example/prod/service/v1/",
+			transcribeModel = CloudSettings.SPEAKER_MODEL, speakerDiarization = true)
+		val result = CloudAiClients.transcriber(settings, KEY, transport).transcribe("unused", AudioPayload(byteArrayOf(1)))
+		assertEquals(CallOutcome.Text("Speaker 1: Hi\nSpeaker 2: 你好\nSpeaker 1: Bye"), result)
+		assertEquals("https://gateway.example/prod/service/v1beta/models/gemini-3.5-transcribe:generateContent", transport.url)
+		assertEquals(mapOf("Authorization" to "Bearer $KEY"), transport.headers)
+		val body = Json.parseToJsonElement(transport.body).jsonObject
+		val audio = body["contents"]!!.jsonArray.single().jsonObject["parts"]!!.jsonArray.single().jsonObject["inlineData"]!!.jsonObject
+		assertEquals("audio/mpeg", audio["mimeType"]!!.jsonPrimitive.content)
+		assertEquals("AQ==", audio["data"]!!.jsonPrimitive.content)
+		assertEquals("true", body["generationConfig"]!!.jsonObject["audioTranscriptionConfig"]!!.jsonObject["diarization"]!!.jsonPrimitive.content)
+		val flash = settings.copy(transcribeModel = CloudSettings.FLASH_MODEL, speakerDiarization = false)
+		assertTrue(CloudAiClients.transcriber(flash, KEY, transport) is OpenAiCompatibleClient)
+		assertTrue(CloudAiClients.create(settings, KEY, transport, settings.summaryModel) is OpenAiCompatibleClient)
 	}
 
 	@Test fun noReasoningEffortForTranscribeModels() {

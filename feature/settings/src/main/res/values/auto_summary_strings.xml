@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="auto_summary_cost_hint">每份成功逐字稿建立摘要工作；失敗時可能重試並增加費用</string>
-    <string name="auto_summary_cost_details">每次雲端轉錄成功後（手動或自動都算），會建立摘要工作：只送逐字稿文字、不上傳音訊，使用你設定的摘要模型。可重試的錯誤最多嘗試 3 次，每次都可能產生 API 費用。部分完成、失敗或取消的轉錄不會自動摘要；同份逐字稿已有未取消的摘要工作時不會自動重複建立。</string>
+    <string name="auto_summary_cost_hint">Create a summary after each successful transcript. Retries may incur extra charges.</string>
+    <string name="auto_summary_cost_details">After successful manual or automatic cloud transcription, send the transcript text to the configured summary model. Retryable errors may be attempted up to three times, each potentially billable. Partial, failed and canceled runs do not trigger summaries. An existing active summary job for the same transcript prevents duplicates.</string>
+	<string name="auto_title_short">" · Auto-name"</string>
+	<string name="auto_title_setting">"Automatically name recordings after summary"</string>
+	<string name="auto_title_cost_hint">"Uses one additional short text request. Falls back to the first summary line. Applies only to recordings with their original filenames."</string>
+	<string name="setting_state_on">": on"</string>
+	<string name="setting_state_off">": off"</string>
 </resources>
+

@@ -1,5 +1,7 @@
 package com.eva.feature_recordings.recordings
 
+import com.eva.utils.UiStrings
+
 import android.app.RecoverableSecurityException
 import android.os.Build
 import androidx.activity.result.IntentSenderRequest
@@ -202,7 +204,7 @@ internal class RecordingsViewmodel @Inject constructor(
 							return@onEach
 						}
 						val message = result.error.message ?: result.message
-						?: "Cannot move items to trash"
+						?: UiStrings.get(com.eva.feature_recordings.R.string.feature_recordings_message_cannot_move_items_to_trash, "Cannot move items to trash")
 
 						viewModelScope.launch {
 							_uiEvents.emit(UIEvents.ShowSnackBar(message))
@@ -210,7 +212,7 @@ internal class RecordingsViewmodel @Inject constructor(
 					}
 
 					is Resource.Success -> {
-						val message = result.message ?: "Moved items to trash"
+						val message = result.message ?: UiStrings.get(com.eva.feature_recordings.R.string.feature_recordings_message_moved_items_to_trash, "Moved items to trash")
 						viewModelScope.launch {
 							_uiEvents.emit(UIEvents.ShowToast(message))
 						}
@@ -245,7 +247,7 @@ internal class RecordingsViewmodel @Inject constructor(
 			}
 
 			is Resource.Success -> {
-				val message = result.message ?: "Added to Favourites"
+				val message = result.message ?: UiStrings.get(com.eva.feature_recordings.R.string.feature_recordings_message_added_to_favourites, "Added to Favourites")
 				_uiEvents.emit(UIEvents.ShowSnackBar(message))
 			}
 
