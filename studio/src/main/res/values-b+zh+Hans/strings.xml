@@ -11,4 +11,21 @@
 	<string name="permission">请在设置中允许麦克风权限以录音。</string>
 	<string name="record_error">无法保存录音，请重新录制。</string>
 	<string name="foreground">离开应用时会结束并保存录音。</string>
+	<string name="model">转录模型</string>
+	<string name="configure">模型与连接</string>
+	<string name="custom">自定义 API 端点</string>
+	<string name="standard">OpenRouter</string>
+	<string name="key">API 密钥（仅本次使用）</string>
+	<string name="base">HTTPS 基础网址</string>
+	<string name="model_id">模型 ID</string>
+	<string name="refresh">加载可用模型</string>
+	<string name="upload">发送并转录</string>
+	<string name="sending">转录中…</string>
+	<string name="confirm">发送这段录音？</string>
+	<string name="disclose">将音频发送至 %1$s，由 %2$s 转录。服务商可能会向你的账户收费。</string>
+	<string name="cancel">取消</string>
+	<string name="done">完成</string>
+	<string name="invalid">请填写 HTTPS 端点、模型 ID 和 API 密钥。</string>
+	<string name="failed">请求失败，请检查连接、密钥与模型。</string>
+	<string name="http_error">服务商返回 HTTP %1$d。</string>
 </resources>

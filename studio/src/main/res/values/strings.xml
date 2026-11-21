@@ -11,4 +11,21 @@
 	<string name="permission">Allow microphone access in Settings to record.</string>
 	<string name="record_error">Could not save the recording. Try recording again.</string>
 	<string name="foreground">Leaving the app ends and saves the recording.</string>
+	<string name="model">Transcription model</string>
+	<string name="configure">Model and connection</string>
+	<string name="custom">Custom API endpoint</string>
+	<string name="standard">OpenRouter</string>
+	<string name="key">API key (this session)</string>
+	<string name="base">HTTPS base URL</string>
+	<string name="model_id">Model ID</string>
+	<string name="refresh">Load available models</string>
+	<string name="upload">Send for transcription</string>
+	<string name="sending">Transcribing…</string>
+	<string name="confirm">Send this recording?</string>
+	<string name="disclose">Send the audio to %1$s using %2$s. Your provider may charge your account.</string>
+	<string name="cancel">Cancel</string>
+	<string name="done">Done</string>
+	<string name="invalid">Enter an HTTPS endpoint, a model ID and an API key.</string>
+	<string name="failed">Could not complete the request. Check your connection, key and selected model.</string>
+	<string name="http_error">Provider returned HTTP %1$d.</string>
 </resources>
