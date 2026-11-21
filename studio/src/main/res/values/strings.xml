@@ -38,6 +38,10 @@
 	<string name="import_error">Could not import this link or audio format.</string>
 	<string name="video_model">YouTube video model</string>
 	<string name="video_disclose">Send this YouTube link to OpenRouter to transcribe the video. The video model may charge your account.</string>
+	<string name="trim">Trim recording</string>
+	<string name="preview_clip">Preview selection</string>
+	<string name="save_clip">Save as new recording</string>
+	<string name="clip_error">Could not open or trim this audio.</string>
 	<string name="appearance">Appearance</string>
 	<string name="theme_system">Follow system</string>
 	<string name="theme_light">Light</string>
@@ -49,4 +53,10 @@
 	<string name="check_model">Verifying model…</string>
 	<string name="shared_audio">Shared audio file</string>
 	<string name="confirm_import">Import</string>
+	<string name="clip_start">Start</string>
+	<string name="clip_end">End</string>
+	<string name="clip_time_hint">Enter minutes:seconds or seconds (e.g. 1:02.5 or 62.5). Recording length: %1$s.</string>
+	<string name="clip_length">Selection · %1$s</string>
+	<string name="clip_invalid_range">Choose a start and a later end within the recording.</string>
+	<string name="stop_preview">Stop preview</string>
 </resources>

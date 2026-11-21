@@ -126,6 +126,7 @@ private fun Studio(
 			items(library.files, key = { it.name }) { file ->
 				Text(DateFormat.getDateTimeInstance().format(Date(file.lastModified())))
 				TranscriptionRow(file, speech, local)
+				TrimAction(file, library::refresh)
 				HorizontalDivider()
 			}
 		}
