@@ -155,6 +155,7 @@ data class TranscriptRecord(
 	val warnings: List<String> = emptyList(),
 	val requestCount: Int = 0,
 	val error: String? = null,
+	val lastExecution: TranscriptionExecution? = null,
 )
 
 @Serializable

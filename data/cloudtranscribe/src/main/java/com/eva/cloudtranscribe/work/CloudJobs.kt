@@ -30,6 +30,7 @@ import com.eva.cloudtranscribe.citations.SummaryCitations
 import com.eva.cloudtranscribe.api.CloudAiClients
 import com.eva.cloudtranscribe.usage.boundTo
 import com.eva.cloudtranscribe.api.Redactor
+import com.eva.cloudtranscribe.api.ExecutionMeter
 import com.eva.cloudtranscribe.api.UrlConnectionTransport
 import com.eva.cloudtranscribe.audio.PcmDecoder
 import com.eva.cloudtranscribe.audio.PcmFileSource
@@ -92,7 +93,7 @@ class CloudJobScheduler @Inject constructor(
 		val now = System.currentTimeMillis()
 		store.saveTranscript(
 			(existing ?: TranscriptRecord(runId, recordingId, TranscriptSource.CLOUD, snapshot, now, status = RunStatus.QUEUED))
-				.copy(status = RunStatus.QUEUED, updatedAtMillis = now, error = null),
+				.copy(lastExecution = null, status = RunStatus.QUEUED, updatedAtMillis = now, error = null),
 		)
 		val request = OneTimeWorkRequestBuilder<CloudTranscribeWorker>()
 			.setInputData(workDataOf(KEY_RECORDING to recordingId, KEY_RUN to runId))
@@ -191,7 +192,8 @@ class CloudTranscribeWorker @AssistedInject constructor(
 		val recordingId = inputData.getLong(CloudJobScheduler.KEY_RECORDING, -1)
 		val runId = inputData.getString(CloudJobScheduler.KEY_RUN) ?: return Result.failure()
 		val record = store.transcript(recordingId, runId) ?: return Result.failure()
-		val apiKey = keys.read() ?: return fail(record, UiStrings.get(StringsRes.string.data_cloudtranscribe_api_key_missing_alt, "找不到 API Key"))
+		val meter = ExecutionMeter(UrlConnectionTransport())
+		val apiKey = keys.read() ?: return fail(record.copy(lastExecution = meter.snapshot()), UiStrings.get(StringsRes.string.data_cloudtranscribe_api_key_missing_alt, "找不到 API Key"))
 		val current = settingsRepo.current()
 		val p = record.provenance
 		// Retry/resume always uses the run's own provider/model snapshot — never another provider.
@@ -199,10 +201,10 @@ class CloudTranscribeWorker @AssistedInject constructor(
 		runCatching { setForeground(foregroundInfo(UiStrings.get(StringsRes.string.data_cloudtranscribe_transcribing_in_the_cloud, "雲端轉錄中…"))) }
 		val pcm = File(applicationContext.cacheDir, "cloud_ai_pcm/$runId.pcm")
 		try {
-			store.saveTranscript(record.copy(status = RunStatus.RUNNING, updatedAtMillis = System.currentTimeMillis()))
+			store.saveTranscript(record.copy(lastExecution = null, status = RunStatus.RUNNING, updatedAtMillis = System.currentTimeMillis()))
 			val uri = recordingUri(recordingId)
 			if (!pcm.exists() || pcm.length() == 0L) PcmDecoder.decodeToFile(applicationContext, uri, pcm)
-			val client = CloudAiClients.transcriber(s, apiKey, UrlConnectionTransport()).boundTo(recordingId)
+			val client = CloudAiClients.transcriber(s, apiKey, meter).boundTo(recordingId)
 			val engine = CloudTranscriptionEngine(client, store.checkpoints(recordingId, runId), EngineConfig(
 				chunkSeconds = p.chunkSeconds ?: s.normalizedChunkSeconds,
 				workers = p.workers ?: s.normalizedWorkers,
@@ -211,11 +213,13 @@ class CloudTranscribeWorker @AssistedInject constructor(
 				prompt = Prompts.withVocabulary(Prompts.TRANSCRIBE, s.customVocabulary),
 				alternatePrompt = Prompts.withVocabulary(Prompts.TRANSCRIBE_ALT, s.customVocabulary),
 			))
-			val result = engine.run(PcmFileSource(pcm)) { done, total ->
+			val source = PcmFileSource(pcm)
+			val result = engine.run(source) { done, total ->
 				setProgress(workDataOf(CloudJobScheduler.PROGRESS_DONE to done, CloudJobScheduler.PROGRESS_TOTAL to total))
 				store.transcript(recordingId, runId)?.let { store.saveTranscript(it.copy(completedSegments = done, totalSegments = total, updatedAtMillis = System.currentTimeMillis())) }
 			}
 			store.saveTranscript(record.copy(
+				lastExecution = meter.snapshot().copy(fullAudioMs = source.durationMs.takeIf { result.status == RunStatus.SUCCESS && result.reusedSegments == 0 }),
 				status = result.status, text = result.text, segments = result.segments, warnings = result.warnings,
 				totalSegments = result.segments.size, completedSegments = result.segments.count { it.isFinal },
 				requestCount = record.requestCount + result.requestCount, updatedAtMillis = System.currentTimeMillis(), error = null,
@@ -226,12 +230,12 @@ class CloudTranscribeWorker @AssistedInject constructor(
 			notifyDone(recordingId, result.status)
 			return Result.success()
 		} catch (e: CancellationException) {
-			store.transcript(recordingId, runId)?.let { store.saveTranscript(it.copy(status = RunStatus.CANCELLED, updatedAtMillis = System.currentTimeMillis())) }
+			store.transcript(recordingId, runId)?.let { store.saveTranscript(it.copy(lastExecution = meter.snapshot(), status = RunStatus.CANCELLED, updatedAtMillis = System.currentTimeMillis())) }
 			pcm.delete()
 			throw e
 		} catch (e: Exception) {
 			pcm.delete()
-			return fail(record, Redactor.redact(e.message ?: e.javaClass.simpleName, apiKey))
+			return fail(record.copy(lastExecution = meter.snapshot()), Redactor.redact(e.message ?: e.javaClass.simpleName, apiKey))
 		}
 	}
 

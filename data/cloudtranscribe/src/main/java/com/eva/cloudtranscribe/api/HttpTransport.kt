@@ -4,7 +4,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
-data class HttpResponse(val code: Int, val body: String)
+data class HttpResponse(val code: Int, val body: String, val reportedCostUsd: String? = null)
 
 /** Abstraction so tests never hit the network. */
 fun interface HttpTransport {
@@ -31,7 +31,7 @@ class UrlConnectionTransport : HttpTransport {
 			val code = connection.responseCode
 			val stream = if (code in 200..299) connection.inputStream else connection.errorStream
 			val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-			return HttpResponse(code, text)
+			return HttpResponse(code, text, connection.getHeaderField("x-litellm-response-cost"))
 		} finally {
 			connection.disconnect()
 		}
