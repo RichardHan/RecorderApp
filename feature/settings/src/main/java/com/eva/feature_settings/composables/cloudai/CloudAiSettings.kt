@@ -296,7 +296,7 @@ internal fun CloudAiSettingsContent(
 			SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_skip_nearly_silent_segments, "略過近乎無聲的段落"), draft.skipSilentChunks, UiStrings.get(StringsRes.string.feature_settings_quiet_speech_may_be_skipped, "小聲說話可能被誤判")) { draft = draft.copy(skipSilentChunks = it) }
 			SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_warn_about_unusually_long_transcripts, "幻覺長度警示"), draft.hallucinationWarning) { draft = draft.copy(hallucinationWarning = it) }
 		}
-		SettingsCard(UiStrings.get(StringsRes.string.feature_settings_usage, "用量"), UiStrings.get(StringsRes.string.feature_settings_estimate_from_local_history, "本機紀錄估算"), "ai-usage", initiallyExpanded = false) { CloudUsageSection() }
+		SettingsCard(UiStrings.get(StringsRes.string.feature_settings_usage, "用量"), UiStrings.get(StringsRes.string.feature_settings_estimate_from_local_history, "本機紀錄估算"), "ai-usage", initiallyExpanded = false) { CloudUsageSection(prices = draft.modelPrices, transcribeModel = draft.transcribeModel, summaryModel = draft.summaryModel, onPricesChange = { draft = draft.copy(modelPrices = it) }) }
 		savedMsg?.takeIf { !dirtyDraft }?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
 	}
 	if (dirtyDraft) Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth(), tonalElevation = 3.dp, shadowElevation = 6.dp) {

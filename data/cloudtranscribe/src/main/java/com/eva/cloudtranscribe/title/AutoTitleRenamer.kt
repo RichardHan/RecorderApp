@@ -2,6 +2,8 @@ package com.eva.cloudtranscribe.title
 
 import com.eva.cloudtranscribe.api.CallOutcome
 import com.eva.cloudtranscribe.api.CloudAiClients
+import com.eva.cloudtranscribe.usage.TokenUsageHooks
+import com.eva.cloudtranscribe.usage.boundTo
 import com.eva.cloudtranscribe.api.UrlConnectionTransport
 import com.eva.cloudtranscribe.model.CloudSettings
 import com.eva.cloudtranscribe.model.PiiRedactor
@@ -53,7 +55,7 @@ class AutoTitleRenamer internal constructor(
 		hasSummaryKey = { !keys.read().isNullOrBlank() },
 		complete = complete@{ s, prompt ->
 			val key = keys.read() ?: return@complete CallOutcome.Failure("找不到 API Key", retryable = false)
-			val client = CloudAiClients.create(s, key, UrlConnectionTransport(), s.summaryModel)
+			val client = CloudAiClients.create(s, key, UrlConnectionTransport(), s.summaryModel).boundTo(TokenUsageHooks.currentRecordingId())
 			withContext(Dispatchers.IO) { client.complete(prompt) }
 		},
 		loadRecording = {
@@ -83,7 +85,7 @@ class AutoTitleRenamer internal constructor(
 		var requests = marker.requestCount
 		var requestAt = marker.requestAtMillis
 		val now = nowMillis()
-		val attempt = requestAiTitle(s, summaryText)
+		val attempt = requestAiTitle(recordingId, s, summaryText)
 		if (attempt.requested) {
 			requests += 1
 			requestAt = requestAt + now
@@ -133,10 +135,10 @@ class AutoTitleRenamer internal constructor(
 		AutoTitleResult.Applied(appliedName, source)
 	}
 
-	private suspend fun requestAiTitle(s: CloudSettings, summaryText: String): AiTitleAttempt {
+	private suspend fun requestAiTitle(recordingId: Long, s: CloudSettings, summaryText: String): AiTitleAttempt {
 		if (s.baseUrl.isBlank() || s.summaryModel.isBlank() || !hasSummaryKey()) return AiTitleAttempt(null, requested = false)
 		val text = if (s.redactPiiForCloud) PiiRedactor.redact(summaryText) else summaryText
-		val reply = when (val o = runCatching { complete(s, TitleSuggestion.prompt(text)) }.getOrNull()) {
+		val reply = when (val o = runCatching { TokenUsageHooks.withRecordingSuspend(recordingId) { complete(s, TitleSuggestion.prompt(text)) } }.getOrNull()) {
 			is CallOutcome.Text -> o.text
 			else -> null
 		}

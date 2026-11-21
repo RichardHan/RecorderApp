@@ -1,6 +1,8 @@
 package com.eva.cloudtranscribe.api
 
 import com.eva.cloudtranscribe.R as StringsRes
+import com.eva.cloudtranscribe.usage.TokenUsageHooks
+import com.eva.cloudtranscribe.usage.TokenUsageParser
 import com.eva.utils.UiStrings
 
 import com.eva.cloudtranscribe.model.CloudSettings
@@ -123,13 +125,14 @@ class OpenAiCompatibleClient(
 	)
 
 	override fun transcribe(prompt: String, audio: AudioPayload): CallOutcome =
-		send(buildBody(audioContent(prompt, audio)))
+		send(buildBody(audioContent(prompt, audio)), "transcribe")
 
-	override fun complete(prompt: String): CallOutcome = send(buildBody(JsonPrimitive(prompt)))
+	override fun complete(prompt: String): CallOutcome = send(buildBody(JsonPrimitive(prompt)), "complete")
 
-	private fun send(body: String): CallOutcome = safeCall(apiKey) {
+	private fun send(body: String, operation: String): CallOutcome = safeCall(apiKey) {
 		val response = transport.postJson(url, mapOf("Authorization" to "Bearer $apiKey"), body, timeoutSeconds)
 		if (response.code !in 200..299) return@safeCall classifyHttp(response.code, response.body, apiKey)
+		TokenUsageHooks.record(model = model, usage = TokenUsageParser.fromBody(response.body, gemini = false), provider = "openai_compatible", operation = operation)
 		parse(response.body)
 	}
 
@@ -191,13 +194,14 @@ class GeminiNativeClient(
 		}
 	}.toString()
 
-	override fun transcribe(prompt: String, audio: AudioPayload) = send(buildBody(prompt, audio))
-	override fun complete(prompt: String) = send(buildBody(prompt, null))
+	override fun transcribe(prompt: String, audio: AudioPayload) = send(buildBody(prompt, audio), "transcribe")
+	override fun complete(prompt: String) = send(buildBody(prompt, null), "complete")
 
-	private fun send(body: String): CallOutcome = safeCall(apiKey) {
+	private fun send(body: String, operation: String): CallOutcome = safeCall(apiKey) {
 		val headers = if (speakerDiarization) mapOf("Authorization" to "Bearer $apiKey") else mapOf("x-goog-api-key" to apiKey)
 		val response = transport.postJson(url, headers, body, timeoutSeconds)
 		if (response.code !in 200..299) return@safeCall classifyHttp(response.code, response.body, apiKey)
+		TokenUsageHooks.record(model = model, usage = TokenUsageParser.fromBody(response.body, gemini = true), provider = "gemini_native", operation = operation)
 		parse(response.body, speakerDiarization)
 	}
 

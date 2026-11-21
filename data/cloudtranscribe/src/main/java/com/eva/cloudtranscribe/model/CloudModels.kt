@@ -46,6 +46,8 @@ data class CloudSettings(
 	/** Spelling hints for CLOUD transcription only (empty = prompt unchanged). Sent with audio only when cloud transcription runs. */
 	val customVocabulary: List<VocabularyTerm> = emptyList(),
 	val speakerDiarization: Boolean = false,
+	/** Optional per-model input/output unit prices (per 1M tokens). Empty means unset; never invent a default price. */
+	val modelPrices: List<com.eva.cloudtranscribe.usage.ModelPrice> = emptyList(),
 ) {
 	val transcriptionEffort: ReasoningEffort get() =
 		if (speakerDiarization || transcribeModel == DEFAULT_MODEL) ReasoningEffort.OFF else reasoningEffort

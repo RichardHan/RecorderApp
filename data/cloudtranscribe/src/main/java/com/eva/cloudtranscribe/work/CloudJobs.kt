@@ -28,6 +28,7 @@ import androidx.work.workDataOf
 import com.eva.cloudtranscribe.api.CallOutcome
 import com.eva.cloudtranscribe.citations.SummaryCitations
 import com.eva.cloudtranscribe.api.CloudAiClients
+import com.eva.cloudtranscribe.usage.boundTo
 import com.eva.cloudtranscribe.api.Redactor
 import com.eva.cloudtranscribe.api.UrlConnectionTransport
 import com.eva.cloudtranscribe.audio.PcmDecoder
@@ -201,7 +202,7 @@ class CloudTranscribeWorker @AssistedInject constructor(
 			store.saveTranscript(record.copy(status = RunStatus.RUNNING, updatedAtMillis = System.currentTimeMillis()))
 			val uri = recordingUri(recordingId)
 			if (!pcm.exists() || pcm.length() == 0L) PcmDecoder.decodeToFile(applicationContext, uri, pcm)
-			val client = CloudAiClients.transcriber(s, apiKey, UrlConnectionTransport())
+			val client = CloudAiClients.transcriber(s, apiKey, UrlConnectionTransport()).boundTo(recordingId)
 			val engine = CloudTranscriptionEngine(client, store.checkpoints(recordingId, runId), EngineConfig(
 				chunkSeconds = p.chunkSeconds ?: s.normalizedChunkSeconds,
 				workers = p.workers ?: s.normalizedWorkers,
@@ -290,7 +291,7 @@ class CloudSummaryWorker @AssistedInject constructor(
 			?.let { name -> SummaryFormat.entries.firstOrNull { it.name == name } }
 			?: s.effectiveSummaryFormat
 		store.saveSummary(record.copy(status = RunStatus.RUNNING))
-		val client = CloudAiClients.create(s, apiKey, UrlConnectionTransport(), record.provenance.model)
+		val client = CloudAiClients.create(s, apiKey, UrlConnectionTransport(), record.provenance.model).boundTo(recordingId)
 		// optional on-device PII masking (#81) of everything taken from the recording
 		val redact: (String) -> String = { if (s.redactPiiForCloud) PiiRedactor.redact(it) else it }
 		// Citations only when the run asked for them AND the source has real cloud segment timing.

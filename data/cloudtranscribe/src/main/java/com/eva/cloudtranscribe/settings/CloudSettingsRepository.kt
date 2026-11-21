@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.eva.cloudtranscribe.model.CloudSettings
 import com.eva.cloudtranscribe.model.CustomVocabulary
+import com.eva.cloudtranscribe.usage.TokenPricing
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -35,6 +36,7 @@ class CloudSettingsRepository @Inject constructor(@ApplicationContext private va
 	private fun CloudSettings.normalized() = copy(
 		customSummaryInstructions = customSummaryInstructions.trim().take(CloudSettings.MAX_SUMMARY_INSTRUCTIONS),
 		customVocabulary = CustomVocabulary.normalize(customVocabulary),
+		modelPrices = TokenPricing.normalizePrices(modelPrices),
 	)
 
 	val settings: Flow<CloudSettings> = context.cloudAiPrefs.data.map { prefs -> decode(prefs[key]) }
