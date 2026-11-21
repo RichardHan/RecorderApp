@@ -227,4 +227,9 @@
 	<string name="feature_settings_webhook_messages_cannot_be_edited_or_reliably">Webhook messages cannot be edited or reliably threaded. Continuous updates send a start message, at most one batch of new highlights per interval, and an end message.</string>
 	<string name="feature_settings_wi_fi_only">Wi-Fi only</string>
 	<string name="feature_settings_you_can_disable_sync_or_remove_the">You can disable sync or remove the webhook here at any time. The app cannot delete messages already sent to Slack.</string>
+	<string name="feature_settings_record_device_context_title">Record device info on start</string>
+	<string name="feature_settings_record_device_context_text">Saves battery, network, storage, and location locally with each recording. Never uploaded to cloud or Slack.</string>
+	<string name="feature_settings_record_device_location_title">Include location &amp; address</string>
+	<string name="feature_settings_record_device_location_text">Captures address when location permission is granted; skips if denied.</string>
+	<string name="feature_settings_record_device_location_no_permission">Location permission not granted (tap to allow; recording continues either way).</string>
 </resources>

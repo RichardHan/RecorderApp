@@ -102,6 +102,9 @@ internal class VoiceRecorderService : LifecycleService() {
     @Inject
     lateinit var statusTracker: com.eva.recorder.domain.RecorderStatusTracker
 
+    @Inject
+    lateinit var deviceContextSession: com.eva.recorder.data.device.DeviceContextSession
+
     private val binder = LocalBinder()
     private val _bookMarks = MutableStateFlow(emptySet<LocalTime>())
     private val _warnings = Channel<String>(Channel.BUFFERED)
@@ -314,7 +317,10 @@ internal class VoiceRecorderService : LifecycleService() {
         )
         // start the recorder
         lifecycleScope.launch {
-            val started = sessionCoordinator.startRecording { runCatching { photos.beginSession() } }
+            val started = sessionCoordinator.startRecording {
+                runCatching { photos.beginSession() }
+                runCatching { deviceContextSession.beginSession() }
+            }
             if (started) {
                 runCatching { slackSync.onRecordingStarted(initialEnabled = liveToggles.ui.value.slackOn) }
                 observeLiveTogglesForThisRecording()
@@ -358,6 +364,7 @@ internal class VoiceRecorderService : LifecycleService() {
             sessionCoordinator.cancelRecording(
                 onCancelled = {
                     runCatching { photos.cancelSession() }
+                    runCatching { deviceContextSession.cancelSession() }
                     slackSync.onRecordingCancelled()
                     stopObservingLiveToggles()
                     // a cancelled recording's notes never carry over to the next one
@@ -384,6 +391,7 @@ internal class VoiceRecorderService : LifecycleService() {
             sessionCoordinator.stopRecording(
                 onRecordingSaved = { recordingId, timeBeforeSave ->
                     runCatching { photos.finishSession(recordingId) }
+                    runCatching { deviceContextSession.finishSession(recordingId) }
                     clearAndSaveBookMarks(recordingId, timeBeforeSave)
                     recordingAutoUploader.enqueue(recordingId)
                     // bind notes first so an (opt-in) automatic summary already sees them
@@ -484,6 +492,7 @@ internal class VoiceRecorderService : LifecycleService() {
         // release transcript
         voiceRecorder.transcriptCleanUp()
         liveCloud.release()
+        deviceContextSession.cancelSession()
         // the service (and any session) is gone: the tile must not stay ACTIVE
         statusTracker.publish(RecorderState.IDLE)
         com.eva.recorder.data.tile.RecorderTileService.requestRefresh(applicationContext)

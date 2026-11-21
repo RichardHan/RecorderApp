@@ -302,4 +302,11 @@
 	<string name="feature_player_wait_for_transcription_to_finish_before_editing">仍在轉錄，完成後才能修改</string>
 	<string name="feature_player_wait_for_transcription_to_finish_before_extracting">逐字稿還在轉錄中，完成後才能抽出決議</string>
 	<string name="feature_player_wait_for_transcription_to_finish_before_translating">逐字稿還在轉錄中，完成後才能翻譯</string>
+	<string name="feature_player_device_context_heading">錄音時裝置資訊</string>
+	<string name="feature_player_device_context_location">位置與地址</string>
+	<string name="feature_player_device_context_location_skipped">未記錄（未授權位置或無法取得）</string>
+	<string name="feature_player_device_context_battery">電池用量</string>
+	<string name="feature_player_device_context_network">網路設定</string>
+	<string name="feature_player_device_context_storage">手機容量</string>
+	<string name="feature_player_device_context_captured_at">記錄時間</string>
 </resources>

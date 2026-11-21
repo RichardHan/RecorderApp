@@ -75,6 +75,7 @@ internal fun AudioPlayerScreen(
     onNavigateToRecordings: () -> Unit = {},
     onCloudTranscripts: () -> Unit = {},
     transcriptPanel: (@Composable (Modifier) -> Unit)? = null,
+    deviceContext: com.eva.cloudtranscribe.device.RecordingDeviceContext? = null,
 ) {
 
     val snackBarProvider = LocalSnackBarProvider.current
@@ -88,6 +89,7 @@ internal fun AudioPlayerScreen(
         contentLoadState = loadState,
         sheetState = sheetState,
         showBottomSheet = showBottomSheet,
+        deviceContext = deviceContext,
         onSheetDismiss = { showBottomSheet = false },
     )
 

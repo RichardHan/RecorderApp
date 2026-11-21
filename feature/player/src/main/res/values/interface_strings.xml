@@ -302,4 +302,11 @@
 	<string name="feature_player_wait_for_transcription_to_finish_before_editing">Wait for transcription to finish before editing.</string>
 	<string name="feature_player_wait_for_transcription_to_finish_before_extracting">Wait for transcription to finish before extracting decisions.</string>
 	<string name="feature_player_wait_for_transcription_to_finish_before_translating">Wait for transcription to finish before translating.</string>
+	<string name="feature_player_device_context_heading">Device info at recording</string>
+	<string name="feature_player_device_context_location">Location</string>
+	<string name="feature_player_device_context_location_skipped">Not recorded (permission denied or unavailable)</string>
+	<string name="feature_player_device_context_battery">Battery</string>
+	<string name="feature_player_device_context_network">Network</string>
+	<string name="feature_player_device_context_storage">Phone storage</string>
+	<string name="feature_player_device_context_captured_at">Captured at</string>
 </resources>

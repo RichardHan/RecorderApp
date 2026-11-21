@@ -140,4 +140,18 @@
 	<string name="data_cloudtranscribe_upload_fell_behind_this_segment_was_skipped">Upload fell behind. This segment was skipped. The recording was saved and can be transcribed later.</string>
 	<string name="data_cloudtranscribe_use_https_for_the_summary_endpoint">Use HTTPS for the summary endpoint</string>
 	<string name="auto_title_applied">" (automatically named)"</string>
+	<string name="data_cloudtranscribe_device_plugged_ac">AC</string>
+	<string name="data_cloudtranscribe_device_plugged_wireless">Wireless</string>
+	<string name="data_cloudtranscribe_device_plugged_dock">Dock</string>
+	<string name="data_cloudtranscribe_device_charging">Charging</string>
+	<string name="data_cloudtranscribe_device_power_save">Power saver</string>
+	<string name="data_cloudtranscribe_device_cellular">Cellular</string>
+	<string name="data_cloudtranscribe_device_ethernet">Ethernet</string>
+	<string name="data_cloudtranscribe_device_network_other">Other network</string>
+	<string name="data_cloudtranscribe_device_network_none">Offline</string>
+	<string name="data_cloudtranscribe_device_airplane_mode">Airplane mode</string>
+	<string name="data_cloudtranscribe_device_metered">Metered</string>
+	<string name="data_cloudtranscribe_device_storage_free_total">%1$s free / %2$s total</string>
+	<string name="data_cloudtranscribe_device_storage_end_delta">end %1$s (%2$s%3$s)</string>
+	<string name="data_cloudtranscribe_device_storage_short_free">%1$s free</string>
 </resources>

@@ -227,4 +227,9 @@
 	<string name="feature_settings_webhook_messages_cannot_be_edited_or_reliably">Webhook 的限制：送出後不能編輯，也無法可靠地開討論串。所以「持續送」的做法是：開始一則、之後最多每 N 分鐘一則「新增的重點」、結束一則。</string>
 	<string name="feature_settings_wi_fi_only">只在 Wi‑Fi</string>
 	<string name="feature_settings_you_can_disable_sync_or_remove_the">隨時可以在這裡關閉或清除 Webhook；已送到 Slack 的訊息無法由 App 刪除。</string>
+	<string name="feature_settings_record_device_context_title">錄音時記錄裝置資訊</string>
+	<string name="feature_settings_record_device_context_text">按下錄音時在本機記錄電量、網路、手機容量與位置；不會上傳到雲端或 Slack。</string>
+	<string name="feature_settings_record_device_location_title">包含位置與地址</string>
+	<string name="feature_settings_record_device_location_text">已授權位置權限時記錄地址與座標；未授權時自動略過。</string>
+	<string name="feature_settings_record_device_location_no_permission">尚未授權位置權限（點一下可授權；未授權仍可正常錄音）。</string>
 </resources>

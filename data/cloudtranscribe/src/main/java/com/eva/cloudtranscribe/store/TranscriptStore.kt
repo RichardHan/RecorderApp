@@ -18,6 +18,7 @@ import kotlinx.serialization.json.Json
  * `<root>/v1/<recordingId>/qa/<id>.json`            — single-recording questions and answers (#7)
  * `<root>/v1/<recordingId>/outline.json`             — optional AI outline of a summary (#38)
  * `<root>/v1/<recordingId>/auto-title.json`          — auto AI rename marker (applied once; no Room migration)
+ * `<root>/v1/<recordingId>/device-context.json`     — on-device snapshot captured at recording start/end
  * `<root>/v1/<recordingId>/checkpoints/<runId>/NNN.json` — per-chunk cloud checkpoints, removed only after success or explicit cleanup
  * `<root>/v1/<recordingId>/edits/<transcriptId>.json` — on-device user corrections, an overlay; the transcript file itself is never rewritten
  * The raw recording is never touched.
@@ -106,6 +107,16 @@ class TranscriptStore(root: File) {
 		read(File(recDir(recordingId), "outline.json"))?.let { runCatching { json.decodeFromString(com.eva.cloudtranscribe.outline.SavedOutline.serializer(), it) }.getOrNull() }
 
 	fun deleteOutline(recordingId: Long) { synchronized(lock) { File(recDir(recordingId), "outline.json").delete() } }
+
+	fun saveDeviceContext(recordingId: Long, context: com.eva.cloudtranscribe.device.RecordingDeviceContext) =
+		write(File(recDir(recordingId), "device-context.json"), json.encodeToString(com.eva.cloudtranscribe.device.RecordingDeviceContext.serializer(), context))
+
+	fun deviceContext(recordingId: Long): com.eva.cloudtranscribe.device.RecordingDeviceContext? =
+		read(File(recDir(recordingId), "device-context.json"))?.let {
+			runCatching { json.decodeFromString(com.eva.cloudtranscribe.device.RecordingDeviceContext.serializer(), it) }.getOrNull()
+		}
+
+	fun deleteDeviceContext(recordingId: Long) { synchronized(lock) { File(recDir(recordingId), "device-context.json").delete() } }
 
 	fun autoTitleMarker(recordingId: Long): com.eva.cloudtranscribe.title.AutoTitleMarker? =
 		read(File(recDir(recordingId), "auto-title.json"))?.let {

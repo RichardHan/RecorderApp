@@ -31,6 +31,7 @@ fun NavGraphBuilder.settingsRoute(controller: NavController) = composable<NavRou
     val audioSettings by settingsViewModel.audioSettings.collectAsStateWithLifecycle()
     val fileSettings by settingsViewModel.fileSettings.collectAsStateWithLifecycle()
     val storageData by settingsViewModel.storageData.collectAsStateWithLifecycle()
+    val deviceContextSettings by settingsViewModel.deviceContextSettings.collectAsStateWithLifecycle()
 
     val sttModels by sttModelsViewmodel.modelsInfo.collectAsStateWithLifecycle()
     val transcriptionSettings by sttModelsViewmodel.transcriptionSettings.collectAsStateWithLifecycle()
@@ -45,6 +46,7 @@ fun NavGraphBuilder.settingsRoute(controller: NavController) = composable<NavRou
         AudioSettingsScreen(
             bulkExport = { com.eva.feature_settings.composables.files.BulkTextExportItem() },
             audioSettings = audioSettings,
+            deviceContextSettings = deviceContextSettings,
             fileSettings = fileSettings,
             storageModel = storageData,
             sttModels = sttModels,
