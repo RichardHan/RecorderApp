@@ -55,23 +55,29 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 }
 
 @Composable
-internal fun TranscriptionRow(file: File, speech: SpeechConnection, local: LocalSummary) {
-	val video = file.extension == "youtube"
-	var videoModel by remember { mutableStateOf("google/gemini-2.5-flash") }
+internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConnection, local: LocalSummary) {
 	var confirm by remember { mutableStateOf(false) }
-	val transcript by produceState("", file, speech.revision) {
-		value = withContext(Dispatchers.IO) { transcriptFile(file).takeIf { it.exists() }?.readText().orEmpty() }
+	val saved by produceState(SavedTranscript(""), file, speech.revision) {
+		value = withContext(Dispatchers.IO) { loadSavedTranscript(file) }
 	}
-	SummaryAction(local, file, transcript)
-	if (transcript.isNotEmpty()) SelectionContainer { Text(transcript) }
-	TextButton(onClick = { confirm = true }, enabled = !speech.busy && speech.valid() && (!video || !speech.custom)) { Text(stringResource(R.string.upload)) }
+	if (saved.text.isNotEmpty()) {
+		saved.receipt?.let { receipt ->
+			Text(stringResource(R.string.receipt_model, receipt.model), style = MaterialTheme.typography.labelLarge)
+			val fee = receipt.costUsd?.let { stringResource(R.string.receipt_fee, it) } ?: stringResource(R.string.receipt_no_fee)
+			Text(stringResource(R.string.receipt_time, receipt.elapsedMs / 1000.0) + " · " + fee,
+				style = MaterialTheme.typography.bodySmall)
+		}
+		SelectionContainer { Text(saved.text) }
+		key(saved.text) { SummaryAction(local, file, saved.text) }
+	}
+	TextButton(onClick = { confirm = true }, enabled = !speech.busy && speech.valid()) { Text(stringResource(R.string.upload)) }
 	if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.confirm)) },
 		text = {
-			if (video) Column {
-				Text(stringResource(R.string.video_disclose))
-				OutlinedTextField(videoModel, { videoModel = it }, label = { Text(stringResource(R.string.video_model)) }, singleLine = true)
-			} else Text(stringResource(R.string.disclose, speech.base, speech.model))
+			Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+				Text(recordedAt, style = MaterialTheme.typography.titleMedium)
+				Text(stringResource(R.string.disclose, speech.base, speech.model))
+			}
 		},
-		confirmButton = { Button(onClick = { confirm = false; if (video) speech.youtube(file, videoModel.trim()) else speech.transcribe(file) }) { Text(stringResource(R.string.upload)) } },
+		confirmButton = { Button(onClick = { confirm = false; speech.transcribe(file) }) { Text(stringResource(R.string.upload)) } },
 		dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } })
 }

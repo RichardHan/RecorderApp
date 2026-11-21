@@ -1,5 +1,6 @@
 package io.github.richardhan.voicenote
 
+import android.os.SystemClock
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,6 +15,7 @@ import java.util.UUID
 import javax.net.ssl.HttpsURLConnection
 
 private const val OPEN_ROUTER = "https://openrouter.ai/api/v1"
+private data class SpeechResponse(val body: JSONObject, val gatewayCost: String?)
 private class HttpFailure(val code: Int) : Exception()
 
 class SpeechConnection : ViewModel() {
@@ -68,7 +70,7 @@ class SpeechConnection : ViewModel() {
 	fun loadModels() = request {
 		models = withContext(Dispatchers.IO) {
 			val response = exchange("$OPEN_ROUTER/models?output_modalities=transcription", "")
-			val data = response.getJSONArray("data")
+			val data = response.body.getJSONArray("data")
 			(0 until data.length()).map { data.getJSONObject(it).getString("id") }.sorted()
 		}
 	}
@@ -118,8 +120,10 @@ class SpeechConnection : ViewModel() {
 		val url = "${endpoint()}/audio/transcriptions"
 		val token = key.trim()
 		val chosen = model.trim()
+		val useGatewayCost = custom
 		request {
 			withContext(Dispatchers.IO) {
+				val started = SystemClock.elapsedRealtime()
 				val reply = exchange(url, token) { connection ->
 					val boundary = UUID.randomUUID().toString()
 					val header = "--$boundary\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\n$chosen\r\n" +
@@ -136,13 +140,17 @@ class SpeechConnection : ViewModel() {
 						out.write(suffix)
 					}
 				}
-				storeTranscript(file, reply.getString("text"))
+				val elapsedMs = SystemClock.elapsedRealtime() - started
+				val gatewayCost = if (useGatewayCost) reportedCostUsd(reply.gatewayCost) else null
+				val cost = gatewayCost ?: reportedCostUsd(reply.body.optJSONObject("usage")?.optString("cost"))
+				val text = requireNotNull(reply.body.opt("text") as? String)
+				saveTranscription(file, text, TranscriptionReceipt(chosen, elapsedMs, cost))
 			}
 			revision++
 		}
 	}
 
-	private fun exchange(url: String, token: String, send: (HttpsURLConnection) -> Unit = {}): JSONObject {
+	private fun exchange(url: String, token: String, send: (HttpsURLConnection) -> Unit = {}): SpeechResponse {
 		val connection = URI(url).toURL().openConnection() as HttpsURLConnection
 		try {
 			connection.instanceFollowRedirects = false
@@ -151,7 +159,8 @@ class SpeechConnection : ViewModel() {
 			if (token.isNotEmpty()) connection.setRequestProperty("Authorization", "Bearer $token")
 			send(connection)
 			if (connection.responseCode !in 200..299) throw HttpFailure(connection.responseCode)
-			return JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+			val body = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+			return SpeechResponse(body, connection.getHeaderField("x-litellm-response-cost"))
 		} finally { connection.disconnect() }
 	}
 }
