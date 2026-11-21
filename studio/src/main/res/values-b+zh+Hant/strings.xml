@@ -11,6 +11,10 @@
 	<string name="permission">請在設定允許麥克風權限以錄音。</string>
 	<string name="record_error">無法儲存錄音，請重新錄製。</string>
 	<string name="foreground">離開 App 時會結束並儲存錄音。</string>
+	<string name="receipt_model">轉錄模型 · %1$s</string>
+	<string name="receipt_fee">回報費用 USD %1$s</string>
+	<string name="receipt_no_fee">服務未回報費用</string>
+	<string name="receipt_time">請求耗時 %1$.2f 秒</string>
 	<string name="model">轉錄模型</string>
 	<string name="configure">模型與連線</string>
 	<string name="custom">自訂 API 端點</string>

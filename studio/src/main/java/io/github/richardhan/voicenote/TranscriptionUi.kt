@@ -57,10 +57,18 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 @Composable
 internal fun TranscriptionRow(file: File, speech: SpeechConnection) {
 	var confirm by remember { mutableStateOf(false) }
-	val transcript by produceState("", file, speech.revision) {
-		value = withContext(Dispatchers.IO) { transcriptFile(file).takeIf { it.exists() }?.readText().orEmpty() }
+	val saved by produceState(SavedTranscript(""), file, speech.revision) {
+		value = withContext(Dispatchers.IO) { loadSavedTranscript(file) }
 	}
-	if (transcript.isNotEmpty()) SelectionContainer { Text(transcript) }
+	if (saved.text.isNotEmpty()) {
+		saved.receipt?.let { receipt ->
+			Text(stringResource(R.string.receipt_model, receipt.model), style = MaterialTheme.typography.labelLarge)
+			val fee = receipt.costUsd?.let { stringResource(R.string.receipt_fee, it) } ?: stringResource(R.string.receipt_no_fee)
+			Text(stringResource(R.string.receipt_time, receipt.elapsedMs / 1000.0) + " · " + fee,
+				style = MaterialTheme.typography.bodySmall)
+		}
+		SelectionContainer { Text(saved.text) }
+	}
 	TextButton(onClick = { confirm = true }, enabled = !speech.busy && speech.valid()) { Text(stringResource(R.string.upload)) }
 	if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.confirm)) },
 		text = { Text(stringResource(R.string.disclose, speech.base, speech.model)) },
