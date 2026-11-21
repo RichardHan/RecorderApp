@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+	<string name="app_name">Voice Ledger</string>
+	<string name="studio">録音スタジオ</string>
+	<string name="record">録音を開始</string>
+	<string name="stop">録音を終了</string>
+	<string name="active">録音中</string>
+	<string name="ready">録音の準備完了</string>
+	<string name="library">録音一覧</string>
+	<string name="empty">録音を終えるとここに表示されます。</string>
+	<string name="permission">録音するには設定でマイクの使用を許可してください。</string>
+	<string name="record_error">録音を保存できませんでした。もう一度録音してください。</string>
+	<string name="foreground">アプリを離れると録音が終了し、保存されます。</string>
+</resources>
