@@ -38,4 +38,8 @@
 	<string name="import_error">无法导入该链接或音频格式。</string>
 	<string name="video_model">YouTube 视频模型</string>
 	<string name="video_disclose">将该 YouTube 链接发送到 OpenRouter 转录视频，视频模型可能产生费用。</string>
+	<string name="trim">修剪录音</string>
+	<string name="preview_clip">试听所选范围</string>
+	<string name="save_clip">另存为新录音</string>
+	<string name="clip_error">无法打开或修剪这段音频。</string>
 </resources>

@@ -64,6 +64,8 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 		}
 	}
 
+	fun refresh() { files = savedFiles() }
+
 	fun peakAmplitude(): Int = try { recorder?.maxAmplitude ?: 0 } catch (_: IllegalStateException) { 0 }
 
 	fun finish() {

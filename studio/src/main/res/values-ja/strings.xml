@@ -38,4 +38,8 @@
 	<string name="import_error">このリンクまたは音声形式を読み込めません。</string>
 	<string name="video_model">YouTube 動画モデル</string>
 	<string name="video_disclose">この YouTube リンクを OpenRouter に送信して文字起こしします。動画モデルの利用料がかかる場合があります。</string>
+	<string name="trim">録音をトリミング</string>
+	<string name="preview_clip">選択範囲を試聴</string>
+	<string name="save_clip">新しい録音として保存</string>
+	<string name="clip_error">音声を開くかトリミングすることができませんでした。</string>
 </resources>
