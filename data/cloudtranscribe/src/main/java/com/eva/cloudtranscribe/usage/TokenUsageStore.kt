@@ -44,7 +44,7 @@ class TokenUsageStore(root: File) {
 /** Process-wide sink used by API clients after a successful HTTP body is parsed. Null in unit tests unless set. */
 object TokenUsageHooks {
 	@Volatile var store: TokenUsageStore? = null
-	private val recordingId = ThreadLocal<Long>()
+	private val recordingId = ThreadLocal<Long?>()
 
 	fun <T> withRecording(id: Long?, block: () -> T): T {
 		val previous = recordingId.get()
