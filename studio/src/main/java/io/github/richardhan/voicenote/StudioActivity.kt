@@ -122,7 +122,7 @@ private fun Studio(
 						Text(stringResource(if (library.playingFile == file) R.string.stop_playback else R.string.play))
 					}
 				}
-				TranscriptionRow(file, recordedAt, speech)
+				TranscriptionRow(file, recordedAt, speech, local)
 				HorizontalDivider()
 			}
 		}
