@@ -28,4 +28,8 @@
 	<string name="invalid">请填写 HTTPS 端点、模型 ID 和 API 密钥。</string>
 	<string name="failed">请求失败，请检查连接、密钥与模型。</string>
 	<string name="http_error">服务商返回 HTTP %1$d。</string>
+	<string name="appearance">外观</string>
+	<string name="theme_system">跟随系统</string>
+	<string name="theme_light">浅色</string>
+	<string name="theme_dark">深色</string>
 </resources>
