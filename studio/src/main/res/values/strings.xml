@@ -42,4 +42,8 @@
 	<string name="preview_clip">Preview selection</string>
 	<string name="save_clip">Save as new recording</string>
 	<string name="clip_error">Could not open or trim this audio.</string>
+	<string name="search_transcripts">Search transcripts</string>
+	<string name="clear_query">Clear</string>
+	<string name="no_matches">No matching recordings</string>
+	<string name="transcript">Transcript</string>
 </resources>

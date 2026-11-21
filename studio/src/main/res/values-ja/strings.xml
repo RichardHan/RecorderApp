@@ -42,4 +42,8 @@
 	<string name="preview_clip">選択範囲を試聴</string>
 	<string name="save_clip">新しい録音として保存</string>
 	<string name="clip_error">音声を開くかトリミングすることができませんでした。</string>
+	<string name="search_transcripts">文字起こしを検索</string>
+	<string name="clear_query">クリア</string>
+	<string name="no_matches">該当する録音はありません</string>
+	<string name="transcript">文字起こし</string>
 </resources>
