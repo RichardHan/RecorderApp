@@ -32,4 +32,8 @@
 	<string name="remove_model">移除离线摘要模型</string>
 	<string name="summary_error">本地摘要操作失败，请检查模型下载、内存与存储空间。</string>
 	<string name="summarize">在手机上生成摘要</string>
+	<string name="appearance">外观</string>
+	<string name="theme_system">跟随系统</string>
+	<string name="theme_light">浅色</string>
+	<string name="theme_dark">深色</string>
 </resources>

@@ -32,4 +32,8 @@
 	<string name="remove_model">Remove offline summary model</string>
 	<string name="summary_error">Local summary failed. Check model download, memory and storage.</string>
 	<string name="summarize">Summarize on this device</string>
+	<string name="appearance">Appearance</string>
+	<string name="theme_system">Follow system</string>
+	<string name="theme_light">Light</string>
+	<string name="theme_dark">Dark</string>
 </resources>

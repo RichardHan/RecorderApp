@@ -32,4 +32,8 @@
 	<string name="remove_model">オフライン要約モデルを削除</string>
 	<string name="summary_error">ローカル要約に失敗しました。モデルのダウンロード、メモリ、空き容量を確認してください。</string>
 	<string name="summarize">この端末で要約</string>
+	<string name="appearance">外観</string>
+	<string name="theme_system">システム設定に合わせる</string>
+	<string name="theme_light">ライト</string>
+	<string name="theme_dark">ダーク</string>
 </resources>
