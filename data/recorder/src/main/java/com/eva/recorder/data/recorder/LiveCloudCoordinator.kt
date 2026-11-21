@@ -204,7 +204,7 @@ internal class LiveCloudCoordinator(
 					cloud.customVocabulary.map { it.term },
 					notesOf(),
 				),
-				refine = if (cloud.speakerDiarization && summaryClient == null) null else { prompt ->
+				refine = if (shouldSkipAsrRefine(cloud.transcribeModel, cloud.speakerDiarization, summaryClient != null)) null else { prompt ->
 					summaryClient?.complete(prompt) ?: asrClient.complete(prompt)
 				},
 			)
@@ -363,5 +363,10 @@ internal class LiveCloudCoordinator(
 	}
 
 	fun release() { cancel(); scope.cancel() }
+
+	internal companion object {
+		fun shouldSkipAsrRefine(transcribeModel: String, speakerDiarization: Boolean, hasSummaryClient: Boolean): Boolean =
+			!hasSummaryClient && (speakerDiarization || transcribeModel.contains("transcribe", ignoreCase = true))
+	}
 }
 

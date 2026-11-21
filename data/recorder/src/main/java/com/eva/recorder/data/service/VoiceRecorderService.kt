@@ -312,8 +312,7 @@ internal class VoiceRecorderService : LifecycleService() {
         lifecycleScope.launch {
             val started = sessionCoordinator.startRecording { runCatching { photos.beginSession() } }
             if (started) {
-                runCatching { slackSync.onRecordingStarted() }
-                runCatching { slackSync.setSyncForThisRecording(liveToggles.ui.value.slackOn) }
+                runCatching { slackSync.onRecordingStarted(initialEnabled = liveToggles.ui.value.slackOn) }
                 observeLiveTogglesForThisRecording()
                 startVoiceRecorderService(
                     NotificationConstants.RECORDER_NOTIFICATION_ID,

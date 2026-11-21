@@ -77,7 +77,7 @@ class SlackDeliveryState @Inject constructor(@ApplicationContext context: Contex
 	/** Persist the server deadline so a restarted worker cannot retry early. */
 	internal val retryGate = SlackRetryGate(
 		readDeadline = { prefs.getLong("retry_not_before", 0L) },
-		writeDeadline = { prefs.edit().putLong("retry_not_before", it).commit(); Unit },
+		writeDeadline = { check(prefs.edit().putLong("retry_not_before", it).commit()) },
 	)
 
 	fun setError(message: String?) {

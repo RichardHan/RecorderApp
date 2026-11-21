@@ -96,10 +96,12 @@ class SlackSyncCoordinator internal constructor(
 	}
 
 	/** A new recording started: older recordings' pending key points can no longer be sent. */
-	suspend fun onRecordingStarted() {
+	suspend fun onRecordingStarted(initialEnabled: Boolean? = null) {
 		val settings = runCatching { settingsProvider() }.getOrDefault(SlackSyncSettings())
 		val now = clock()
-		val next = Session(UUID.randomUUID().toString(), now, settings)
+		val next = Session(UUID.randomUUID().toString(), now, settings).apply {
+			override = initialEnabled
+		}
 		synchronized(lock) {
 			session?.timer?.cancel()
 			session = next
