@@ -58,6 +58,7 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 internal fun TranscriptionRow(file: File, speech: SpeechConnection, local: LocalSummary) {
 	val video = file.extension == "youtube"
 	var videoModel by remember { mutableStateOf("google/gemini-2.5-flash") }
+	var timestamps by remember { mutableStateOf(false) }
 	var confirm by remember { mutableStateOf(false) }
 	val transcript by produceState("", file, speech.revision) {
 		value = withContext(Dispatchers.IO) { transcriptFile(file).takeIf { it.exists() }?.readText().orEmpty() }
@@ -70,8 +71,14 @@ internal fun TranscriptionRow(file: File, speech: SpeechConnection, local: Local
 			if (video) Column {
 				Text(stringResource(R.string.video_disclose))
 				OutlinedTextField(videoModel, { videoModel = it }, label = { Text(stringResource(R.string.video_model)) }, singleLine = true)
-			} else Text(stringResource(R.string.disclose, speech.base, speech.model))
+			} else Column {
+				Text(stringResource(R.string.disclose, speech.base, speech.model))
+				Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+					Checkbox(checked = timestamps, onCheckedChange = { timestamps = it })
+					Text(stringResource(R.string.turn_timing))
+				}
+			}
 		},
-		confirmButton = { Button(onClick = { confirm = false; if (video) speech.youtube(file, videoModel.trim()) else speech.transcribe(file) }) { Text(stringResource(R.string.upload)) } },
+		confirmButton = { Button(onClick = { confirm = false; if (video) speech.youtube(file, videoModel.trim()) else speech.transcribe(file, timestamps) }) { Text(stringResource(R.string.upload)) } },
 		dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } })
 }

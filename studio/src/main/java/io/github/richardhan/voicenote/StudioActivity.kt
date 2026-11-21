@@ -31,6 +31,7 @@ import java.util.Locale
 
 class StudioActivity : ComponentActivity() {
 	private val library: RecordingLibrary by viewModels()
+	private val speakers: SpeakerAnalysis by viewModels()
 	private val local: LocalSummary by viewModels()
 	private val speech: SpeechConnection by viewModels()
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,7 +45,7 @@ class StudioActivity : ComponentActivity() {
 				val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
 					if (it) library.start() else library.message = R.string.permission
 				}
-				Studio(library, speech, local) {
+				Studio(library, speech, local, speakers) {
 					when {
 						library.started != 0L -> library.finish()
 						checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> library.start()
@@ -61,7 +62,7 @@ class StudioActivity : ComponentActivity() {
 }
 
 @Composable
-private fun Studio(library: RecordingLibrary, speech: SpeechConnection, local: LocalSummary, toggle: () -> Unit) {
+private fun Studio(library: RecordingLibrary, speech: SpeechConnection, local: LocalSummary, speakers: SpeakerAnalysis, toggle: () -> Unit) {
 	var input by rememberSaveable { mutableStateOf("") }
 	val query = input.trim()
 	val hits = transcriptHits(library.files, query, speech.revision)
@@ -121,6 +122,7 @@ private fun Studio(library: RecordingLibrary, speech: SpeechConnection, local: L
 						Text(DateFormat.getDateTimeInstance().format(Date(file.lastModified())))
 						TranscriptionRow(file, speech, local)
 						TrimAction(file, library::refresh)
+						SpeakerAction(file, speakers, speech.revision)
 						HorizontalDivider()
 					}
 				}

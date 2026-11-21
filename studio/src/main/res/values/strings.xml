@@ -46,4 +46,16 @@
 	<string name="clear_query">Clear</string>
 	<string name="no_matches">No matching recordings</string>
 	<string name="transcript">Transcript</string>
+	<string name="turns">Speaker timeline</string>
+	<string name="turn_hint">Analyze up to 10 minutes on this device. A speaker may be split into multiple labels. Timed transcripts can show text beside each turn.</string>
+	<string name="turn_count">Speaker count (blank for auto)</string>
+	<string name="turn_analyze">Analyze locally</string>
+	<string name="turn_download">Download speaker models · 39 MiB</string>
+	<string name="turn_timing">Request segment timestamps (supported models only)</string>
+	<string name="turn_limit">Trim the recording to 10 minutes or less for local analysis.</string>
+	<string name="turn_error">Speaker analysis failed. Check model download, audio format and free storage.</string>
+	<string name="speaker_number">Speaker %1$d</string>
+	<string name="speaker_alias">Name in this recording</string>
+	<string name="no_speakers">No speech intervals found.</string>
+	<string name="rerun_names">Analyzing again resets speaker names.</string>
 </resources>

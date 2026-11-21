@@ -1,0 +1,3 @@
+sherpa-onnx v2.0.1 (k2-fsa) and the 3D-Speaker ERes2Net base embedding model (ModelScope iic/speech_eres2net_base_sv_zh-cn_3dspeaker_16k) are distributed under the Apache License, Version 2.0; see Apache-2.0.txt.
+The pyannote segmentation model includes the MIT notice in pyannote-MIT.txt.
+The sherpa-onnx native library packages ONNX Runtime. See onnxruntime-LICENSE and onnxruntime-ThirdPartyNotices.txt.
