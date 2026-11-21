@@ -28,4 +28,8 @@
 	<string name="invalid">HTTPS エンドポイント、モデル ID、API キーを入力してください。</string>
 	<string name="failed">リクエストに失敗しました。接続、キー、モデルを確認してください。</string>
 	<string name="http_error">サービスから HTTP %1$d が返されました。</string>
+	<string name="download_model">オフライン要約モデルをダウンロード · Qwen3（328 MiB）</string>
+	<string name="remove_model">オフライン要約モデルを削除</string>
+	<string name="summary_error">ローカル要約に失敗しました。モデルのダウンロード、メモリ、空き容量を確認してください。</string>
+	<string name="summarize">この端末で要約</string>
 </resources>

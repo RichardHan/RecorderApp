@@ -29,6 +29,7 @@ import java.util.Locale
 
 class StudioActivity : ComponentActivity() {
 	private val library: RecordingLibrary by viewModels()
+	private val local: LocalSummary by viewModels()
 	private val speech: SpeechConnection by viewModels()
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -41,7 +42,7 @@ class StudioActivity : ComponentActivity() {
 				val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
 					if (it) library.start() else library.message = R.string.permission
 				}
-				Studio(library, speech) {
+				Studio(library, speech, local) {
 					when {
 						library.started != 0L -> library.finish()
 						checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> library.start()
@@ -58,7 +59,7 @@ class StudioActivity : ComponentActivity() {
 }
 
 @Composable
-private fun Studio(library: RecordingLibrary, speech: SpeechConnection, toggle: () -> Unit) {
+private fun Studio(library: RecordingLibrary, speech: SpeechConnection, local: LocalSummary, toggle: () -> Unit) {
 	val active = library.started != 0L
 	val elapsed by produceState(0L, library.started) {
 		value = 0
@@ -93,12 +94,13 @@ private fun Studio(library: RecordingLibrary, speech: SpeechConnection, toggle: 
 			}
 			if (library.message != 0) item { Text(stringResource(library.message), color = MaterialTheme.colorScheme.error) }
 			item { ConnectionPanel(speech) }
+			item { SummaryModelPanel(local) }
 			if (speech.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
 			item { Text(stringResource(R.string.library), style = MaterialTheme.typography.titleLarge) }
 			if (library.files.isEmpty()) item { Text(stringResource(R.string.empty)) }
 			items(library.files, key = { it.name }) { file ->
 				Text(DateFormat.getDateTimeInstance().format(Date(file.lastModified())))
-				TranscriptionRow(file, speech)
+				TranscriptionRow(file, speech, local)
 				HorizontalDivider()
 			}
 		}

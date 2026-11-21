@@ -28,4 +28,8 @@
 	<string name="invalid">Enter an HTTPS endpoint, a model ID and an API key.</string>
 	<string name="failed">Could not complete the request. Check your connection, key and selected model.</string>
 	<string name="http_error">Provider returned HTTP %1$d.</string>
+	<string name="download_model">Download offline summary model · Qwen3 (328 MiB)</string>
+	<string name="remove_model">Remove offline summary model</string>
+	<string name="summary_error">Local summary failed. Check model download, memory and storage.</string>
+	<string name="summarize">Summarize on this device</string>
 </resources>

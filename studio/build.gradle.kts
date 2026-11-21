@@ -16,6 +16,7 @@ android {
 	buildFeatures { compose = true }
 }
 dependencies {
+	implementation("com.google.ai.edge.litertlm:litertlm-android:0.19.1")
 	implementation(platform("androidx.compose:compose-bom:2026.09.00"))
 	implementation("androidx.compose.material3:material3")
 	implementation("androidx.activity:activity-compose:1.13.0")

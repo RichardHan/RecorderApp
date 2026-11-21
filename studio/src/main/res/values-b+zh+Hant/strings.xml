@@ -28,4 +28,8 @@
 	<string name="invalid">請填寫 HTTPS 端點、模型 ID 和 API 金鑰。</string>
 	<string name="failed">請求失敗，請檢查連線、金鑰與模型。</string>
 	<string name="http_error">服務商回傳 HTTP %1$d。</string>
+	<string name="download_model">下載離線摘要模型 · Qwen3（328 MiB）</string>
+	<string name="remove_model">移除離線摘要模型</string>
+	<string name="summary_error">本機摘要作業失敗，請檢查模型下載、記憶體與儲存空間。</string>
+	<string name="summarize">在手機上產生摘要</string>
 </resources>
