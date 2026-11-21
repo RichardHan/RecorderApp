@@ -47,4 +47,6 @@
 	<string name="pause_model">ダウンロードを一時停止</string>
 	<string name="discard_model">ダウンロード済みの部分を削除</string>
 	<string name="check_model">モデルを検証中…</string>
+	<string name="shared_audio">共有された音声ファイル</string>
+	<string name="confirm_import">読み込む</string>
 </resources>

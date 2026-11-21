@@ -1,5 +1,8 @@
 package io.github.richardhan.voicenote
 
+import android.content.Intent
+import android.net.Uri
+import android.os.BadParcelableException
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -29,13 +32,18 @@ class StudioActivity : ComponentActivity() {
 	private val library: RecordingLibrary by viewModels()
 	private val local: LocalSummary by viewModels()
 	private val speech: SpeechConnection by viewModels()
+	private var sharedSource by mutableStateOf<Uri?>(null)
+
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
+		if (savedInstanceState != null) sharedSource = savedInstanceState.getString("pendingImport")?.let(Uri::parse)
+		else if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) receiveShare(intent)
 		setContent {
 			StudioTheme { appearance, dark, choose ->
 				val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
 					if (it) library.start() else library.message = R.string.permission
 				}
+				sharedSource?.let { source -> key(source) { SharedImportDialog(source, library) { sharedSource = null } } }
 				Studio(library, speech, local, dark, heading = { StudioHeading(appearance, choose) }) {
 					when {
 						library.started != 0L -> library.finish()
@@ -46,6 +54,22 @@ class StudioActivity : ComponentActivity() {
 			}
 		}
 	}
+	override fun onNewIntent(intent: Intent) {
+		super.onNewIntent(intent)
+		receiveShare(intent)
+	}
+
+	private fun receiveShare(intent: Intent) {
+		if (intent.action != Intent.ACTION_SEND) return
+		sharedSource = try { intent.sharedImportSource() } catch (_: BadParcelableException) { null }
+		if (sharedSource == null) library.message = R.string.import_error
+	}
+
+	override fun onSaveInstanceState(outState: Bundle) {
+		super.onSaveInstanceState(outState)
+		outState.putString("pendingImport", sharedSource?.toString())
+	}
+
 	override fun onStop() {
 		if (!isChangingConfigurations) library.finish()
 		super.onStop()

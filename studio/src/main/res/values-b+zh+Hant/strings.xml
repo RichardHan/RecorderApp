@@ -47,4 +47,6 @@
 	<string name="pause_model">暫停下載</string>
 	<string name="discard_model">刪除已下載部分</string>
 	<string name="check_model">正在驗證模型…</string>
+	<string name="shared_audio">分享的音檔</string>
+	<string name="confirm_import">匯入</string>
 </resources>

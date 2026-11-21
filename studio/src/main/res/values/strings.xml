@@ -47,4 +47,6 @@
 	<string name="pause_model">Pause download</string>
 	<string name="discard_model">Delete partial download</string>
 	<string name="check_model">Verifying model…</string>
+	<string name="shared_audio">Shared audio file</string>
+	<string name="confirm_import">Import</string>
 </resources>
