@@ -35,6 +35,8 @@ import com.eva.cloudtranscribe.live.LiveCloudSettings
 import com.eva.cloudtranscribe.live.LiveCloudSettingsRepository
 import com.eva.cloudtranscribe.secure.ApiKeyStore
 import com.eva.cloudtranscribe.secure.SummaryApiKeyStore
+import com.eva.cloudtranscribe.settings.CloudSettingsRepository
+import com.eva.cloudtranscribe.settings.ModelShortcuts
 import com.eva.feature_settings.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -53,6 +55,7 @@ import com.eva.cloudtranscribe.live.SummaryProbe
 @HiltViewModel
 internal class LiveCloudSettingsViewModel @Inject constructor(
 	private val repo: LiveCloudSettingsRepository,
+	private val cloudSettings: CloudSettingsRepository,
 	private val summaryKeys: SummaryApiKeyStore,
 	private val asrKeys: ApiKeyStore,
 ) : ViewModel() {
@@ -84,9 +87,14 @@ internal class LiveCloudSettingsViewModel @Inject constructor(
 	override fun onCleared() { probeTransport?.cancel(); super.onCleared() }
 
 	val settings: StateFlow<LiveCloudSettings?> = repo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+	val recentSummaryModels: StateFlow<List<String>> =
+		cloudSettings.recentSummaryModels.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 	val hasSummaryKey: StateFlow<Boolean> = summaryKeys.hasKey
 	val hasAsrKey: StateFlow<Boolean> = asrKeys.hasKey
-	fun save(s: LiveCloudSettings) = viewModelScope.launch { repo.update { s } }
+	fun save(s: LiveCloudSettings) = viewModelScope.launch {
+		repo.update { s }
+		cloudSettings.recordRecentSummary(s.summaryModel)
+	}
 	fun saveKey(k: String) { if (k.isNotBlank()) summaryKeys.save(k) }
 	fun removeKey() = summaryKeys.clear()
 }
@@ -97,6 +105,7 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 	val saved by viewModel.settings.collectAsStateWithLifecycle()
 	val hasSummaryKey by viewModel.hasSummaryKey.collectAsStateWithLifecycle()
 	val hasAsrKey by viewModel.hasAsrKey.collectAsStateWithLifecycle()
+	val recentSummary by viewModel.recentSummaryModels.collectAsStateWithLifecycle()
 	val current = saved ?: return
 	var draft by remember(current) { mutableStateOf(current) }
 	var keyInput by remember { mutableStateOf("") }
@@ -134,6 +143,13 @@ internal fun LiveCloudSettingsSection(viewModel: LiveCloudSettingsViewModel = hi
 			isError = draft.summaryBaseUrl.isNotBlank() && !draft.summaryBaseUrl.startsWith("https://"))
 		OutlinedTextField(draft.summaryModel, { draft = draft.copy(summaryModel = it.trim()) }, Modifier.fillMaxWidth(),
 			label = { Text(stringResource(StringsRes.string.feature_settings_summary_model_default, (LiveCloudSettings.DEFAULT_SUMMARY_MODEL).toString())) }, singleLine = true)
+		ModelShortcutChips(
+			current = draft.summaryModel,
+			recents = recentSummary,
+			presets = ModelShortcuts.PRESETS,
+			onPick = { draft = draft.copy(summaryModel = it) },
+			testTag = "live-summary-model-shortcuts",
+		)
 		OutlinedTextField(draft.summaryPrompt, { draft = draft.copy(summaryPrompt = it) }, Modifier.fillMaxWidth(),
 			label = { Text(stringResource(StringsRes.string.feature_settings_highlight_prompt_editable)) }, minLines = 4, maxLines = 10)
 		TextButton(onClick = { draft = draft.copy(summaryPrompt = LiveCloudSettings.DEFAULT_SUMMARY_PROMPT) }) { Text(stringResource(StringsRes.string.feature_settings_restore_default_prompt)) }

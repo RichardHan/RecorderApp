@@ -1,6 +1,7 @@
 package com.eva.cloudtranscribe.settings
 
 import android.content.Context
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -12,6 +13,8 @@ import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
 private val Context.cloudAiPrefs by preferencesDataStore(name = "cloud_ai_settings")
@@ -21,6 +24,9 @@ private val Context.cloudAiPrefs by preferencesDataStore(name = "cloud_ai_settin
 class CloudSettingsRepository @Inject constructor(@ApplicationContext private val context: Context) {
 	private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 	private val key = stringPreferencesKey("settings_v1")
+	private val recentTranscribeKey = stringPreferencesKey("recent_transcribe_models_v1")
+	private val recentSummaryKey = stringPreferencesKey("recent_summary_models_v1")
+	private val stringList = ListSerializer(String.serializer())
 
 	private fun decode(raw: String?): CloudSettings =
 		raw?.let { runCatching { json.decodeFromString(CloudSettings.serializer(), it) }.getOrNull() } ?: CloudSettings()
@@ -32,6 +38,8 @@ class CloudSettingsRepository @Inject constructor(@ApplicationContext private va
 	)
 
 	val settings: Flow<CloudSettings> = context.cloudAiPrefs.data.map { prefs -> decode(prefs[key]) }
+	val recentTranscribeModels: Flow<List<String>> = context.cloudAiPrefs.data.map { decodeRecent(it[recentTranscribeKey]) }
+	val recentSummaryModels: Flow<List<String>> = context.cloudAiPrefs.data.map { decodeRecent(it[recentSummaryKey]) }
 
 	suspend fun current(): CloudSettings = settings.first()
 
@@ -40,4 +48,19 @@ class CloudSettingsRepository @Inject constructor(@ApplicationContext private va
 			prefs[key] = json.encodeToString(CloudSettings.serializer(), transform(decode(prefs[key])).normalized())
 		}
 	}
+
+	/** Records a successfully saved transcription-model value (newest first, max 5). */
+	suspend fun recordRecentTranscribe(value: String) = recordRecent(recentTranscribeKey, value)
+
+	/** Records a successfully saved summary-model value (newest first, max 5). Shared with live-cloud summary. */
+	suspend fun recordRecentSummary(value: String) = recordRecent(recentSummaryKey, value)
+
+	private suspend fun recordRecent(storeKey: Preferences.Key<String>, value: String) {
+		context.cloudAiPrefs.edit { prefs ->
+			prefs[storeKey] = json.encodeToString(stringList, ModelShortcuts.record(decodeRecent(prefs[storeKey]), value))
+		}
+	}
+
+	private fun decodeRecent(raw: String?): List<String> =
+		ModelShortcuts.sanitize(raw?.let { runCatching { json.decodeFromString(stringList, it) }.getOrNull() } ?: emptyList())
 }
