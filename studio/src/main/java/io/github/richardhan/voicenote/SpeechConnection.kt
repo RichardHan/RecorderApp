@@ -106,14 +106,15 @@ class SpeechConnection : ViewModel() {
 		}
 	}
 
-	private fun storeTranscript(file: File, text: String) {
+	private fun storeTranscript(file: File, text: String, segments: org.json.JSONArray? = null) {
 		require(text.isNotBlank())
+		saveTiming(file, text, segments)
 		val destination = transcriptFile(file)
 		val temp = File.createTempFile("transcript-", ".part", destination.parentFile)
 		try { temp.writeText(text); check(temp.renameTo(destination)) } finally { temp.delete() }
 	}
 
-	fun transcribe(file: File) {
+	fun transcribe(file: File, timestamps: Boolean = false) {
 		if (!valid()) { error = R.string.invalid; return }
 		val url = "${endpoint()}/audio/transcriptions"
 		val token = key.trim()
@@ -122,7 +123,8 @@ class SpeechConnection : ViewModel() {
 			withContext(Dispatchers.IO) {
 				val reply = exchange(url, token) { connection ->
 					val boundary = UUID.randomUUID().toString()
-					val header = "--$boundary\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\n$chosen\r\n" +
+					val format = if (timestamps) "--$boundary\r\nContent-Disposition: form-data; name=\"response_format\"\r\n\r\nverbose_json\r\n" else ""
+					val header = format + "--$boundary\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\n$chosen\r\n" +
 						"--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"recording.${file.extension}\"\r\nContent-Type: ${audioTypes.getValue(file.extension)}\r\n\r\n"
 					val prefix = header.toByteArray()
 					val suffix = "\r\n--$boundary--\r\n".toByteArray()
@@ -136,7 +138,7 @@ class SpeechConnection : ViewModel() {
 						out.write(suffix)
 					}
 				}
-				storeTranscript(file, reply.getString("text"))
+				storeTranscript(file, reply.getString("text"), reply.optJSONArray("segments"))
 			}
 			revision++
 		}

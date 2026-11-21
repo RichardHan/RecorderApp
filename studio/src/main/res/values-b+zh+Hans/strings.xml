@@ -66,4 +66,19 @@
 	<string name="match_position">第 %1$d 处，共 %2$d 处</string>
 	<string name="previous_match">上一处</string>
 	<string name="next_match">下一处</string>
+	<string name="turns">发言人时间轴</string>
+	<string name="turn_hint">在设备上分析最长 10 分钟的录音。同一人可能被分为多个标签。带时间戳的转录可显示对应文字。</string>
+	<string name="turn_count">人数（留空自动判断）</string>
+	<string name="turn_analyze">在设备上分析</string>
+	<string name="turn_download">下载发言人模型 · 39 MiB</string>
+	<string name="turn_timing">请求分段时间戳（仅限支持的模型）</string>
+	<string name="turn_limit">请先将录音修剪至 10 分钟以内。</string>
+	<string name="turn_error">发言人分析失败。请检查模型下载、音频格式与可用空间。</string>
+	<string name="speaker_number">发言人 %1$d</string>
+	<string name="speaker_alias">此录音中的姓名</string>
+	<string name="no_speakers">未找到发言片段。</string>
+	<string name="rerun_names">重新分析将重置此录音中的发言人姓名。</string>
+	<string name="turn_listen">试听</string>
+	<string name="turn_play_description">%1$s，%2$s，%3$s</string>
+	<string name="turn_play_error">无法播放这段录音。</string>
 </resources>

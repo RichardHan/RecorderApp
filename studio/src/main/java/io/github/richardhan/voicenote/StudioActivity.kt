@@ -31,6 +31,7 @@ import java.util.Locale
 
 class StudioActivity : ComponentActivity() {
 	private val library: RecordingLibrary by viewModels()
+	private val speakers: SpeakerAnalysis by viewModels()
 	private val local: LocalSummary by viewModels()
 	private val speech: SpeechConnection by viewModels()
 	private var sharedSource by mutableStateOf<Uri?>(null)
@@ -45,7 +46,7 @@ class StudioActivity : ComponentActivity() {
 					if (it) library.start() else library.message = R.string.permission
 				}
 				sharedSource?.let { source -> key(source) { SharedImportDialog(source, library) { sharedSource = null } } }
-				Studio(library, speech, local, dark, heading = { StudioHeading(appearance, choose) }) {
+				Studio(library, speech, local, speakers, dark, heading = { StudioHeading(appearance, choose) }) {
 					when {
 						library.started != 0L -> library.finish()
 						checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> library.start()
@@ -82,6 +83,7 @@ private fun Studio(
 	library: RecordingLibrary,
 	speech: SpeechConnection,
 	local: LocalSummary,
+	speakers: SpeakerAnalysis,
 	dark: Boolean,
 	heading: @Composable () -> Unit,
 	toggle: () -> Unit
@@ -148,6 +150,7 @@ private fun Studio(
 						Text(DateFormat.getDateTimeInstance().format(Date(file.lastModified())))
 						TranscriptionRow(file, speech, local)
 						TrimAction(file, library::refresh)
+						SpeakerAction(file, speakers, speech.revision)
 						HorizontalDivider()
 					}
 				}

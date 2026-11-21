@@ -66,4 +66,19 @@
 	<string name="match_position">%2$d 件中 %1$d 件目</string>
 	<string name="previous_match">前の一致</string>
 	<string name="next_match">次の一致</string>
+	<string name="turns">話者タイムライン</string>
+	<string name="turn_hint">端末で最大10分の録音を解析します。同じ人が複数の話者に分かれることがあります。タイムスタンプ付きの文字起こしがあれば発言内容も表示します。</string>
+	<string name="turn_count">話者数（空欄で自動）</string>
+	<string name="turn_analyze">端末で解析</string>
+	<string name="turn_download">話者モデルをダウンロード · 39 MiB</string>
+	<string name="turn_timing">区間のタイムスタンプを取得（対応モデルのみ）</string>
+	<string name="turn_limit">録音を10分以内にトリミングしてください。</string>
+	<string name="turn_error">話者解析に失敗しました。モデルのダウンロード、音声形式、空き容量を確認してください。</string>
+	<string name="speaker_number">話者 %1$d</string>
+	<string name="speaker_alias">この録音での名前</string>
+	<string name="no_speakers">発話区間が見つかりませんでした。</string>
+	<string name="rerun_names">再解析するとこの録音の話者名がリセットされます。</string>
+	<string name="turn_listen">試聴</string>
+	<string name="turn_play_description">%1$s、%2$s、%3$s</string>
+	<string name="turn_play_error">この区間を再生できませんでした。</string>
 </resources>
