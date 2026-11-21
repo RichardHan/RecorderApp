@@ -102,12 +102,12 @@ internal class DeviceContextSession(
 
 		val endedAt = clock()
 		val batteryEnd = runCatching { collector.captureBattery() }.getOrNull()
-		val storageEnd = runCatching { collector.captureStorage() }.getOrNull()
 		val storageStart = withTimeoutOrNull(1_000L) { capture.storageDeferred.await() }
 			?: run {
 				capture.storageDeferred.cancel()
 				null
 			}
+		val storageEnd = runCatching { collector.captureStorage() }.getOrNull()
 		val location = capture.locationDeferred?.let { deferred ->
 			withTimeoutOrNull(FINISH_LOCATION_GRACE_MS) { deferred.await() }
 				?: run {

@@ -151,6 +151,7 @@ class DeviceContextSessionTest {
 		val settingsRepo = mockk<DeviceContextSettingsRepository>()
 		coEvery { settingsRepo.current() } returns DeviceContextSettings(enabled = true, includeLocation = true)
 
+		val locationStarted = CompletableDeferred<Unit>()
 		val locationCancelled = CompletableDeferred<Boolean>()
 		val collector = object : DeviceContextCollector {
 			override fun captureBattery() = BatterySnapshot(levelPercent = 70, capturedAtMillis = 100L)
@@ -158,6 +159,7 @@ class DeviceContextSessionTest {
 			override suspend fun captureStorage() = StorageSnapshot(freeBytes = 10_000_000_000L, totalBytes = 64_000_000_000L, capturedAtMillis = 100L)
 			override suspend fun captureLocation(): DeviceLocationSnapshot? {
 				try {
+					locationStarted.complete(Unit)
 					delay(10_000L)
 					return null
 				} finally {
@@ -168,7 +170,7 @@ class DeviceContextSessionTest {
 
 		val session = DeviceContextSession(collector, settingsRepo, store, scope)
 		session.beginSession()
-		delay(30L)
+		locationStarted.await()
 		session.cancelSession()
 		session.finishSession(101L)
 
