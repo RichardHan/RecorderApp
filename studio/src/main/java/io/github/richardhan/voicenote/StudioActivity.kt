@@ -109,8 +109,14 @@ private fun Studio(library: RecordingLibrary, speech: SpeechConnection, toggle: 
 			item { Text(stringResource(R.string.library), style = MaterialTheme.typography.titleLarge) }
 			if (library.files.isEmpty()) item { Text(stringResource(R.string.empty)) }
 			items(library.files, key = { it.name }) { file ->
-				Text(DateFormat.getDateTimeInstance().format(Date(file.lastModified())))
-				TranscriptionRow(file, speech)
+				val recordedAt = DateFormat.getDateTimeInstance().format(Date(file.lastModified()))
+				Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+					Text(recordedAt, Modifier.weight(1f))
+					TextButton(onClick = { library.togglePlayback(file) }, enabled = !active) {
+						Text(stringResource(if (library.playingFile == file) R.string.stop_playback else R.string.play))
+					}
+				}
+				TranscriptionRow(file, recordedAt, speech)
 				HorizontalDivider()
 			}
 		}
