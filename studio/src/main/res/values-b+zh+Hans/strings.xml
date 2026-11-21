@@ -36,4 +36,9 @@
 	<string name="theme_system">跟随系统</string>
 	<string name="theme_light">浅色</string>
 	<string name="theme_dark">深色</string>
+	<string name="resume_model">继续下载模型</string>
+	<string name="download_percent">模型下载进度：%1$d%%</string>
+	<string name="pause_model">暂停下载</string>
+	<string name="discard_model">删除已下载部分</string>
+	<string name="check_model">正在验证模型…</string>
 </resources>
