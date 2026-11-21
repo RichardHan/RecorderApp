@@ -46,7 +46,8 @@ internal class CloudUsageViewModel @Inject constructor(private val store: Transc
 					val ids = store.recordingIds()
 					val transcripts = ids.flatMap { runCatching { store.transcripts(it) }.getOrDefault(emptyList()) }
 					val summaries = ids.flatMap { runCatching { store.summaries(it) }.getOrDefault(emptyList()) }
-					CloudUsage.summarize(transcripts, summaries, ZoneId.systemDefault(), System.currentTimeMillis())
+					val titleRequests = ids.flatMap { runCatching { store.autoTitleMarker(it)?.requestAtMillis.orEmpty() }.getOrDefault(emptyList()) }
+					CloudUsage.summarize(transcripts, summaries, ZoneId.systemDefault(), System.currentTimeMillis(), titleRequestAtMillis = titleRequests)
 				}
 			} finally {
 				loading = false

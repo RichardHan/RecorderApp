@@ -29,6 +29,10 @@ class CloudDoneMessagesTests {
 		assertEquals("「a」摘要完成：" + "字".repeat(CloudDoneMessages.MAX_POINT) + "…", long)
 		assertEquals("「錄音」摘要失敗", CloudDoneMessages.summary(RunStatus.FAILED, " ", ""))
 		assertNull(CloudDoneMessages.summary(RunStatus.CANCELLED, "a", ""))
+		assertEquals(
+			"「2026-11-20 1530 週會討論」摘要完成（已自動命名）：報價上限五十萬",
+			CloudDoneMessages.summary(RunStatus.SUCCESS, "2026-11-20 1530 週會討論", "- 報價上限五十萬", autoTitled = true),
+		)
 	}
 
 	@Test

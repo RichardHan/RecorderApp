@@ -139,4 +139,5 @@
 	<string name="data_cloudtranscribe_transcription_was_incomplete_and_may_contain_gaps">⚠ 非完整成功逐字稿，可能有遺漏或尚未完成的內容。</string>
 	<string name="data_cloudtranscribe_upload_fell_behind_this_segment_was_skipped">雲端跟不上，此段未上傳（錄音完整保存，可事後重轉）</string>
 	<string name="data_cloudtranscribe_use_https_for_the_summary_endpoint">摘要 Endpoint 必須是 https://</string>
+	<string name="auto_title_applied">"（已自動命名）"</string>
 </resources>

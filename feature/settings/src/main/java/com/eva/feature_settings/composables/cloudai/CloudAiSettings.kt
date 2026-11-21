@@ -221,7 +221,7 @@ internal fun CloudAiSettingsContent(
 			}
 			draft.validate(hasKey)?.let { Text(stringResource(StringsRes.string.feature_settings_unavailable, (it).toString()), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 		}
-		SettingsCard(UiStrings.get(StringsRes.string.feature_settings_summary, "摘要"), summaryFormatLabel(current.summaryFormat) + UiStrings.get(StringsRes.string.feature_settings_auto_summary, "・自動摘要") + onOff(current.autoSummaryAfterTranscript), "ai-summary") {
+		SettingsCard(UiStrings.get(StringsRes.string.feature_settings_summary, "摘要"), summaryFormatLabel(current.summaryFormat) + UiStrings.get(StringsRes.string.feature_settings_auto_summary, "・自動摘要") + onOff(current.autoSummaryAfterTranscript) + stringResource(StringsRes.string.auto_title_short) + onOff(current.autoTitleAfterSummary), "ai-summary") {
 			Text(stringResource(StringsRes.string.feature_settings_summary_format), style = MaterialTheme.typography.bodyLarge)
 			Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
 				SummaryFormat.entries.forEach { format ->
@@ -241,6 +241,7 @@ internal fun CloudAiSettingsContent(
 			}
 			SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_include_source_timestamps, "附來源時間"), draft.summaryCitations, UiStrings.get(StringsRes.string.feature_settings_for_cloud_transcripts_uses_additional_tokens, "只限雲端逐字稿；會多用 token")) { draft = draft.copy(summaryCitations = it) }
 			SettingSwitch(UiStrings.get(StringsRes.string.feature_settings_summarize_after_transcription, "轉錄後自動摘要"), draft.autoSummaryAfterTranscript, androidx.compose.ui.res.stringResource(com.eva.feature_settings.R.string.auto_summary_cost_hint)) { if (it) confirmAutoSummary = true else draft = draft.copy(autoSummaryAfterTranscript = false) }
+			SettingSwitch(stringResource(StringsRes.string.auto_title_setting), draft.autoTitleAfterSummary, stringResource(StringsRes.string.auto_title_cost_hint)) { draft = draft.copy(autoTitleAfterSummary = it) }
 		}
 		SettingsCard(UiStrings.get(StringsRes.string.feature_settings_transcription, "轉錄"), UiStrings.get(StringsRes.string.feature_settings_automatic_transcription, "自動轉錄") + onOff(current.autoAfterRecording) + UiStrings.get(StringsRes.string.feature_settings_vocabulary_terms, "・詞彙 %1\$s 個", current.customVocabulary.size), "ai-transcribe") {
 			CustomVocabularySection(peopleText = peopleText, termsText = termsText, kept = vocabulary.size, onPeople = { peopleText = it }, onTerms = { termsText = it })

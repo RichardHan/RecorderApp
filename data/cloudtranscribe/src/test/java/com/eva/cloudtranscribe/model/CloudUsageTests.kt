@@ -60,4 +60,17 @@ class CloudUsageTests {
 		assertEquals(0, usage.sumOf { it.cloudTranscripts + it.summaries })
 		assertEquals("1.5", CloudUsage.minutes(90_000))
 	}
+
+	@Test
+	fun title_requests_are_counted_in_the_same_request_total() {
+		val usage = CloudUsage.summarize(
+			transcripts = listOf(t(novStart, requests = 3, segments = listOf(seg(0, 60_000, 1)))),
+			summaries = listOf(s(now)),
+			zone = taipei,
+			nowMillis = now,
+			titleRequestAtMillis = listOf(novStart, now, octEnd),
+		)
+		assertEquals(MonthUsage(YearMonth.of(2026, 11), 1, 60_000, 5, 1), usage[0])
+		assertEquals(MonthUsage(YearMonth.of(2026, 10), 0, 0, 1, 0), usage[1])
+	}
 }

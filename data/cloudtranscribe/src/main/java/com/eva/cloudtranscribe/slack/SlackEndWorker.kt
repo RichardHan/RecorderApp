@@ -16,6 +16,7 @@ import com.eva.cloudtranscribe.model.CloudSettings
 import com.eva.cloudtranscribe.secure.ApiKeyStore
 import com.eva.cloudtranscribe.settings.CloudSettingsRepository
 import com.eva.cloudtranscribe.store.TranscriptStore
+import com.eva.cloudtranscribe.title.AutoTitleRenamer
 import com.eva.recordings.domain.provider.VoiceRecordingsProvider
 import com.eva.utils.Resource
 import dagger.assisted.Assisted
@@ -71,6 +72,7 @@ class SlackEndWorker @AssistedInject constructor(
 	private val keys: ApiKeyStore,
 	private val recordings: VoiceRecordingsProvider,
 	private val outbox: WorkManagerSlackOutbox,
+	private val autoTitle: AutoTitleRenamer,
 ) : CoroutineWorker(context, params) {
 
 	override suspend fun doWork(): Result {
@@ -88,6 +90,7 @@ class SlackEndWorker @AssistedInject constructor(
 		val records = if (recordingId > 0L) runCatching { store.summaries(recordingId) }.getOrDefault(emptyList()) else emptyList()
 		val summary = SlackEndPolicy.pickPostRecordingSummary(records)
 		val cloud = settingsRepo.current()
+		if (recordingId > 0L) runCatching { autoTitle.applyIfEligible(recordingId) }
 		val waitForPipeline = SlackEndPolicy.shouldWaitForPipeline(cloud.autoAfterRecording, cloud.autoSummaryAfterTranscript)
 		when (
 			SlackEndPolicy.decide(
@@ -100,7 +103,7 @@ class SlackEndWorker @AssistedInject constructor(
 		) {
 			SlackEndPolicy.Wait.WAIT -> return Result.retry()
 			SlackEndPolicy.Wait.READY -> {
-				val title = givenTitle ?: recordingTitle(recordingId)
+				val title = recordingTitle(recordingId) ?: givenTitle
 				val text = maybeMask(
 					mask,
 					SlackEndMessage.compose(title, durationMs, summary?.text, livePoints),
@@ -109,7 +112,7 @@ class SlackEndWorker @AssistedInject constructor(
 				return Result.success()
 			}
 			SlackEndPolicy.Wait.FALLBACK -> {
-				val title = givenTitle ?: recordingTitle(recordingId)
+				val title = recordingTitle(recordingId) ?: givenTitle
 				val condensed = maybeCondense(cloud, livePoints)
 				val text = maybeMask(
 					mask,

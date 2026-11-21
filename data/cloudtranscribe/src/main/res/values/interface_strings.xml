@@ -139,4 +139,5 @@
 	<string name="data_cloudtranscribe_transcription_was_incomplete_and_may_contain_gaps">⚠ Transcription was incomplete and may contain gaps.</string>
 	<string name="data_cloudtranscribe_upload_fell_behind_this_segment_was_skipped">Upload fell behind. This segment was skipped. The recording was saved and can be transcribed later.</string>
 	<string name="data_cloudtranscribe_use_https_for_the_summary_endpoint">Use HTTPS for the summary endpoint</string>
+	<string name="auto_title_applied">" (automatically named)"</string>
 </resources>

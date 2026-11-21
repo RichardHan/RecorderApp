@@ -1,5 +1,5 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-	<string name="cloud_usage_month">%1$s：雲端轉錄 %2$d 筆・曾送出片段約 %3$s 分鐘・轉錄請求 %4$d 次・摘要工作 %5$d 筆</string>
-	<string name="cloud_usage_scope">僅估算本機仍保留的紀錄。片段分鐘不重複計入重試；請求數僅含轉錄，摘要筆數包含未完成工作，不代表摘要請求次數。不含已刪除錄音、章節、問答、翻譯與即時重點。不是帳單，費用以服務商後台為準。</string>
+    <string name="cloud_usage_month">%1$s：雲端轉錄 %2$d 筆・曾送出片段約 %3$s 分鐘・請求 %4$d 次・摘要工作 %5$d 筆</string>
+    <string name="cloud_usage_scope">僅估算本機仍保留的紀錄。片段分鐘不重複計入重試；請求數含轉錄與自動命名請求，摘要筆數包含未完成工作，不代表摘要請求次數。不含已刪除錄音、章節、問答、翻譯與即時重點。不是帳單，費用以服務商後台為準。</string>
 </resources>

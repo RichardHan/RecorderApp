@@ -33,11 +33,11 @@ object CloudDoneMessages {
 		else -> null
 	}
 
-	fun summary(status: RunStatus, title: String?, text: String): String? = when (status) {
+	fun summary(status: RunStatus, title: String?, text: String, autoTitled: Boolean = false): String? = when (status) {
 		RunStatus.SUCCESS -> {
 			val first = text.lines().map { BULLET.replace(it.trim(), "") }.firstOrNull { it.isNotEmpty() && !it.startsWith("#") }
 			val point = first?.let { if (it.length > MAX_POINT) it.take(MAX_POINT) + "…" else it }
-			UiStrings.get(StringsRes.string.data_cloudtranscribe_summary_complete, "%1\$s摘要完成", name(title)) + (point?.let { "：$it" } ?: "")
+			UiStrings.get(StringsRes.string.data_cloudtranscribe_summary_complete, "%1\$s摘要完成", name(title)) + (if (autoTitled) UiStrings.get(StringsRes.string.auto_title_applied, "（已自動命名）") else "") + (point?.let { "：$it" } ?: "")
 		}
 		RunStatus.FAILED -> UiStrings.get(StringsRes.string.data_cloudtranscribe_summary_failed, "%1\$s摘要失敗", name(title))
 		else -> null

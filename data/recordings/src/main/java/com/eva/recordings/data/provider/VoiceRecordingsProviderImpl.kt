@@ -264,6 +264,7 @@ internal class VoiceRecordingsProviderImpl(
 				val uri = recording.fileUri.toUri()
 				val contentValues = ContentValues().apply {
 					put(MediaStore.Audio.AudioColumns.DISPLAY_NAME, newName)
+					put(MediaStore.Audio.AudioColumns.TITLE, titleFromDisplayName(newName))
 				}
 				val isSuccess = withContext(Dispatchers.IO) {
 					contentResolver.update(uri, contentValues, null, null)
@@ -289,4 +290,12 @@ internal class VoiceRecordingsProviderImpl(
 			}
 		}
 	}
+}
+
+internal fun titleFromDisplayName(displayName: String): String {
+	val name = displayName.trim()
+	val dot = name.lastIndexOf('.')
+	if (dot <= 0) return name
+	val ext = name.substring(dot + 1)
+	return if (ext.length in 1..8 && ext.all { it.isLetterOrDigit() }) name.substring(0, dot) else name
 }
