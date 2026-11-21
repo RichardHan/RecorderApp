@@ -5,4 +5,6 @@
 	<string name="auto_title_short">"・自動命名"</string>
 	<string name="auto_title_setting">"摘要完成後自動用 AI 命名"</string>
 	<string name="auto_title_cost_hint">"多一次短文字請求（失敗時改用摘要首行）；只改尚未手動改名的檔案"</string>
+	<string name="setting_state_on">已開啟</string>
+	<string name="setting_state_off">關閉</string>
 </resources>

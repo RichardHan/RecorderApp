@@ -82,4 +82,4 @@ internal fun InfoLine(short: String, detail: String? = null) {
 	}
 }
 
-internal fun onOff(on: Boolean) = if (on) UiStrings.get(StringsRes.string.feature_settings_enabled, "已開啟") else UiStrings.get(StringsRes.string.feature_settings_close, "關閉")
+internal fun onOff(on: Boolean) = if (on) UiStrings.get(StringsRes.string.setting_state_on, "已開啟") else UiStrings.get(StringsRes.string.setting_state_off, "關閉")
