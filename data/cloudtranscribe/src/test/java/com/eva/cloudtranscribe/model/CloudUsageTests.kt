@@ -1,5 +1,7 @@
 package com.eva.cloudtranscribe.model
 
+import com.eva.cloudtranscribe.usage.ModelPrice
+import com.eva.cloudtranscribe.usage.TokenUsageEvent
 import java.time.YearMonth
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
@@ -72,5 +74,44 @@ class CloudUsageTests {
 		)
 		assertEquals(MonthUsage(YearMonth.of(2026, 11), 1, 60_000, 5, 1), usage[0])
 		assertEquals(MonthUsage(YearMonth.of(2026, 10), 0, 0, 1, 0), usage[1])
+	}
+
+	@Test
+	fun token_events_fill_the_month_and_hide_empty_months() {
+		val events = listOf(
+			TokenUsageEvent(novStart, "gemini-3.8-flash", 1_000_000, 200_000, recordingId = 8),
+			TokenUsageEvent(octEnd, "gemini-3.8-flash", 500_000, 0, recordingId = 7),
+		)
+		val prices = listOf(ModelPrice("gemini-3.8-flash", "1", "2"))
+		val usage = CloudUsage.summarize(
+			transcripts = emptyList(),
+			summaries = emptyList(),
+			zone = taipei,
+			nowMillis = now,
+			tokenEvents = events,
+			prices = prices,
+		)
+		assertEquals(1_000_000L, usage[0].promptTokens)
+		assertEquals(200_000L, usage[0].completionTokens)
+		assertEquals(1.4, usage[0].cost.amount!!, 1e-9)
+		assertEquals(500_000L, usage[1].promptTokens)
+		val visible = CloudUsage.visibleMonths(usage)
+		assertEquals(listOf(usage[0], usage[1]), visible)
+	}
+
+	@Test
+	fun last_30_days_and_per_recording_use_the_token_log() {
+		val events = listOf(
+			TokenUsageEvent(now - 2L * 86_400_000L, "m", 100, 10, recordingId = 1),
+			TokenUsageEvent(now - 40L * 86_400_000L, "m", 999, 9, recordingId = 2),
+			TokenUsageEvent(now - 1_000L, "m", 50, 5, recordingId = 1),
+		)
+		val last30 = CloudUsage.lastDays(events, emptyList(), now)
+		assertEquals(150L, last30.promptTokens)
+		assertEquals(15L, last30.completionTokens)
+		assertEquals(2, last30.tokenRequests)
+		val rec = CloudUsage.forRecording(1L, events, emptyList())
+		assertEquals(150L, rec.promptTokens)
+		assertEquals(1L, rec.recordingId)
 	}
 }

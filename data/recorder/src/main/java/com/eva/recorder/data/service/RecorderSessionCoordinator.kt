@@ -34,6 +34,7 @@ internal class RecorderSessionCoordinator(
 	private val liveCloud: LiveCloudCoordinator,
 	private val transcriptStore: TranscriptStore,
 	private val liveToggles: com.eva.recorder.domain.live.RecorderLiveToggles? = null,
+	private val sessionCapture: com.eva.cloudtranscribe.usage.RecordingSessionCapture? = null,
 ) {
 	/** Serializes recorder lifecycle commands while keeping post-stop cloud HTTP flush outside the lock. */
 	private val commandLock = Mutex()
@@ -71,8 +72,12 @@ internal class RecorderSessionCoordinator(
 				if (!started && initializedSession) {
 					liveCloud.cancelActiveSession()
 					runCatching { liveToggles?.endRecording() }
+					runCatching { sessionCapture?.onRecordingAbandoned() }
 				}
-				if (started) onStarted()
+				if (started) {
+					runCatching { sessionCapture?.onRecordingStarted() }
+					onStarted()
+				}
 				started
 			}
 		} finally {
@@ -103,6 +108,7 @@ internal class RecorderSessionCoordinator(
 			liveCloud.cancel()
 			recorder.cancelRecording()
 			runCatching { liveToggles?.endRecording() }
+			runCatching { sessionCapture?.onRecordingAbandoned() }
 			onCancelled()
 		}
 	}
@@ -122,6 +128,7 @@ internal class RecorderSessionCoordinator(
 				recorder.stopRecording().fold(
 					onSuccess = { recordingId ->
 						savedRecordingId = recordingId
+						runCatching { sessionCapture?.onRecordingSaved(recordingId) }
 						// Detach this recording's live-cloud session while serialized with start/cancel
 						detachedCloud = liveCloud.detachForFinish()
 						onRecordingSaved(recordingId, timeBeforeSave)
@@ -136,6 +143,7 @@ internal class RecorderSessionCoordinator(
 					onFailure = { error ->
 						liveCloud.cancelActiveSession()
 						runCatching { liveToggles?.endRecording() }
+						runCatching { sessionCapture?.onRecordingAbandoned() }
 						onSaveFailed(error)
 					},
 				)
