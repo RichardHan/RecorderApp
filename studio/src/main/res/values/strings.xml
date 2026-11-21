@@ -4,6 +4,11 @@
 	<string name="studio">Recording studio</string>
 	<string name="record">Start recording</string>
 	<string name="stop">Finish recording</string>
+	<string name="pause_recording">Pause recording</string>
+	<string name="resume_recording">Resume recording</string>
+	<string name="recording_paused">Recording paused</string>
+	<string name="pause_error">Could not pause. Try again or finish recording.</string>
+	<string name="resume_error">Could not resume. Try again or save the recorded part.</string>
 	<string name="active">Recording</string>
 	<string name="ready">Ready to record</string>
 	<string name="library">Recordings</string>

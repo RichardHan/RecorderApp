@@ -3,7 +3,6 @@ package io.github.richardhan.voicenote
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -59,11 +58,12 @@ class StudioActivity : ComponentActivity() {
 @Composable
 private fun Studio(library: RecordingLibrary, toggle: () -> Unit) {
 	val active = library.started != 0L
-	val elapsed by produceState(0L, library.started) {
-		value = 0
-		while (active) {
-			value = (SystemClock.elapsedRealtime() - library.started) / 1000
+	val paused = library.isPaused
+	val elapsed by produceState(0L, library.started, paused) {
+		value = library.recordedDurationMs() / 1000
+		while (active && !paused) {
 			delay(250)
+			value = library.recordedDurationMs() / 1000
 		}
 	}
 	Surface(Modifier.fillMaxSize()) {
@@ -76,11 +76,23 @@ private fun Studio(library: RecordingLibrary, toggle: () -> Unit) {
 			item {
 				Surface(color = Color(0xFF30213F), contentColor = Color.White, shape = RoundedCornerShape(24.dp)) {
 					Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-						Text(stringResource(if (active) R.string.active else R.string.ready))
+						Text(stringResource(when {
+							paused -> R.string.recording_paused
+							active -> R.string.active
+							else -> R.string.ready
+						}))
 						Text(String.format(Locale.ROOT, "%02d:%02d:%02d", elapsed / 3600, elapsed / 60 % 60, elapsed % 60),
 							style = MaterialTheme.typography.displayMedium, fontFamily = FontFamily.Monospace)
-						Button(onClick = toggle, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD1F4A1), contentColor = Color(0xFF21310A))) {
-							Text(stringResource(if (active) R.string.stop else R.string.record))
+						FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+							Button(onClick = toggle, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD1F4A1), contentColor = Color(0xFF21310A))) {
+								Text(stringResource(if (active) R.string.stop else R.string.record))
+							}
+							if (active) {
+								TextButton(onClick = { library.setPaused(!paused) },
+									colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
+									Text(stringResource(if (paused) R.string.resume_recording else R.string.pause_recording))
+								}
+							}
 						}
 						Text(stringResource(R.string.foreground), style = MaterialTheme.typography.bodySmall)
 					}

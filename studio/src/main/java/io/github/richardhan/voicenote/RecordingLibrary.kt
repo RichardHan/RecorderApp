@@ -14,6 +14,9 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 	private var pending: File? = null
 	var started by mutableLongStateOf(0L)
 		private set
+	private var pausedAt by mutableLongStateOf(0L)
+	private var totalPausedMs = 0L
+	val isPaused: Boolean get() = pausedAt != 0L
 	var files by mutableStateOf(savedFiles())
 		private set
 	var message by mutableIntStateOf(0)
@@ -42,6 +45,30 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 		}
 	}
 
+	fun recordedDurationMs(): Long {
+		if (started == 0L) return 0L
+		val end = if (isPaused) pausedAt else SystemClock.elapsedRealtime()
+		return end - started - totalPausedMs
+	}
+
+	fun setPaused(pause: Boolean) {
+		val session = recorder ?: return
+		if (pause == isPaused) return
+		try {
+			if (pause) {
+				session.pause()
+				pausedAt = SystemClock.elapsedRealtime()
+			} else {
+				session.resume()
+				totalPausedMs += SystemClock.elapsedRealtime() - pausedAt
+				pausedAt = 0L
+			}
+			message = 0
+		} catch (_: RuntimeException) {
+			message = if (pause) R.string.pause_error else R.string.resume_error
+		}
+	}
+
 	fun finish() {
 		val session = recorder ?: return
 		try {
@@ -61,7 +88,9 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 		recorder = null
 		pending?.delete()
 		pending = null
-		started = 0
+		started = 0L
+		pausedAt = 0L
+		totalPausedMs = 0L
 	}
 
 	override fun onCleared() { finish() }

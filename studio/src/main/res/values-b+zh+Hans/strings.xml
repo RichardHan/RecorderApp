@@ -4,6 +4,11 @@
 	<string name="studio">录音室</string>
 	<string name="record">开始录音</string>
 	<string name="stop">完成录音</string>
+	<string name="pause_recording">暂停录音</string>
+	<string name="resume_recording">继续录音</string>
+	<string name="recording_paused">录音已暂停</string>
+	<string name="pause_error">无法暂停。请重试或结束录音。</string>
+	<string name="resume_error">无法继续。请重试或保存已录好的部分。</string>
 	<string name="active">录音中</string>
 	<string name="ready">准备录音</string>
 	<string name="library">录音文件</string>
