@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-	<string name="app_name">Voice Ledger</string>
+	<string name="app_name">OpenRouter Recorder</string>
 	<string name="studio">Recording studio</string>
 	<string name="record">Start recording</string>
 	<string name="stop">Finish recording</string>
