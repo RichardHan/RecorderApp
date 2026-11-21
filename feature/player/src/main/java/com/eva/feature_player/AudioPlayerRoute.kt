@@ -90,6 +90,7 @@ fun NavGraphBuilder.audioPlayerRoute(controller: NavHostController) =
         val isPlaying by playerViewModel.isPlayerPlaying.collectAsStateWithLifecycle()
         val playerMetadata by playerViewModel.playerMetaData.collectAsStateWithLifecycle()
         val isControllerReady by playerViewModel.isControllerReady.collectAsStateWithLifecycle()
+        val deviceContext by playerViewModel.deviceContext.collectAsStateWithLifecycle()
 
         // bookmarks state
         val bookMarkState by bookmarkViewmodel.bookmarkState.collectAsStateWithLifecycle()
@@ -148,6 +149,7 @@ fun NavGraphBuilder.audioPlayerRoute(controller: NavHostController) =
                 isControllerReady = isControllerReady,
                 isPlayerPlaying = isPlaying,
                 bookMarkState = bookMarkState,
+                deviceContext = deviceContext,
                 isAppActionsEnabled = route.appActionsEnabled,
                 onFileEvent = metaDataViewmodel::onFileEvent,
                 onPlayerEvents = playerViewModel::onPlayerEvents,

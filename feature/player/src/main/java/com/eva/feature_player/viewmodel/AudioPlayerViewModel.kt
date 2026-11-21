@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.filterNotNull
@@ -34,11 +35,21 @@ internal class AudioPlayerViewModel @AssistedInject constructor(
 	@Assisted private val audioId: Long,
 	private val fileProvider: PlayerFileProvider,
 	private val player: AudioFilePlayer,
+	private val transcriptStore: com.eva.cloudtranscribe.store.TranscriptStore,
 ) : AppViewModel() {
 
 	private val _trackController = PlayerTrackUIState()
 
 	private val _currentFile = MutableStateFlow<AudioFileModel?>(null)
+
+	private val _deviceContext = MutableStateFlow<com.eva.cloudtranscribe.device.RecordingDeviceContext?>(null)
+	val deviceContext = _deviceContext.asStateFlow()
+
+	init {
+		viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+			_deviceContext.value = transcriptStore.deviceContext(audioId)
+		}
+	}
 	private val _currentFileDistinctById = _currentFile
 		.filterNotNull()
 		.distinctUntilChangedBy { it.id }

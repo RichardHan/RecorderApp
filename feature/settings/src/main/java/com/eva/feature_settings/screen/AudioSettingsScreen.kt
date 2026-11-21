@@ -52,6 +52,7 @@ internal fun AudioSettingsScreen(
     modifier: Modifier = Modifier,
     initialTab: SettingsTabs = SettingsTabs.AUDIO_SETTINGS,
     storageModel: DeviceTotalStorageModel = DeviceTotalStorageModel(),
+    deviceContextSettings: com.eva.cloudtranscribe.device.DeviceContextSettings = com.eva.cloudtranscribe.device.DeviceContextSettings(),
     navigation: @Composable () -> Unit = {},
     onNavigateToInfo: () -> Unit = {},
     bulkExport: @Composable () -> Unit = {},
@@ -76,6 +77,7 @@ internal fun AudioSettingsScreen(
             audioSettings = {
                 AudioSettingsTabContent(
                     settings = audioSettings,
+                    deviceContextSettings = deviceContextSettings,
                     onEvent = onAudioSettingsChange,
                     contentPadding = PaddingValues(all = dimensionResource(R.dimen.sc_padding)),
                 )

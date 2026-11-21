@@ -20,6 +20,7 @@ fun FileMetadataDetailsSheet(
 	onSheetDismiss: () -> Unit,
 	modifier: Modifier = Modifier,
 	sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+	deviceContext: com.eva.cloudtranscribe.device.RecordingDeviceContext? = null,
 ) {
 	if (!showBottomSheet || contentLoadState !is ContentLoadState.Content) return
 	val fileModel = contentLoadState.data
@@ -31,6 +32,7 @@ fun FileMetadataDetailsSheet(
 	) {
 		FileMetaDataSheetContent(
 			audio = fileModel,
+			deviceContext = deviceContext,
 			contentPadding = PaddingValues(horizontal = dimensionResource(R.dimen.bottom_sheet_padding_lg))
 		)
 	}

@@ -48,6 +48,7 @@ internal class RecorderViewModel @Inject constructor(
     private val slackSync: com.eva.cloudtranscribe.slack.SlackSyncCoordinator,
     private val liveToggles: com.eva.recorder.domain.live.RecorderLiveToggles,
     private val statusTracker: RecorderStatusTracker,
+    private val deviceContextSettingsRepo: com.eva.cloudtranscribe.device.DeviceContextSettingsRepository,
     private val savedStateHandle: SavedStateHandle,
 ) : AppViewModel() {
 
@@ -82,6 +83,19 @@ internal class RecorderViewModel @Inject constructor(
     }
 
     val liveToggleUi: StateFlow<com.eva.recorder.domain.live.RecorderLiveToggleUi> = liveToggles.ui
+
+    val deviceContextSettings: StateFlow<com.eva.cloudtranscribe.device.DeviceContextSettings?> =
+        deviceContextSettingsRepo.settings.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = null,
+        )
+
+    fun markLocationPromptedOnRecord() {
+        viewModelScope.launch {
+            deviceContextSettingsRepo.update { it.copy(locationPromptedOnRecord = true) }
+        }
+    }
 
     init {
         viewModelScope.launch { liveToggles.refreshInputs() }

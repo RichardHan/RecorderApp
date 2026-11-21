@@ -19,4 +19,8 @@ internal sealed interface AudioSettingsEvent {
 
 	data class OnAddLocationEnabled(val isEnabled: Boolean) : AudioSettingsEvent
 
+	data class OnDeviceContextEnabled(val isEnabled: Boolean) : AudioSettingsEvent
+
+	data class OnDeviceContextIncludeLocation(val includeLocation: Boolean) : AudioSettingsEvent
+
 }

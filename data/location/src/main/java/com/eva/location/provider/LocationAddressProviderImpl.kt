@@ -57,27 +57,27 @@ internal class LocationAddressProviderImpl(
 	}
 
 	@RequiresApi(Build.VERSION_CODES.TIRAMISU)
-	private suspend fun evalAddressAPI33(location: BaseLocationModel) =
-		suspendCancellableCoroutine { cont ->
-			// geocoder observer
-			val observer = object : Geocoder.GeocodeListener {
-				override fun onGeocode(addresses: MutableList<Address>) {
-					if (cont.isActive) {
-						val result = addresses.firstOrNull()?.buildAddressString()
-						cont.resume(result)
+	private suspend fun evalAddressAPI33(location: BaseLocationModel): String? =
+		withTimeoutOrNull(4.seconds) {
+			suspendCancellableCoroutine { cont ->
+				val observer = object : Geocoder.GeocodeListener {
+					override fun onGeocode(addresses: MutableList<Address>) {
+						if (cont.isActive) {
+							val result = addresses.firstOrNull()?.buildAddressString()
+							cont.resume(result)
+						}
+					}
+
+					override fun onError(errorMessage: String?) {
+						Log.e(TAG, "ERROR IN USING GEOCODER :$errorMessage")
+						if (cont.isActive) cont.resumeWithException(Exception(errorMessage))
 					}
 				}
+				geoCoder.getFromLocation(location.latitude, location.longitude, 2, observer)
 
-				override fun onError(errorMessage: String?) {
-					Log.e(TAG, "ERROR IN USING GEOCODER :$errorMessage")
-					if (cont.isActive) cont.resumeWithException(Exception(errorMessage))
+				cont.invokeOnCancellation {
+					Log.d(TAG, "OPERATION CANCELLED")
 				}
-			}
-			// add the observer
-			geoCoder.getFromLocation(location.latitude, location.longitude, 2, observer)
-
-			cont.invokeOnCancellation {
-				Log.d(TAG, "OPERATION CANCELLED")
 			}
 		}
 
@@ -91,8 +91,14 @@ internal class LocationAddressProviderImpl(
 		}
 	}
 
-	private fun Address.buildAddressString() = buildString {
-		val pattern = listOfNotNull(locality, adminArea, countryName, postalCode)
-		pattern.joinTo(this, separator = ", ")
+	private fun Address.buildAddressString(): String {
+		val line = (0..maxAddressLineIndex.coerceAtLeast(0))
+			.firstNotNullOfOrNull { idx -> getAddressLine(idx)?.trim()?.takeIf { it.isNotEmpty() } }
+		if (line != null) return line
+		return listOfNotNull(subLocality, locality, adminArea, countryName, postalCode)
+			.map { it.trim() }
+			.filter { it.isNotEmpty() }
+			.distinct()
+			.joinToString(", ")
 	}
 }

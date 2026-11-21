@@ -29,6 +29,7 @@ internal class AudioSettingsViewModel @Inject constructor(
 	private val audioRepo: RecorderAudioSettingsRepo,
 	private val fileRepo: RecorderFileSettingsRepo,
 	private val storageInfo: StorageInfoProvider,
+	private val deviceContextRepo: com.eva.cloudtranscribe.device.DeviceContextSettingsRepository,
 ) : AppViewModel() {
 
 	private val _deviceStorageData = MutableStateFlow(DeviceTotalStorageModel())
@@ -40,6 +41,13 @@ internal class AudioSettingsViewModel @Inject constructor(
 			scope = viewModelScope,
 			started = SharingStarted.Lazily,
 			initialValue = RecorderAudioSettings()
+		)
+
+	val deviceContextSettings = deviceContextRepo.settings
+		.stateIn(
+			scope = viewModelScope,
+			started = SharingStarted.Lazily,
+			initialValue = com.eva.cloudtranscribe.device.DeviceContextSettings()
 		)
 
 	val fileSettings = fileRepo.fileSettingsFlow
@@ -79,6 +87,14 @@ internal class AudioSettingsViewModel @Inject constructor(
 			}
 
 			is AudioSettingsEvent.OnAddLocationEnabled -> audioRepo.onAddLocationEnabled(event.isEnabled)
+
+			is AudioSettingsEvent.OnDeviceContextEnabled -> deviceContextRepo.update {
+				it.copy(enabled = event.isEnabled)
+			}
+
+			is AudioSettingsEvent.OnDeviceContextIncludeLocation -> deviceContextRepo.update {
+				it.copy(includeLocation = event.includeLocation)
+			}
 		}
 	}
 

@@ -4,7 +4,15 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.PowerManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.core.content.ContextCompat
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import com.eva.feature_settings.R as SettingsRes
@@ -38,10 +46,27 @@ internal fun AudioSettingsTabContent(
 	onEvent: (AudioSettingsEvent) -> Unit,
 	modifier: Modifier = Modifier,
 	contentPadding: PaddingValues = PaddingValues(12.dp),
+	deviceContextSettings: com.eva.cloudtranscribe.device.DeviceContextSettings = com.eva.cloudtranscribe.device.DeviceContextSettings(),
 ) {
 
 	val isInspectionMode = LocalInspectionMode.current
 	val context = LocalContext.current
+
+	var hasLocationPermission by remember(context) {
+		mutableStateOf(
+			if (isInspectionMode) false else (
+				ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+					ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+				)
+		)
+	}
+	val locationLauncher = rememberLauncherForActivityResult(
+		contract = ActivityResultContracts.RequestMultiplePermissions()
+	) { perms ->
+		hasLocationPermission =
+			perms.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) ||
+			perms.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false)
+	}
 
 	val isIgnoreOptimization = remember(context) {
 		if (isInspectionMode) return@remember false
@@ -145,6 +170,49 @@ internal fun AudioSettingsTabContent(
 			LocationInfoCollectionCard(
 				isAddLocationInfoAllowed = settings.addLocationInfoInRecording,
 				onActionEnabledChanged = { onEvent(AudioSettingsEvent.OnAddLocationEnabled(it)) })
+		}
+		item {
+			SettingsItemWithSwitch(
+				isSelected = deviceContextSettings.enabled,
+				title = stringResource(SettingsRes.string.feature_settings_record_device_context_title),
+				text = stringResource(SettingsRes.string.feature_settings_record_device_context_text),
+				leading = {
+					Icon(
+						painter = painterResource(id = R.drawable.ic_info),
+						contentDescription = stringResource(SettingsRes.string.feature_settings_record_device_context_title),
+					)
+				},
+				onSelect = { onEvent(AudioSettingsEvent.OnDeviceContextEnabled(it)) },
+			)
+		}
+		if (deviceContextSettings.enabled) {
+			item {
+				SettingsItemWithSwitch(
+					isSelected = deviceContextSettings.includeLocation,
+					title = stringResource(SettingsRes.string.feature_settings_record_device_location_title),
+					text = stringResource(
+						if (hasLocationPermission) SettingsRes.string.feature_settings_record_device_location_text
+						else SettingsRes.string.feature_settings_record_device_location_no_permission
+					),
+					leading = {
+						Icon(
+							painter = painterResource(id = R.drawable.ic_location),
+							contentDescription = stringResource(SettingsRes.string.feature_settings_record_device_location_title),
+						)
+					},
+					onSelect = { enabled ->
+						onEvent(AudioSettingsEvent.OnDeviceContextIncludeLocation(enabled))
+						if (enabled && !hasLocationPermission) {
+							locationLauncher.launch(
+								arrayOf(
+									Manifest.permission.ACCESS_FINE_LOCATION,
+									Manifest.permission.ACCESS_COARSE_LOCATION,
+								)
+							)
+						}
+					},
+				)
+			}
 		}
 		item {
 			SettingsItemWithSwitch(
