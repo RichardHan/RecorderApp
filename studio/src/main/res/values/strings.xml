@@ -44,6 +44,19 @@
 	<string name="remove_model">Remove offline summary model</string>
 	<string name="summary_error">Local summary failed. Check model download, memory and storage.</string>
 	<string name="summarize">Summarize on this device</string>
+	<string name="choose_audio_files">Select audio files</string>
+	<string name="confirm_audio_batch">Import %1$d audio files?</string>
+	<string name="audio_file_number">Audio file %1$d</string>
+	<string name="batch_progress">Importing audio · %1$d of %2$d processed</string>
+	<string name="batch_result">Imported %1$d of %2$d audio files</string>
+	<string name="failed_imports">Files that could not be imported</string>
+	<string name="import_file">Import audio file</string>
+	<string name="import_url">Import link</string>
+	<string name="audio_url">HTTPS audio or YouTube URL</string>
+	<string name="import_error">Could not import this link or audio format.</string>
+	<string name="video_model">YouTube video model</string>
+	<string name="confirm_video">Send this YouTube link?</string>
+	<string name="video_disclose">Send this YouTube link to OpenRouter to transcribe the video. The video model may charge your account.</string>
 	<string name="appearance">Appearance</string>
 	<string name="theme_system">Follow system</string>
 	<string name="theme_light">Light</string>
@@ -53,4 +66,6 @@
 	<string name="pause_model">Pause download</string>
 	<string name="discard_model">Delete partial download</string>
 	<string name="check_model">Verifying model…</string>
+	<string name="shared_audio">Shared audio file</string>
+	<string name="confirm_import">Import</string>
 </resources>

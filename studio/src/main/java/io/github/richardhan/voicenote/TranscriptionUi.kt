@@ -11,6 +11,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import java.io.File
+import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -57,6 +58,13 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 @Composable
 internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConnection, local: LocalSummary) {
 	var confirm by remember { mutableStateOf(false) }
+	val video = file.extension == "youtube"
+	val link = if (video) produceState("", file) {
+		value = withContext(Dispatchers.IO) {
+			try { file.readText() } catch (_: IOException) { "" }
+		}
+	}.value else ""
+	if (link.isNotEmpty()) Text(link)
 	val saved by produceState(SavedTranscript(""), file, speech.revision) {
 		value = withContext(Dispatchers.IO) { loadSavedTranscript(file) }
 	}
@@ -70,14 +78,26 @@ internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConn
 		SelectionContainer { Text(saved.text) }
 		key(saved.text) { SummaryAction(local, file, saved.text) }
 	}
-	TextButton(onClick = { confirm = true }, enabled = !speech.busy && speech.valid()) { Text(stringResource(R.string.upload)) }
-	if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.confirm)) },
+	val canSend = !speech.busy && if (video) !speech.custom && speech.key.isNotBlank() && link.isNotBlank() else speech.valid()
+	TextButton(onClick = { confirm = true }, enabled = canSend) { Text(stringResource(R.string.upload)) }
+	if (!confirm) return
+	var videoModel by remember { mutableStateOf("google/gemini-2.5-flash") }
+	AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(if (video) R.string.confirm_video else R.string.confirm)) },
 		text = {
-			Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+			Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
 				Text(recordedAt, style = MaterialTheme.typography.titleMedium)
-				Text(stringResource(R.string.disclose, speech.base, speech.model))
+				if (video) {
+					Text(link)
+					Text(stringResource(R.string.video_disclose))
+					OutlinedTextField(videoModel, { videoModel = it }, singleLine = true, label = { Text(stringResource(R.string.video_model)) })
+				} else Text(stringResource(R.string.disclose, speech.base, speech.model))
 			}
 		},
-		confirmButton = { Button(onClick = { confirm = false; speech.transcribe(file) }) { Text(stringResource(R.string.upload)) } },
+		confirmButton = {
+			Button(enabled = canSend && (!video || videoModel.isNotBlank()), onClick = {
+				confirm = false
+				if (video) speech.youtube(file, link, videoModel.trim()) else speech.transcribe(file)
+			}) { Text(stringResource(R.string.upload)) }
+		},
 		dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } })
 }

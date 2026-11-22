@@ -1,5 +1,8 @@
 package io.github.richardhan.voicenote
 
+import android.content.Intent
+import android.net.Uri
+import android.os.BadParcelableException
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -29,13 +32,20 @@ class StudioActivity : ComponentActivity() {
 	private val library: RecordingLibrary by viewModels()
 	private val local: LocalSummary by viewModels()
 	private val speech: SpeechConnection by viewModels()
+	private var sharedSources by mutableStateOf(emptyList<Uri>())
+
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
+		if (savedInstanceState != null) {
+			sharedSources = savedInstanceState.getStringArrayList("pendingImports")?.map(Uri::parse)
+				?: listOfNotNull(savedInstanceState.getString("pendingImport")?.let(Uri::parse))
+		} else if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) receiveShare(intent)
 		setContent {
 			StudioTheme { appearance, dark, choose ->
 				val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
 					if (it) library.start() else library.message = R.string.permission
 				}
+				if (sharedSources.isNotEmpty()) key(sharedSources) { SharedImportDialog(sharedSources, library) { sharedSources = emptyList() } }
 				Studio(library, speech, local, dark, heading = { StudioHeading(appearance, choose) }) {
 					when {
 						library.started != 0L -> library.finish()
@@ -46,6 +56,22 @@ class StudioActivity : ComponentActivity() {
 			}
 		}
 	}
+	override fun onNewIntent(intent: Intent) {
+		super.onNewIntent(intent)
+		receiveShare(intent)
+	}
+
+	private fun receiveShare(intent: Intent) {
+		if (intent.action != Intent.ACTION_SEND && intent.action != Intent.ACTION_SEND_MULTIPLE) return
+		sharedSources = try { intent.sharedImportSources() } catch (_: BadParcelableException) { emptyList() }
+		if (sharedSources.isEmpty()) library.message = R.string.import_error
+	}
+
+	override fun onSaveInstanceState(outState: Bundle) {
+		super.onSaveInstanceState(outState)
+		outState.putStringArrayList("pendingImports", ArrayList(sharedSources.map(Uri::toString)))
+	}
+
 	override fun onStop() {
 		if (!isChangingConfigurations) {
 			library.stopPlayback()
@@ -113,12 +139,13 @@ private fun Studio(
 			item { SummaryModelPanel(local) }
 			if (speech.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
 			item { Text(stringResource(R.string.library), style = MaterialTheme.typography.titleLarge) }
+			item { ImportActions(library) }
 			if (library.files.isEmpty()) item { Text(stringResource(R.string.empty)) }
 			items(library.files, key = { it.name }) { file ->
 				val recordedAt = DateFormat.getDateTimeInstance().format(Date(file.lastModified()))
 				Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
 					Text(recordedAt, Modifier.weight(1f))
-					TextButton(onClick = { library.togglePlayback(file) }, enabled = !active) {
+					if (file.extension in audioTypes) TextButton(onClick = { library.togglePlayback(file) }, enabled = !active) {
 						Text(stringResource(if (library.playingFile == file) R.string.stop_playback else R.string.play))
 					}
 				}
