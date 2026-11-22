@@ -103,4 +103,7 @@
 	<string name="turn_export">テキストで書き出す</string>
 	<string name="turn_exported">タイムラインをテキストファイルに保存しました。</string>
 	<string name="turn_export_error">タイムラインを保存できませんでした。別の保存先を選んでください。</string>
+	<string name="all_speakers">すべての話者</string>
+	<string name="speaker_filter">表示：%1$s</string>
+	<string name="export_speaker">この話者の発言を書き出す</string>
 </resources>

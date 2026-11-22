@@ -103,4 +103,7 @@
 	<string name="turn_export">匯出文字檔</string>
 	<string name="turn_exported">已將時間軸存為文字檔。</string>
 	<string name="turn_export_error">無法儲存時間軸，請試試其他位置。</string>
+	<string name="all_speakers">全部發言者</string>
+	<string name="speaker_filter">顯示：%1$s</string>
+	<string name="export_speaker">匯出此人發言</string>
 </resources>

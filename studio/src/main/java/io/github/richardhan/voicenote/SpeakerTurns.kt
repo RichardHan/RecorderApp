@@ -66,10 +66,13 @@ internal fun readTiming(file: File): List<TimedText> {
 private fun turnsFile(file: File) = File(file.parentFile, file.name + ".turns")
 internal data class SpeakerTimeline(val turns: List<SpeakerTurn>, val names: Map<Int, String>)
 
-internal fun writeTimelineText(out: Appendable, timeline: SpeakerTimeline, segments: List<TimedText>, speakerLabel: (Int) -> String) {
+internal fun writeTimelineText(out: Appendable, timeline: SpeakerTimeline, segments: List<TimedText>, speaker: Int?, speakerLabel: (Int) -> String) {
 	val groups = segments.groupBy { closestTurn(timeline.turns, it) }
+	var first = true
 	for ((index, turn) in timeline.turns.withIndex()) {
-		if (index > 0) out.appendLine()
+		if (speaker != null && turn.speaker != speaker) continue
+		if (!first) out.appendLine()
+		first = false
 		out.append(formatClipTime(Math.round(turn.start * 1000).toInt())).append(" – ")
 			.append(formatClipTime(Math.round(turn.end * 1000).toInt())).append(" · ")
 			.appendLine(timeline.names[turn.speaker] ?: speakerLabel(turn.speaker))
@@ -141,13 +144,13 @@ class SpeakerAnalysis(app: Application) : AndroidViewModel(app) {
 			} finally { temp.delete() }
 		}
 	}
-	internal fun export(file: File, uri: Uri) = run(R.string.turn_export_error, R.string.turn_exported) {
+	internal fun export(file: File, uri: Uri, speaker: Int?) = run(R.string.turn_export_error, R.string.turn_exported) {
 		val app = getApplication<Application>()
 		val timeline = requireNotNull(readTimeline(file))
 		require(timeline.turns.isNotEmpty())
 		val segments = readTiming(file)
 		requireNotNull(app.contentResolver.openOutputStream(uri, "wt")).bufferedWriter(Charsets.UTF_8).use { writer ->
-			writeTimelineText(writer, timeline, segments) { app.getString(R.string.speaker_number, it) }
+			writeTimelineText(writer, timeline, segments, speaker) { app.getString(R.string.speaker_number, it) }
 		}
 	}
 
