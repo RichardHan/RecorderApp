@@ -208,13 +208,13 @@ class AdapterTests {
 		assertFalse(t.body.contains(KEY))
 	}
 
-	@Test fun newSettingsSendArgonAudioAndKeepFlashForSummaries() {
+	@Test fun newSettingsSendHydrogenAudioAndKeepFlashForSummaries() {
 		val settings = CloudSettings(baseUrl = "https://gateway.example/v1")
 		assertEquals("gemini-3.8-flash", settings.summaryModel)
 		val transport = Capture(HttpResponse(200, """{"choices":[]}"""))
 		CloudAiClients.transcriber(settings, KEY, transport).transcribe("p", AudioPayload(byteArrayOf(1)))
 		val body = Json.parseToJsonElement(transport.body).jsonObject
-		assertEquals("gemini-4-argon", body["model"]!!.jsonPrimitive.content)
+		assertEquals("gemini-4-hydrogen", body["model"]!!.jsonPrimitive.content)
 		assertFalse(body.containsKey("reasoning_effort"))
 	}
 

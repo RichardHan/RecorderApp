@@ -71,7 +71,7 @@ data class CloudSettings(
 	companion object {
 		const val SPEAKER_MODEL = "gemini-3.5-transcribe"
 		const val FLASH_MODEL = "gemini-3.8-flash"
-		const val DEFAULT_MODEL = "gemini-4-argon"
+		const val DEFAULT_MODEL = "gemini-4-hydrogen"
 		const val DEFAULT_CHUNK_SECONDS = 300
 		const val MIN_CHUNK_SECONDS = 60
 		const val MAX_CHUNK_SECONDS = 900

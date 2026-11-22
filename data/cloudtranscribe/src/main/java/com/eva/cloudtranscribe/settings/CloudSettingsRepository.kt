@@ -1,6 +1,7 @@
 package com.eva.cloudtranscribe.settings
 
 import android.content.Context
+import androidx.datastore.core.DataMigration
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -17,14 +18,34 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
-private val Context.cloudAiPrefs by preferencesDataStore(name = "cloud_ai_settings")
+private val settingsKey = stringPreferencesKey("settings_v2")
+private val previousSettingsKey = stringPreferencesKey("settings_v1")
+
+internal object HydrogenPresetMigration : DataMigration<Preferences> {
+	override suspend fun shouldMigrate(currentData: Preferences) = previousSettingsKey in currentData
+
+	override suspend fun migrate(currentData: Preferences): Preferences = currentData.toMutablePreferences().apply {
+		val raw = remove(previousSettingsKey) ?: return@apply
+		if (settingsKey in this) return@apply
+		val saved = runCatching { Json.parseToJsonElement(raw) as? JsonObject }.getOrNull()
+		this[settingsKey] = if (saved != null && saved["transcribeModel"] == JsonPrimitive("gemini-4-argon") &&
+			(saved["providerType"] ?: JsonPrimitive("OPENAI_COMPATIBLE")) == JsonPrimitive("OPENAI_COMPATIBLE") &&
+			(saved["speakerDiarization"] ?: JsonPrimitive(false)) == JsonPrimitive(false)
+		) JsonObject(saved + ("transcribeModel" to JsonPrimitive(CloudSettings.DEFAULT_MODEL))).toString() else raw
+	}
+
+	override suspend fun cleanUp() = Unit
+}
+
+private val Context.cloudAiPrefs by preferencesDataStore(name = "cloud_ai_settings", produceMigrations = { listOf(HydrogenPresetMigration) })
 
 /** Non-secret settings only (endpoint, models, chunking). */
 @Singleton
 class CloudSettingsRepository @Inject constructor(@ApplicationContext private val context: Context) {
 	private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-	private val key = stringPreferencesKey("settings_v1")
 	private val recentTranscribeKey = stringPreferencesKey("recent_transcribe_models_v1")
 	private val recentSummaryKey = stringPreferencesKey("recent_summary_models_v1")
 	private val stringList = ListSerializer(String.serializer())
@@ -39,7 +60,7 @@ class CloudSettingsRepository @Inject constructor(@ApplicationContext private va
 		modelPrices = TokenPricing.normalizePrices(modelPrices),
 	)
 
-	val settings: Flow<CloudSettings> = context.cloudAiPrefs.data.map { prefs -> decode(prefs[key]) }
+	val settings: Flow<CloudSettings> = context.cloudAiPrefs.data.map { prefs -> decode(prefs[settingsKey]) }
 	val recentTranscribeModels: Flow<List<String>> = context.cloudAiPrefs.data.map { decodeRecent(it[recentTranscribeKey]) }
 	val recentSummaryModels: Flow<List<String>> = context.cloudAiPrefs.data.map { decodeRecent(it[recentSummaryKey]) }
 
@@ -47,7 +68,7 @@ class CloudSettingsRepository @Inject constructor(@ApplicationContext private va
 
 	suspend fun update(transform: (CloudSettings) -> CloudSettings) {
 		context.cloudAiPrefs.edit { prefs ->
-			prefs[key] = json.encodeToString(CloudSettings.serializer(), transform(decode(prefs[key])).normalized())
+			prefs[settingsKey] = json.encodeToString(CloudSettings.serializer(), transform(decode(prefs[settingsKey])).normalized())
 		}
 	}
 
