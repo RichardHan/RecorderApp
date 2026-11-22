@@ -1,7 +1,7 @@
 # 雲端重轉、比較與摘要（使用說明）
 
 ## 設定（只需一次）
-1. 開啟 App →「設定」→「雲端」分頁 → 上方切到「AI 轉錄／摘要」。
+1. 開啟 App →「設定」→「AI」分頁 → 展開「連線」。
 2. 介面格式：
    - **OpenAI 相容服務**：Endpoint 填到 `/chat/completions` 前面，例如 `https://api.example.com/v1`（範例網址，請替換為你的服務網址）。App 會呼叫 `POST {Endpoint}/chat/completions`。
    - **Gemini 原生**：Endpoint 例如 `https://generativelanguage.googleapis.com/v1beta`，呼叫 `models/{模型}:generateContent`。
