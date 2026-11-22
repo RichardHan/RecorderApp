@@ -7,6 +7,7 @@ android {
 	compileSdk = 37
 	defaultConfig {
 		applicationId = "io.github.richardhan.voicenote"
+		ndk.abiFilters += listOf("arm64-v8a", "x86_64")
 		minSdk = 29
 		targetSdk = 37
 		versionCode = 1
@@ -23,5 +24,6 @@ dependencies {
 	implementation(platform("androidx.compose:compose-bom:2026.09.00"))
 	implementation("androidx.compose.material3:material3")
 	implementation("androidx.activity:activity-compose:1.13.0")
+	implementation("com.k2fsa:sherpa-onnx:2.0.1@aar")
 	implementation("com.google.ai.edge.litertlm:litertlm-android:0.19.1")
 }

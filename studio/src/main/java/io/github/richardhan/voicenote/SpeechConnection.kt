@@ -99,7 +99,7 @@ class SpeechConnection : ViewModel() {
 		}
 	}
 
-	fun transcribe(file: File) {
+	fun transcribe(file: File, timestamps: Boolean) {
 		if (!valid()) { error = R.string.invalid; return }
 		val url = "${endpoint()}/audio/transcriptions"
 		val token = key.trim()
@@ -110,7 +110,8 @@ class SpeechConnection : ViewModel() {
 				val started = SystemClock.elapsedRealtime()
 				val reply = exchange(url, token) { connection ->
 					val boundary = UUID.randomUUID().toString()
-					val header = "--$boundary\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\n$chosen\r\n" +
+					val format = if (timestamps) "--$boundary\r\nContent-Disposition: form-data; name=\"response_format\"\r\n\r\nverbose_json\r\n" else ""
+					val header = format + "--$boundary\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\n$chosen\r\n" +
 						"--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"recording.${file.extension}\"\r\nContent-Type: ${audioTypes.getValue(file.extension)}\r\n\r\n"
 					val prefix = header.toByteArray()
 					val suffix = "\r\n--$boundary--\r\n".toByteArray()
@@ -128,7 +129,8 @@ class SpeechConnection : ViewModel() {
 				val gatewayCost = if (useGatewayCost) reportedCostUsd(reply.gatewayCost) else null
 				val cost = gatewayCost ?: reply.body.costUsd()
 				val text = requireNotNull(reply.body.opt("text") as? String)
-				saveTranscription(file, text, TranscriptionReceipt(chosen, elapsedMs, cost))
+				val segments = if (timestamps) reply.body.optJSONArray("segments") else null
+				saveTranscription(file, text, TranscriptionReceipt(chosen, elapsedMs, cost), segments)
 			}
 			revision++
 		}

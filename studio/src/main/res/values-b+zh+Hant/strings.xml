@@ -86,4 +86,25 @@
 	<string name="match_position">第 %1$d 筆，共 %2$d 筆</string>
 	<string name="previous_match">上一筆</string>
 	<string name="next_match">下一筆</string>
+	<string name="turns">發言者時間軸</string>
+	<string name="turn_hint">在裝置上分析最長 10 分鐘的錄音。同一人可能被分成多個標籤。有時間戳的逐字稿可顯示對應文字。</string>
+	<string name="turn_count">人數（留白自動判斷）</string>
+	<string name="turn_analyze">在手機上分析</string>
+	<string name="turn_download">下載發言者模型 · 39 MiB</string>
+	<string name="turn_timing">要求段落時間戳（限支援的模型）</string>
+	<string name="turn_limit">請先將錄音修剪至 10 分鐘以內。</string>
+	<string name="turn_error">發言者分析失敗。請檢查模型下載、音訊格式與可用空間。</string>
+	<string name="speaker_number">發言者 %1$d</string>
+	<string name="speaker_alias">這段錄音中的姓名</string>
+	<string name="no_speakers">找不到發言段落。</string>
+	<string name="rerun_names">重新分析會重設這段錄音的發言者姓名。</string>
+	<string name="turn_listen">試聽</string>
+	<string name="turn_play_description">%1$s，%2$s，%3$s</string>
+	<string name="turn_play_error">無法播放這段錄音。</string>
+	<string name="turn_export">匯出文字檔</string>
+	<string name="turn_exported">已將時間軸存為文字檔。</string>
+	<string name="turn_export_error">無法儲存時間軸，請試試其他位置。</string>
+	<string name="all_speakers">全部發言者</string>
+	<string name="speaker_filter">顯示：%1$s</string>
+	<string name="export_speaker">匯出此人發言</string>
 </resources>

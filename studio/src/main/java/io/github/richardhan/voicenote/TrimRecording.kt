@@ -11,7 +11,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.LifecycleStartEffect
 import java.io.File
 import java.nio.ByteBuffer
 import kotlin.math.roundToInt
@@ -112,39 +111,9 @@ internal fun TrimAction(file: File, library: RecordingLibrary) {
 	val sliderEnd = (end ?: duration).coerceIn(sliderStart, duration)
 
 	if (previewing && start != null && end != null) {
-		LifecycleStartEffect(Unit) {
-			onStopOrDispose { previewing = false }
-		}
-		LaunchedEffect(file, start, end) {
-			val playback = MediaPlayer()
-			var playing = false
-			try {
-				playback.setOnErrorListener { _, _, _ ->
-					error = R.string.clip_error
-					previewing = false
-					true
-				}
-				playback.setOnCompletionListener { previewing = false }
-				playback.setOnSeekCompleteListener { it.start(); playing = true }
-				playback.setOnPreparedListener {
-					if (start > 0) it.seekTo(start.toLong(), MediaPlayer.SEEK_CLOSEST)
-					else { it.start(); playing = true }
-				}
-				playback.setDataSource(file.path)
-				playback.prepareAsync()
-				while (previewing) {
-					if (playing && playback.currentPosition >= end) previewing = false
-					else delay(20)
-				}
-			} catch (e: CancellationException) {
-				throw e
-			} catch (_: Exception) {
-				error = R.string.clip_error
-				previewing = false
-			} finally {
-				playback.release()
-			}
-		}
+		AudioRangePreview(file, start.toLong(), end.toLong(),
+			onStop = { previewing = false },
+			onError = { error = R.string.clip_error; previewing = false })
 	}
 
 	AlertDialog(
