@@ -8,6 +8,7 @@ A search from the OpenRouter Recorder library should return recordings containin
 - Search English, Traditional Chinese, Simplified Chinese and Japanese. Verify substring matches for CJK text without spaces, case-insensitive English, and literal punctuation. Treat empty input as the normal library.
 - Update results after a new transcription, replacement or deletion. Display one result per recording and cancel stale queries when the user keeps typing.
 - Keep the audio and its transcript distinct. A recording without text becomes searchable by content after transcription. Typing in search must never start a billable transcription.
+- Entering a nonblank query stops library playback when the results replace the playback controls. Clearing the query restores the recording actions without restarting playback.
 - Measure indexing time on a library with several hours of transcripts before choosing an index. If an index is added, keep it in app-private storage and exclude it from backups.
 
 ## Review examples

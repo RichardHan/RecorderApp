@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -151,7 +152,12 @@ private fun Studio(
 			item { ImportActions(library) }
 			item {
 				OutlinedTextField(
-					value = input, onValueChange = { input = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+					value = input,
+					onValueChange = {
+						if (library.playingFile != null && it.isNotBlank()) library.stopPlayback()
+						input = it
+					},
+					modifier = Modifier.fillMaxWidth(), singleLine = true,
 					label = { Text(stringResource(R.string.search_transcripts)) },
 					trailingIcon = if (input.isEmpty()) null else ({
 						TextButton(onClick = { input = "" }) { Text(stringResource(R.string.clear_query)) }
@@ -162,9 +168,15 @@ private fun Studio(
 				query.isEmpty() -> {
 					if (library.files.isEmpty()) item { Text(stringResource(R.string.empty)) }
 					items(library.files, key = { it.name }) { file ->
-						Text(DateFormat.getDateTimeInstance().format(Date(file.lastModified())))
-						TranscriptionRow(file, speech, local)
-						TrimAction(file, library::refresh)
+						val recordedAt = DateFormat.getDateTimeInstance().format(Date(file.lastModified()))
+						Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+							Text(recordedAt, Modifier.weight(1f))
+							if (file.extension in audioTypes) TextButton(onClick = { library.togglePlayback(file) }, enabled = !active) {
+								Text(stringResource(if (library.playingFile == file) R.string.stop_playback else R.string.play))
+							}
+						}
+						TrimAction(file, library)
+						TranscriptionRow(file, recordedAt, speech, local)
 						HorizontalDivider()
 					}
 				}
