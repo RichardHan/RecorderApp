@@ -61,6 +61,7 @@
 	<string name="preview_clip">Preview selection</string>
 	<string name="save_clip">Save as new recording</string>
 	<string name="clip_error">Could not open or trim this audio.</string>
+	<string name="clip_requires_aac">This file has no AAC audio track. Only AAC recordings can be trimmed.</string>
 	<string name="appearance">Appearance</string>
 	<string name="theme_system">Follow system</string>
 	<string name="theme_light">Light</string>

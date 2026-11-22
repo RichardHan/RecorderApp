@@ -61,6 +61,7 @@
 	<string name="preview_clip">试听所选范围</string>
 	<string name="save_clip">另存为新录音</string>
 	<string name="clip_error">无法打开或修剪这段音频。</string>
+	<string name="clip_requires_aac">这个文件没有 AAC 音轨。只能修剪 AAC 录音。</string>
 	<string name="appearance">外观</string>
 	<string name="theme_system">跟随系统</string>
 	<string name="theme_light">浅色</string>
