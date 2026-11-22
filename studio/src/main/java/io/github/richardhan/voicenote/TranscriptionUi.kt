@@ -11,6 +11,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import java.io.File
+import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -55,23 +56,48 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 }
 
 @Composable
-internal fun TranscriptionRow(file: File, speech: SpeechConnection, local: LocalSummary) {
-	val video = file.extension == "youtube"
-	var videoModel by remember { mutableStateOf("google/gemini-2.5-flash") }
+internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConnection, local: LocalSummary) {
 	var confirm by remember { mutableStateOf(false) }
-	val transcript by produceState("", file, speech.revision) {
-		value = withContext(Dispatchers.IO) { transcriptFile(file).takeIf { it.exists() }?.readText().orEmpty() }
+	val video = file.extension == "youtube"
+	val link = if (video) produceState("", file) {
+		value = withContext(Dispatchers.IO) {
+			try { file.readText() } catch (_: IOException) { "" }
+		}
+	}.value else ""
+	if (link.isNotEmpty()) Text(link)
+	val saved by produceState(SavedTranscript(""), file, speech.revision) {
+		value = withContext(Dispatchers.IO) { loadSavedTranscript(file) }
 	}
-	SummaryAction(local, file, transcript)
-	if (transcript.isNotEmpty()) SelectionContainer { Text(transcript) }
-	TextButton(onClick = { confirm = true }, enabled = !speech.busy && speech.valid() && (!video || !speech.custom)) { Text(stringResource(R.string.upload)) }
-	if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.confirm)) },
+	if (saved.text.isNotEmpty()) {
+		saved.receipt?.let { receipt ->
+			Text(stringResource(R.string.receipt_model, receipt.model), style = MaterialTheme.typography.labelLarge)
+			val fee = receipt.costUsd?.let { stringResource(R.string.receipt_fee, it) } ?: stringResource(R.string.receipt_no_fee)
+			Text(stringResource(R.string.receipt_time, receipt.elapsedMs / 1000.0) + " · " + fee,
+				style = MaterialTheme.typography.bodySmall)
+		}
+		SelectionContainer { Text(saved.text) }
+		key(saved.text) { SummaryAction(local, file, saved.text) }
+	}
+	val canSend = !speech.busy && if (video) !speech.custom && speech.key.isNotBlank() && link.isNotBlank() else speech.valid()
+	TextButton(onClick = { confirm = true }, enabled = canSend) { Text(stringResource(R.string.upload)) }
+	if (!confirm) return
+	var videoModel by remember { mutableStateOf("google/gemini-2.5-flash") }
+	AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(if (video) R.string.confirm_video else R.string.confirm)) },
 		text = {
-			if (video) Column {
-				Text(stringResource(R.string.video_disclose))
-				OutlinedTextField(videoModel, { videoModel = it }, label = { Text(stringResource(R.string.video_model)) }, singleLine = true)
-			} else Text(stringResource(R.string.disclose, speech.base, speech.model))
+			Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+				Text(recordedAt, style = MaterialTheme.typography.titleMedium)
+				if (video) {
+					Text(link)
+					Text(stringResource(R.string.video_disclose))
+					OutlinedTextField(videoModel, { videoModel = it }, singleLine = true, label = { Text(stringResource(R.string.video_model)) })
+				} else Text(stringResource(R.string.disclose, speech.base, speech.model))
+			}
 		},
-		confirmButton = { Button(onClick = { confirm = false; if (video) speech.youtube(file, videoModel.trim()) else speech.transcribe(file) }) { Text(stringResource(R.string.upload)) } },
+		confirmButton = {
+			Button(enabled = canSend && (!video || videoModel.isNotBlank()), onClick = {
+				confirm = false
+				if (video) speech.youtube(file, link, videoModel.trim()) else speech.transcribe(file)
+			}) { Text(stringResource(R.string.upload)) }
+		},
 		dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } })
 }
