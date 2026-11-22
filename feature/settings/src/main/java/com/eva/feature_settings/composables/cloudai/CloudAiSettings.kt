@@ -188,14 +188,13 @@ internal fun CloudAiSettingsContent(
 				Text(stringResource(R.string.cloud_transcription_mode), style = MaterialTheme.typography.bodyLarge)
 				FilterChip(!draft.speakerDiarization && draft.transcribeModel == CloudSettings.DEFAULT_MODEL, {
 					draft = draft.copy(transcribeModel = CloudSettings.DEFAULT_MODEL, speakerDiarization = false)
-				}, { Text(stringResource(R.string.cloud_mode_argon)) })
+				}, { Text(stringResource(R.string.cloud_mode_quality)) })
 				FilterChip(!draft.speakerDiarization && draft.transcribeModel == CloudSettings.FLASH_MODEL, {
 					draft = draft.copy(transcribeModel = CloudSettings.FLASH_MODEL, speakerDiarization = false)
 				}, { Text(stringResource(R.string.cloud_mode_flash)) })
 				FilterChip(draft.speakerDiarization, {
 					draft = draft.copy(transcribeModel = CloudSettings.SPEAKER_MODEL, speakerDiarization = true)
 				}, { Text(stringResource(R.string.cloud_mode_speakers)) })
-				Text(stringResource(R.string.cloud_mode_benchmark), style = MaterialTheme.typography.bodySmall)
 				if (draft.speakerDiarization) Text(stringResource(R.string.cloud_mode_speakers_hint), style = MaterialTheme.typography.bodySmall)
 			}
 			OutlinedTextField(draft.transcribeModel, { draft = draft.copy(transcribeModel = it.trim(), speakerDiarization = false) }, Modifier.fillMaxWidth(), label = { Text(stringResource(StringsRes.string.feature_settings_transcription_model)) }, singleLine = true)

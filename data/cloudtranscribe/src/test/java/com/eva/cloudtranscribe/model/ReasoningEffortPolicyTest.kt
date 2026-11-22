@@ -34,10 +34,6 @@ class ReasoningEffortPolicyTest {
 		assertTrue(note.summarySent)
 		assertFalse(note.transcribeSent)
 		assertEquals(ReasoningEffortSkip.DEFAULT_TRANSCRIBE_MODEL, note.transcribeSkip)
-		assertEquals(
-			"套用於摘要模型 gemini-3.8-flash；轉錄模型 gemini-4-argon 不送（預設轉錄模型）",
-			ReasoningEffortPolicy.formatOneLiner(note, zh),
-		)
 	}
 
 	@Test

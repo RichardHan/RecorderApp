@@ -79,7 +79,7 @@ class ModelShortcutsTest {
 	@Test
 	fun allFieldsShareTheThreeBilingualPresets() {
 		assertEquals(
-			listOf("gemini-4-argon", "gemini-3.8-flash", "gemini-3.5-transcribe"),
+			listOf("gemini-4-hydrogen", "gemini-3.8-flash", "gemini-3.5-transcribe"),
 			ModelShortcuts.PRESETS,
 		)
 		assertEquals(CloudSettings.DEFAULT_MODEL, ModelShortcuts.PRESETS.first())
