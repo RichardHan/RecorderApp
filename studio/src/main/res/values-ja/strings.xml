@@ -19,4 +19,25 @@
 	<string name="permission">録音するには設定でマイクの使用を許可してください。</string>
 	<string name="record_error">録音を保存できませんでした。もう一度録音してください。</string>
 	<string name="foreground">アプリを離れると録音が終了し、保存されます。</string>
+	<string name="receipt_model">文字起こしモデル · %1$s</string>
+	<string name="receipt_fee">報告された料金 USD %1$s</string>
+	<string name="receipt_no_fee">料金情報なし</string>
+	<string name="receipt_time">リクエスト所要時間 %1$.2f 秒</string>
+	<string name="model">文字起こしモデル</string>
+	<string name="configure">モデルと接続</string>
+	<string name="custom">カスタム API エンドポイント</string>
+	<string name="standard">OpenRouter</string>
+	<string name="key">API キー（このセッションのみ）</string>
+	<string name="base">HTTPS ベース URL</string>
+	<string name="model_id">モデル ID</string>
+	<string name="refresh">利用可能なモデルを読み込む</string>
+	<string name="upload">送信して文字起こし</string>
+	<string name="sending">文字起こし中…</string>
+	<string name="confirm">この録音を送信しますか？</string>
+	<string name="disclose">音声を %1$s に送信し、%2$s で文字起こしします。アカウントに利用料がかかる場合があります。</string>
+	<string name="cancel">キャンセル</string>
+	<string name="done">完了</string>
+	<string name="invalid">HTTPS エンドポイント、モデル ID、API キーを入力してください。</string>
+	<string name="failed">リクエストに失敗しました。接続、キー、モデルを確認してください。</string>
+	<string name="http_error">サービスから HTTP %1$d が返されました。</string>
 </resources>
