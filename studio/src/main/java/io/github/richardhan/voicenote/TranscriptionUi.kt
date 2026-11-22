@@ -55,7 +55,7 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 }
 
 @Composable
-internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConnection) {
+internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConnection, local: LocalSummary) {
 	var confirm by remember { mutableStateOf(false) }
 	val saved by produceState(SavedTranscript(""), file, speech.revision) {
 		value = withContext(Dispatchers.IO) { loadSavedTranscript(file) }
@@ -68,6 +68,7 @@ internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConn
 				style = MaterialTheme.typography.bodySmall)
 		}
 		SelectionContainer { Text(saved.text) }
+		key(saved.text) { SummaryAction(local, file, saved.text) }
 	}
 	TextButton(onClick = { confirm = true }, enabled = !speech.busy && speech.valid()) { Text(stringResource(R.string.upload)) }
 	if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.confirm)) },
