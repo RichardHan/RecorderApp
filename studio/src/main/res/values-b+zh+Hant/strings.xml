@@ -40,4 +40,8 @@
 	<string name="invalid">請填寫 HTTPS 端點、模型 ID 和 API 金鑰。</string>
 	<string name="failed">請求失敗，請檢查連線、金鑰與模型。</string>
 	<string name="http_error">服務商回傳 HTTP %1$d。</string>
+	<string name="appearance">外觀</string>
+	<string name="theme_system">跟隨系統</string>
+	<string name="theme_light">淺色</string>
+	<string name="theme_dark">深色</string>
 </resources>

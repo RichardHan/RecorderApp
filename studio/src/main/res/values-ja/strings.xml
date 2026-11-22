@@ -40,4 +40,8 @@
 	<string name="invalid">HTTPS エンドポイント、モデル ID、API キーを入力してください。</string>
 	<string name="failed">リクエストに失敗しました。接続、キー、モデルを確認してください。</string>
 	<string name="http_error">サービスから HTTP %1$d が返されました。</string>
+	<string name="appearance">外観</string>
+	<string name="theme_system">システム設定に合わせる</string>
+	<string name="theme_light">ライト</string>
+	<string name="theme_dark">ダーク</string>
 </resources>
