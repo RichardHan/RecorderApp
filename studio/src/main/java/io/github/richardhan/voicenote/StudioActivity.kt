@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -90,6 +91,15 @@ private fun Studio(
 	heading: @Composable () -> Unit,
 	toggle: () -> Unit
 ) {
+	var input by rememberSaveable { mutableStateOf("") }
+	val query = input.trim()
+	val hits = transcriptHits(library.files, query, speech.revision)
+	var selectedName by rememberSaveable(query) { mutableStateOf<String?>(null) }
+	selectedName?.let { name ->
+		library.files.firstOrNull { it.name == name }?.let { file ->
+			MatchedTranscript(file, query, speech.revision) { selectedName = null }
+		}
+	}
 	val active = library.started != 0L
 	val paused = library.isPaused
 	val elapsed by produceState(0L, library.started, paused) {
@@ -140,18 +150,41 @@ private fun Studio(
 			if (speech.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
 			item { Text(stringResource(R.string.library), style = MaterialTheme.typography.titleLarge) }
 			item { ImportActions(library) }
-			if (library.files.isEmpty()) item { Text(stringResource(R.string.empty)) }
-			items(library.files, key = { it.name }) { file ->
-				val recordedAt = DateFormat.getDateTimeInstance().format(Date(file.lastModified()))
-				Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-					Text(recordedAt, Modifier.weight(1f))
-					if (file.extension in audioTypes) TextButton(onClick = { library.togglePlayback(file) }, enabled = !active) {
-						Text(stringResource(if (library.playingFile == file) R.string.stop_playback else R.string.play))
+			item {
+				OutlinedTextField(
+					value = input,
+					onValueChange = {
+						if (library.playingFile != null && it.isNotBlank()) library.stopPlayback()
+						input = it
+					},
+					modifier = Modifier.fillMaxWidth(), singleLine = true,
+					label = { Text(stringResource(R.string.search_transcripts)) },
+					trailingIcon = if (input.isEmpty()) null else ({
+						TextButton(onClick = { input = "" }) { Text(stringResource(R.string.clear_query)) }
+					})
+				)
+			}
+			when {
+				query.isEmpty() -> {
+					if (library.files.isEmpty()) item { Text(stringResource(R.string.empty)) }
+					items(library.files, key = { it.name }) { file ->
+						val recordedAt = DateFormat.getDateTimeInstance().format(Date(file.lastModified()))
+						Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+							Text(recordedAt, Modifier.weight(1f))
+							if (file.extension in audioTypes) TextButton(onClick = { library.togglePlayback(file) }, enabled = !active) {
+								Text(stringResource(if (library.playingFile == file) R.string.stop_playback else R.string.play))
+							}
+						}
+						TrimAction(file, library)
+						TranscriptionRow(file, recordedAt, speech, local)
+						HorizontalDivider()
 					}
 				}
-				TrimAction(file, library)
-				TranscriptionRow(file, recordedAt, speech, local)
-				HorizontalDivider()
+				hits == null -> item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+				hits.isEmpty() -> item { Text(stringResource(R.string.no_matches)) }
+				else -> items(hits, key = { it.recording.name }) { hit ->
+					SearchResult(hit) { selectedName = hit.recording.name }
+				}
 			}
 		}
 	}
