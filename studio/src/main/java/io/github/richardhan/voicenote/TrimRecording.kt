@@ -55,10 +55,13 @@ private fun saveClip(file: File, startMs: Int, endMs: Int) {
 }
 
 @Composable
-internal fun TrimAction(file: File, refresh: () -> Unit) {
+internal fun TrimAction(file: File, library: RecordingLibrary) {
 	if (file.extension != "m4a") return
 	var open by rememberSaveable { mutableStateOf(false) }
-	TextButton(onClick = { open = true }) { Text(stringResource(R.string.trim)) }
+	TextButton(enabled = library.started == 0L, onClick = {
+		library.stopPlayback()
+		open = true
+	}) { Text(stringResource(R.string.trim)) }
 	if (!open) return
 	val scope = rememberCoroutineScope()
 	var duration by remember { mutableIntStateOf(0) }
@@ -126,7 +129,7 @@ internal fun TrimAction(file: File, refresh: () -> Unit) {
 				scope.launch {
 					try {
 						withContext(Dispatchers.IO) { saveClip(file, start, end) }
-						refresh()
+						library.refresh()
 						open = false
 					} catch (e: CancellationException) {
 						throw e

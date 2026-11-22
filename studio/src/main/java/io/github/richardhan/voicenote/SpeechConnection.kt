@@ -1,5 +1,6 @@
 package io.github.richardhan.voicenote
 
+import android.os.SystemClock
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,6 +15,8 @@ import java.util.UUID
 import javax.net.ssl.HttpsURLConnection
 
 private const val OPEN_ROUTER = "https://openrouter.ai/api/v1"
+private data class SpeechResponse(val body: JSONObject, val gatewayCost: String?)
+private fun JSONObject.costUsd() = reportedCostUsd(optJSONObject("usage")?.optString("cost"))
 private class HttpFailure(val code: Int) : Exception()
 
 class SpeechConnection : ViewModel() {
@@ -68,59 +71,43 @@ class SpeechConnection : ViewModel() {
 	fun loadModels() = request {
 		models = withContext(Dispatchers.IO) {
 			val response = exchange("$OPEN_ROUTER/models?output_modalities=transcription", "")
-			val data = response.getJSONArray("data")
+			val data = response.body.getJSONArray("data")
 			(0 until data.length()).map { data.getJSONObject(it).getString("id") }.sorted()
 		}
 	}
 
-	fun youtube(file: File, chosen: String) {
+	internal fun youtube(file: File, link: String, chosen: String) {
 		val token = key.trim()
 		if (custom || token.isEmpty() || chosen.isBlank()) { error = R.string.invalid; return }
 		request {
 			withContext(Dispatchers.IO) {
 				val content = org.json.JSONArray()
 					.put(JSONObject().put("type", "input_text").put("text", "Transcribe all speech verbatim in its original languages. Return only the transcript."))
-					.put(JSONObject().put("type", "input_video").put("video_url", file.readText()))
+					.put(JSONObject().put("type", "input_video").put("video_url", link))
 				val input = org.json.JSONArray().put(JSONObject().put("role", "user").put("content", content))
 				val payload = JSONObject().put("model", chosen).put("input", input).toString().toByteArray()
+				val started = SystemClock.elapsedRealtime()
 				val response = exchange("$OPEN_ROUTER/responses", token) { conn ->
 					conn.requestMethod = "POST"
 					conn.doOutput = true
 					conn.setRequestProperty("Content-Type", "application/json")
 					conn.outputStream.use { it.write(payload) }
 				}
-				require(response.optString("status") == "completed")
-				val output = response.getJSONArray("output")
-				val text = buildString {
-					for (i in 0 until output.length()) {
-						val parts = output.getJSONObject(i).optJSONArray("content") ?: continue
-						for (j in 0 until parts.length()) {
-							val part = parts.getJSONObject(j)
-							if (part.optString("type") == "output_text") appendLine(part.getString("text"))
-						}
-					}
-				}.trim()
-				storeTranscript(file, text)
+				saveVideoTranscription(file, response.body, chosen, SystemClock.elapsedRealtime() - started)
 			}
 			revision++
 		}
 	}
 
-	private fun storeTranscript(file: File, text: String, segments: org.json.JSONArray? = null) {
-		require(text.isNotBlank())
-		saveTiming(file, text, segments)
-		val destination = transcriptFile(file)
-		val temp = File.createTempFile("transcript-", ".part", destination.parentFile)
-		try { temp.writeText(text); check(temp.renameTo(destination)) } finally { temp.delete() }
-	}
-
-	fun transcribe(file: File, timestamps: Boolean = false) {
+	fun transcribe(file: File) {
 		if (!valid()) { error = R.string.invalid; return }
 		val url = "${endpoint()}/audio/transcriptions"
 		val token = key.trim()
 		val chosen = model.trim()
+		val useGatewayCost = custom
 		request {
 			withContext(Dispatchers.IO) {
+				val started = SystemClock.elapsedRealtime()
 				val reply = exchange(url, token) { connection ->
 					val boundary = UUID.randomUUID().toString()
 					val format = if (timestamps) "--$boundary\r\nContent-Disposition: form-data; name=\"response_format\"\r\n\r\nverbose_json\r\n" else ""
@@ -138,13 +125,17 @@ class SpeechConnection : ViewModel() {
 						out.write(suffix)
 					}
 				}
-				storeTranscript(file, reply.getString("text"), reply.optJSONArray("segments"))
+				val elapsedMs = SystemClock.elapsedRealtime() - started
+				val gatewayCost = if (useGatewayCost) reportedCostUsd(reply.gatewayCost) else null
+				val cost = gatewayCost ?: reply.body.costUsd()
+				val text = requireNotNull(reply.body.opt("text") as? String)
+				saveTranscription(file, text, TranscriptionReceipt(chosen, elapsedMs, cost))
 			}
 			revision++
 		}
 	}
 
-	private fun exchange(url: String, token: String, send: (HttpsURLConnection) -> Unit = {}): JSONObject {
+	private fun exchange(url: String, token: String, send: (HttpsURLConnection) -> Unit = {}): SpeechResponse {
 		val connection = URI(url).toURL().openConnection() as HttpsURLConnection
 		try {
 			connection.instanceFollowRedirects = false
@@ -153,8 +144,24 @@ class SpeechConnection : ViewModel() {
 			if (token.isNotEmpty()) connection.setRequestProperty("Authorization", "Bearer $token")
 			send(connection)
 			if (connection.responseCode !in 200..299) throw HttpFailure(connection.responseCode)
-			return JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+			val body = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+			return SpeechResponse(body, connection.getHeaderField("x-litellm-response-cost"))
 		} finally { connection.disconnect() }
 	}
 }
 internal fun transcriptFile(file: File) = File(file.parentFile, file.nameWithoutExtension + ".txt")
+
+internal fun saveVideoTranscription(file: File, response: JSONObject, model: String, elapsedMs: Long) {
+	require(response.optString("status") == "completed")
+	val output = response.getJSONArray("output")
+	val text = buildString {
+		for (i in 0 until output.length()) {
+			val parts = output.getJSONObject(i).optJSONArray("content") ?: continue
+			for (j in 0 until parts.length()) {
+				val part = parts.getJSONObject(j)
+				if (part.optString("type") == "output_text") appendLine(part.getString("text"))
+			}
+		}
+	}.trim()
+	saveTranscription(file, text, TranscriptionReceipt(model, elapsedMs, response.costUsd()))
+}
