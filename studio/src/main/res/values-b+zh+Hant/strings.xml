@@ -57,6 +57,11 @@
 	<string name="video_model">YouTube 影片模型</string>
 	<string name="confirm_video">要傳送這個 YouTube 連結嗎？</string>
 	<string name="video_disclose">將這個 YouTube 連結送到 OpenRouter 轉錄影片，影片模型可能產生費用。</string>
+	<string name="trim">修剪錄音</string>
+	<string name="preview_clip">試聽選取範圍</string>
+	<string name="save_clip">另存為新錄音</string>
+	<string name="clip_error">無法開啟或修剪這段音訊。</string>
+	<string name="clip_requires_aac">這個檔案沒有 AAC 音軌。只能修剪 AAC 錄音。</string>
 	<string name="appearance">外觀</string>
 	<string name="theme_system">跟隨系統</string>
 	<string name="theme_light">淺色</string>
@@ -68,4 +73,10 @@
 	<string name="check_model">正在驗證模型…</string>
 	<string name="shared_audio">分享的音檔</string>
 	<string name="confirm_import">匯入</string>
+	<string name="clip_start">開始時間</string>
+	<string name="clip_end">結束時間</string>
+	<string name="clip_time_hint">可輸入分:秒或秒數（例如 1:02.5 或 62.5）。錄音全長 %1$s。</string>
+	<string name="clip_length">選取長度 %1$s</string>
+	<string name="clip_invalid_range">請在錄音範圍內輸入起訖時間，結束須晚於開始。</string>
+	<string name="stop_preview">停止試聽</string>
 </resources>

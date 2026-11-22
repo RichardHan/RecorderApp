@@ -40,6 +40,10 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 	private fun savedFiles() = directory.listFiles().orEmpty()
 		.filter { it.extension in audioTypes || it.extension == "youtube" }.sortedByDescending { it.name }
 
+	internal fun refresh() {
+		files = savedFiles()
+	}
+
 	var importTotal by mutableIntStateOf(0)
 		private set
 	var importCompleted by mutableIntStateOf(0)
@@ -59,7 +63,7 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 			catch (e: CancellationException) { throw e }
 			catch (_: Exception) { message = R.string.import_error }
 			finally {
-				files = savedFiles()
+				refresh()
 				importTotal = 0
 			}
 		}
@@ -152,7 +156,7 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 			session.stop()
 			val file = requireNotNull(pending)
 			check(file.length() > 0 && file.renameTo(File(directory, "${System.currentTimeMillis()}.m4a")))
-			files = savedFiles()
+			refresh()
 		} catch (_: Exception) {
 			message = R.string.record_error
 		} finally {
