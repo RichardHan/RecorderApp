@@ -1,6 +1,7 @@
 package io.github.richardhan.voicenote
 
 import android.app.Application
+import android.net.Uri
 import androidx.compose.runtime.*
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -65,6 +66,17 @@ internal fun readTiming(file: File): List<TimedText> {
 private fun turnsFile(file: File) = File(file.parentFile, file.name + ".turns")
 internal data class SpeakerTimeline(val turns: List<SpeakerTurn>, val names: Map<Int, String>)
 
+internal fun writeTimelineText(out: Appendable, timeline: SpeakerTimeline, segments: List<TimedText>, speakerLabel: (Int) -> String) {
+	val groups = segments.groupBy { closestTurn(timeline.turns, it) }
+	for ((index, turn) in timeline.turns.withIndex()) {
+		if (index > 0) out.appendLine()
+		out.append(formatClipTime(Math.round(turn.start * 1000).toInt())).append(" – ")
+			.append(formatClipTime(Math.round(turn.end * 1000).toInt())).append(" · ")
+			.appendLine(timeline.names[turn.speaker] ?: speakerLabel(turn.speaker))
+		groups[index]?.forEach { out.appendLine(it.text) }
+	}
+}
+
 internal fun readTimeline(file: File): SpeakerTimeline? {
 	val target = turnsFile(file)
 	if (!target.exists()) return null
@@ -90,16 +102,16 @@ class SpeakerAnalysis(app: Application) : AndroidViewModel(app) {
 	var revision by mutableIntStateOf(0)
 		private set
 
-	private fun run(action: suspend () -> Unit) {
+	private fun run(failure: Int = R.string.turn_error, success: Int = 0, action: suspend () -> Unit) {
 		if (busy) return
 		busy = true
 		message = 0
 		viewModelScope.launch {
-			try { withContext(Dispatchers.IO) { action() }; revision++ }
+			try { withContext(Dispatchers.IO) { action() }; message = success; revision++ }
 			catch (e: CancellationException) { throw e }
 			catch (_: RecordingTooLong) { message = R.string.turn_limit }
 			catch (_: LinkageError) { message = R.string.turn_error }
-			catch (_: Exception) { message = R.string.turn_error }
+			catch (_: Exception) { message = failure }
 			finally { installed = available(segmentation) && available(embedding); busy = false }
 		}
 	}
@@ -129,6 +141,16 @@ class SpeakerAnalysis(app: Application) : AndroidViewModel(app) {
 			} finally { temp.delete() }
 		}
 	}
+	internal fun export(file: File, uri: Uri) = run(R.string.turn_export_error, R.string.turn_exported) {
+		val app = getApplication<Application>()
+		val timeline = requireNotNull(readTimeline(file))
+		require(timeline.turns.isNotEmpty())
+		val segments = readTiming(file)
+		requireNotNull(app.contentResolver.openOutputStream(uri, "wt")).bufferedWriter(Charsets.UTF_8).use { writer ->
+			writeTimelineText(writer, timeline, segments) { app.getString(R.string.speaker_number, it) }
+		}
+	}
+
 	fun rename(file: File, speaker: Int, value: String) = run {
 		val target = turnsFile(file)
 		val data = JSONObject(target.readText())

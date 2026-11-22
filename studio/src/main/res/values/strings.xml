@@ -100,4 +100,7 @@
 	<string name="turn_listen">Listen</string>
 	<string name="turn_play_description">%1$s, %2$s, %3$s</string>
 	<string name="turn_play_error">Could not play this part of the recording.</string>
+	<string name="turn_export">Export text</string>
+	<string name="turn_exported">Timeline saved as a text file.</string>
+	<string name="turn_export_error">Could not save the timeline. Try another location.</string>
 </resources>

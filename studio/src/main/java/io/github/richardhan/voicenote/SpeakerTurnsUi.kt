@@ -1,5 +1,7 @@
 package io.github.richardhan.voicenote
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.lazy.LazyColumn
@@ -7,6 +9,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -24,7 +27,7 @@ private fun timestamp(seconds: Double) = String.format(Locale.ROOT, "%d:%02d", s
 @Composable
 internal fun SpeakerAction(file: File, state: SpeakerAnalysis, transcriptRevision: Int, library: RecordingLibrary) {
 	if (file.extension == "youtube") return
-	var open by remember { mutableStateOf(false) }
+	var open by rememberSaveable(file.path) { mutableStateOf(false) }
 	TextButton(enabled = library.started == 0L, onClick = {
 		library.stopPlayback()
 		open = true
@@ -35,6 +38,9 @@ internal fun SpeakerAction(file: File, state: SpeakerAnalysis, transcriptRevisio
 		value = withContext(Dispatchers.IO) { readTimeline(file) }
 	}
 	val turns = timeline?.turns.orEmpty()
+	val saveDocument = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+		if (uri != null) state.export(file, uri)
+	}
 	var playing by remember(file, turns) { mutableStateOf<Int?>(null) }
 	var failedTurn by remember(file, turns) { mutableStateOf<Int?>(null) }
 	playing?.let { index ->
@@ -70,7 +76,8 @@ internal fun SpeakerAction(file: File, state: SpeakerAnalysis, transcriptRevisio
 					else if (state.installed) Button(enabled = count.isBlank() || (count.toIntOrNull() ?: 0) in 1..100,
 						onClick = { playing = null; failedTurn = null; state.analyze(file, count.toIntOrNull()) }) { Text(stringResource(R.string.turn_analyze)) }
 					else Button(onClick = state::download) { Text(stringResource(R.string.turn_download)) }
-					if (state.message != 0) Text(stringResource(state.message), color = MaterialTheme.colorScheme.error)
+					if (state.message != 0) Text(stringResource(state.message),
+						color = if (state.message == R.string.turn_exported) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
 				}
 				if (timeline != null && turns.isEmpty()) item { Text(stringResource(R.string.no_speakers)) }
 				if (!timeline?.names.isNullOrEmpty()) item { Text(stringResource(R.string.rerun_names)) }
@@ -96,6 +103,13 @@ internal fun SpeakerAction(file: File, state: SpeakerAnalysis, transcriptRevisio
 					groups[index]?.forEach { Text(it.text) }
 				}
 			}
-		}, confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.done)) } }
+		},
+		dismissButton = {
+			if (turns.isNotEmpty()) TextButton(enabled = !state.busy, onClick = {
+				playing = null
+				saveDocument.launch("${file.nameWithoutExtension}-timeline.txt")
+			}) { Text(stringResource(R.string.turn_export)) }
+		},
+		confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.done)) } }
 	)
 }

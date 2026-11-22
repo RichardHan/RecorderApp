@@ -13,6 +13,13 @@ class SpeakerTurnsTest {
 		assertNull(closestTurn(turns, TimedText(5.0, 6.0, "after speech")))
 	}
 
+	@Test fun exportKeepsShortTurnsAndDoesNotAttributeAmbiguousText() {
+		val timeline = SpeakerTimeline(listOf(SpeakerTurn(0.125, 0.625, 1), SpeakerTurn(0.625, 1.75, 2)), mapOf(1 to "小林"))
+		val segments = listOf(TimedText(0.25, 0.5, "你好"), TimedText(0.5, 0.75, "ambiguous"))
+		val output = buildString { writeTimelineText(this, timeline, segments) { "話者 $it" } }
+		assertEquals("0:00.125 – 0:00.625 · 小林\n你好\n\n0:00.625 – 0:01.75 · 話者 2\n", output)
+	}
+
 	@Test fun mixesStereoAndPreservesResamplingPhaseAcrossBuffers() {
 		val samples = MonoSamples()
 		repeat(3) {

@@ -100,4 +100,7 @@
 	<string name="turn_listen">試聽</string>
 	<string name="turn_play_description">%1$s，%2$s，%3$s</string>
 	<string name="turn_play_error">無法播放這段錄音。</string>
+	<string name="turn_export">匯出文字檔</string>
+	<string name="turn_exported">已將時間軸存為文字檔。</string>
+	<string name="turn_export_error">無法儲存時間軸，請試試其他位置。</string>
 </resources>
