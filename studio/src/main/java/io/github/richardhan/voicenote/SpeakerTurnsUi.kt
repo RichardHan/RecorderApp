@@ -22,10 +22,13 @@ import kotlinx.coroutines.withContext
 private fun timestamp(seconds: Double) = String.format(Locale.ROOT, "%d:%02d", seconds.toInt() / 60, seconds.toInt() % 60)
 
 @Composable
-internal fun SpeakerAction(file: File, state: SpeakerAnalysis, transcriptRevision: Int) {
+internal fun SpeakerAction(file: File, state: SpeakerAnalysis, transcriptRevision: Int, library: RecordingLibrary) {
 	if (file.extension == "youtube") return
 	var open by remember { mutableStateOf(false) }
-	TextButton(onClick = { open = true }) { Text(stringResource(R.string.turns)) }
+	TextButton(enabled = library.started == 0L, onClick = {
+		library.stopPlayback()
+		open = true
+	}) { Text(stringResource(R.string.turns)) }
 	if (!open) return
 	var count by remember { mutableStateOf("") }
 	val timeline by produceState<SpeakerTimeline?>(null, file, state.revision) {

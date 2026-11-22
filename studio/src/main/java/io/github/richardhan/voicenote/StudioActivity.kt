@@ -48,7 +48,7 @@ class StudioActivity : ComponentActivity() {
 					if (it) library.start() else library.message = R.string.permission
 				}
 				if (sharedSources.isNotEmpty()) key(sharedSources) { SharedImportDialog(sharedSources, library) { sharedSources = emptyList() } }
-				Studio(library, speech, local, dark, heading = { StudioHeading(appearance, choose) }) {
+				Studio(library, speech, local, speakers, dark, heading = { StudioHeading(appearance, choose) }) {
 					when {
 						library.started != 0L -> library.finish()
 						checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> library.start()
@@ -178,6 +178,7 @@ private fun Studio(
 							}
 						}
 						TrimAction(file, library)
+						SpeakerAction(file, speakers, speech.revision, library)
 						TranscriptionRow(file, recordedAt, speech, local)
 						HorizontalDivider()
 					}

@@ -82,6 +82,7 @@ internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConn
 	TextButton(onClick = { confirm = true }, enabled = canSend) { Text(stringResource(R.string.upload)) }
 	if (!confirm) return
 	var videoModel by remember { mutableStateOf("google/gemini-2.5-flash") }
+	var timestamps by remember { mutableStateOf(false) }
 	AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(if (video) R.string.confirm_video else R.string.confirm)) },
 		text = {
 			Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -90,13 +91,19 @@ internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConn
 					Text(link)
 					Text(stringResource(R.string.video_disclose))
 					OutlinedTextField(videoModel, { videoModel = it }, singleLine = true, label = { Text(stringResource(R.string.video_model)) })
-				} else Text(stringResource(R.string.disclose, speech.base, speech.model))
+				} else {
+					Text(stringResource(R.string.disclose, speech.base, speech.model))
+					Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+						Checkbox(checked = timestamps, onCheckedChange = { timestamps = it })
+						Text(stringResource(R.string.turn_timing))
+					}
+				}
 			}
 		},
 		confirmButton = {
 			Button(enabled = canSend && (!video || videoModel.isNotBlank()), onClick = {
 				confirm = false
-				if (video) speech.youtube(file, link, videoModel.trim()) else speech.transcribe(file)
+				if (video) speech.youtube(file, link, videoModel.trim()) else speech.transcribe(file, timestamps)
 			}) { Text(stringResource(R.string.upload)) }
 		},
 		dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } })

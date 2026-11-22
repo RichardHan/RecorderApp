@@ -99,7 +99,7 @@ class SpeechConnection : ViewModel() {
 		}
 	}
 
-	fun transcribe(file: File) {
+	fun transcribe(file: File, timestamps: Boolean) {
 		if (!valid()) { error = R.string.invalid; return }
 		val url = "${endpoint()}/audio/transcriptions"
 		val token = key.trim()
@@ -129,7 +129,8 @@ class SpeechConnection : ViewModel() {
 				val gatewayCost = if (useGatewayCost) reportedCostUsd(reply.gatewayCost) else null
 				val cost = gatewayCost ?: reply.body.costUsd()
 				val text = requireNotNull(reply.body.opt("text") as? String)
-				saveTranscription(file, text, TranscriptionReceipt(chosen, elapsedMs, cost))
+				val segments = if (timestamps) reply.body.optJSONArray("segments") else null
+				saveTranscription(file, text, TranscriptionReceipt(chosen, elapsedMs, cost), segments)
 			}
 			revision++
 		}

@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.k2fsa.sherpa.onnx.*
 import java.io.File
+import java.io.FileNotFoundException
 import java.net.URL
 import java.security.MessageDigest
 import kotlinx.coroutines.*
@@ -36,7 +37,6 @@ internal fun closestTurn(turns: List<SpeakerTurn>, segment: TimedText): Int? {
 	return winner
 }
 
-private fun digestText(text: String) = MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).hex()
 private fun ByteArray.hex() = joinToString("") { "%02x".format(it) }
 
 internal fun writeSidecar(file: File, data: String) {
@@ -44,17 +44,12 @@ internal fun writeSidecar(file: File, data: String) {
 	try { temp.writeText(data); check(temp.renameTo(file)) } finally { temp.delete() }
 }
 
-internal fun saveTiming(file: File, text: String, segments: JSONArray?) {
-	val target = File(file.parentFile, file.name + ".timing")
-	if (segments == null || segments.length() == 0) { check(!target.exists() || target.delete()); return }
-	writeSidecar(target, JSONObject().put("digest", digestText(text)).put("segments", segments).toString())
-}
+internal fun timingFile(file: File) = File(file.parentFile, file.name + ".timing")
 
 internal fun readTiming(file: File): List<TimedText> {
-	val target = File(file.parentFile, file.name + ".timing")
-	if (!target.exists()) return emptyList()
-	val json = JSONObject(target.readText())
-	if (json.getString("digest") != digestText(readTranscript(file))) return emptyList()
+	val data = try { timingFile(file).readText() } catch (_: FileNotFoundException) { return emptyList() }
+	val json = JSONObject(data)
+	if (json.getString("digest") != transcriptDigest(readTranscript(file)).toHexString()) return emptyList()
 	val parts = json.getJSONArray("segments")
 	return buildList {
 		for (i in 0 until parts.length()) {
