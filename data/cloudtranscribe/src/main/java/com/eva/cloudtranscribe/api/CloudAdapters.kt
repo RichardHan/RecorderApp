@@ -39,10 +39,19 @@ data class AudioPayload(val bytes: ByteArray, val format: String = "mp3") {
 	val mimeType: String get() = "audio/$format"
 }
 
+enum class ChatRole { SYSTEM, USER, ASSISTANT }
+
+data class ChatMessage(val role: ChatRole, val content: String)
+
 /** Extension point: any audio-capable provider (cloud or a future local HTTP server) implements this. */
 interface CloudAiClient {
 	fun transcribe(prompt: String, audio: AudioPayload): CallOutcome
 	fun complete(prompt: String): CallOutcome
+	fun completeChat(messages: List<ChatMessage>, systemPrompt: String? = null): CallOutcome =
+		complete(buildString {
+			if (!systemPrompt.isNullOrBlank()) appendLine(systemPrompt).appendLine()
+			messages.forEach { appendLine("${it.role.name}: ${it.content}") }
+		})
 }
 
 object CloudAiClients {
@@ -111,6 +120,34 @@ class OpenAiCompatibleClient(
 		if (shouldSendEffort()) put("reasoning_effort", effort.wire)
 	}.toString()
 
+	fun buildChatBody(messages: List<ChatMessage>, systemPrompt: String? = null): String = buildJsonObject {
+		put("model", model)
+		putJsonArray("messages") {
+			if (!systemPrompt.isNullOrBlank()) {
+				addJsonObject {
+					put("role", "system")
+					put("content", systemPrompt)
+				}
+			}
+			messages.forEach { msg ->
+				addJsonObject {
+					put(
+						"role",
+						when (msg.role) {
+							ChatRole.SYSTEM -> "system"
+							ChatRole.USER -> "user"
+							ChatRole.ASSISTANT -> "assistant"
+						},
+					)
+					put("content", msg.content)
+				}
+			}
+		}
+		put("max_tokens", maxTokens)
+		put("stream", false)
+		if (shouldSendEffort()) put("reasoning_effort", effort.wire)
+	}.toString()
+
 	fun audioContent(prompt: String, audio: AudioPayload): JsonArray = JsonArray(
 		listOf(
 			buildJsonObject { put("type", "text"); put("text", prompt) },
@@ -128,6 +165,9 @@ class OpenAiCompatibleClient(
 		send(buildBody(audioContent(prompt, audio)), "transcribe")
 
 	override fun complete(prompt: String): CallOutcome = send(buildBody(JsonPrimitive(prompt)), "complete")
+
+	override fun completeChat(messages: List<ChatMessage>, systemPrompt: String?): CallOutcome =
+		send(buildChatBody(messages, systemPrompt), "chat")
 
 	private fun send(body: String, operation: String): CallOutcome = safeCall(apiKey) {
 		val response = transport.postJson(url, mapOf("Authorization" to "Bearer $apiKey"), body, timeoutSeconds)
@@ -194,8 +234,33 @@ class GeminiNativeClient(
 		}
 	}.toString()
 
+	fun buildChatBody(messages: List<ChatMessage>, systemPrompt: String? = null): String = buildJsonObject {
+		if (!systemPrompt.isNullOrBlank()) {
+			putJsonObject("systemInstruction") {
+				putJsonArray("parts") {
+					addJsonObject { put("text", systemPrompt) }
+				}
+			}
+		}
+		putJsonArray("contents") {
+			messages.forEach { msg ->
+				addJsonObject {
+					put("role", if (msg.role == ChatRole.ASSISTANT) "model" else "user")
+					putJsonArray("parts") {
+						addJsonObject { put("text", msg.content) }
+					}
+				}
+			}
+		}
+		putJsonObject("generationConfig") {
+			put("maxOutputTokens", maxTokens)
+		}
+	}.toString()
+
 	override fun transcribe(prompt: String, audio: AudioPayload) = send(buildBody(prompt, audio), "transcribe")
 	override fun complete(prompt: String) = send(buildBody(prompt, null), "complete")
+	override fun completeChat(messages: List<ChatMessage>, systemPrompt: String?): CallOutcome =
+		send(buildChatBody(messages, systemPrompt), "chat")
 
 	private fun send(body: String, operation: String): CallOutcome = safeCall(apiKey) {
 		val headers = if (speakerDiarization) mapOf("Authorization" to "Bearer $apiKey") else mapOf("x-goog-api-key" to apiKey)

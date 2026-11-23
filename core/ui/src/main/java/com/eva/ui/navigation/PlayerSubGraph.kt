@@ -23,4 +23,10 @@ sealed interface PlayerSubGraph {
     // we are using the audio id to set up the player again so audio id
     @Serializable
     data class AudioEditorRoute(@SerialName("audioId") val audioId: Long) : PlayerSubGraph
+
+    @Serializable
+    data class RecordingChatRoute(
+        @SerialName("audioId") val audioId: Long,
+        @SerialName("title") val title: String = "",
+    ) : PlayerSubGraph
 }

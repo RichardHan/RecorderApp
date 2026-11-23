@@ -154,4 +154,6 @@
 	<string name="data_cloudtranscribe_device_storage_free_total">%1$s free / %2$s total</string>
 	<string name="data_cloudtranscribe_device_storage_end_delta">end %1$s (%2$s%3$s)</string>
 	<string name="data_cloudtranscribe_device_storage_short_free">%1$s free</string>
+	<string name="data_cloudtranscribe_chat_transcript_truncated">Transcript too long; partially truncated</string>
+	<string name="data_cloudtranscribe_chat_summary_truncated">Summary truncated</string>
 </resources>

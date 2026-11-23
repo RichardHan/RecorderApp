@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +50,7 @@ fun FileMetaDataSheetContent(
 	modifier: Modifier = Modifier,
 	contentPadding: PaddingValues = PaddingValues(),
 	deviceContext: RecordingDeviceContext? = null,
+	onOpenChat: (() -> Unit)? = null,
 ) {
 
 	val context = LocalContext.current
@@ -186,6 +188,18 @@ fun FileMetaDataSheetContent(
 						.padding(vertical = 8.dp)
 						.animateItem(),
 				)
+			}
+		}
+			if (onOpenChat != null) {
+			item {
+				OutlinedButton(
+					onClick = onOpenChat,
+					modifier = Modifier
+						.fillMaxWidth()
+						.padding(vertical = 8.dp),
+				) {
+					Text(stringResource(PlayerStrings.string.feature_player_ask_about_this_recording))
+				}
 			}
 		}
 	}

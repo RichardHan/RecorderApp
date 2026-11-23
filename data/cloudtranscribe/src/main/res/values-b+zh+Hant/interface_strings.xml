@@ -154,4 +154,6 @@
 	<string name="data_cloudtranscribe_device_storage_free_total">可用 %1$s / 共 %2$s</string>
 	<string name="data_cloudtranscribe_device_storage_end_delta">結束 %1$s（%2$s%3$s）</string>
 	<string name="data_cloudtranscribe_device_storage_short_free">餘 %1$s</string>
+	<string name="data_cloudtranscribe_chat_transcript_truncated">逐字稿過長，已截斷部分內容</string>
+	<string name="data_cloudtranscribe_chat_summary_truncated">摘要已截斷</string>
 </resources>

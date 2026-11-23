@@ -57,6 +57,7 @@ internal fun AudioPlayerScreenTopBar(
     onShareOption: () -> Unit = {},
     onDetailsOptions: () -> Unit = {},
     onCloudTranscripts: () -> Unit = {},
+    onAskChat: () -> Unit = {},
     onToggleFavourite: (AudioFileModel) -> Unit = {},
     onAddBookmark: () -> Unit = {},
     onShowBookmarkList: () -> Unit = {},
@@ -212,6 +213,13 @@ internal fun AudioPlayerScreenTopBar(
                                 onClick = {
                                     showDropDown = false
                                     onShowBookmarkList()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(text = stringResource(StringsRes.string.feature_player_ask_about_this_recording)) },
+                                onClick = {
+                                    showDropDown = false
+                                    onAskChat()
                                 },
                             )
                             DropdownMenuItem(

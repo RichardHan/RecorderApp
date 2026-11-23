@@ -100,6 +100,9 @@ class RecordingBoundClient(
 
 	override fun complete(prompt: String) =
 		TokenUsageHooks.withRecording(recordingId) { inner.complete(prompt) }
+
+	override fun completeChat(messages: List<com.eva.cloudtranscribe.api.ChatMessage>, systemPrompt: String?) =
+		TokenUsageHooks.withRecording(recordingId) { inner.completeChat(messages, systemPrompt) }
 }
 
 fun com.eva.cloudtranscribe.api.CloudAiClient.boundTo(recordingId: Long?): com.eva.cloudtranscribe.api.CloudAiClient =
