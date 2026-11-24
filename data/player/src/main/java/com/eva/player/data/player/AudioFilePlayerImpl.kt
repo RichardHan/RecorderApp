@@ -14,6 +14,9 @@ import com.eva.player.domain.model.PlayerPlayBackSpeed
 import com.eva.player.domain.model.PlayerTrackData
 import com.eva.recordings.domain.models.AudioFileModel
 import com.eva.utils.tryWithLock
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.sync.Mutex
@@ -149,6 +152,28 @@ internal class AudioFilePlayerImpl(private val player: Player) : AudioFilePlayer
 			} catch (e: Exception) {
 				e.printStackTrace()
 			}
+		}
+	}
+
+	override suspend fun seekToRecording(audioId: Long, position: Duration) = withContext(Dispatchers.Main.immediate) {
+		val sought = CompletableDeferred<Unit>()
+		fun seekIfReady() {
+			if (sought.isCompleted || player.currentMediaItem?.mediaId != audioId.toString() ||
+				player.playbackState != Player.STATE_READY || player.duration <= 0 ||
+				!player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+			) return
+			player.seekTo(position.inWholeMilliseconds.coerceIn(0L, player.duration))
+			sought.complete(Unit)
+		}
+		val listener = object : Player.Listener {
+			override fun onEvents(player: Player, events: Player.Events) = seekIfReady()
+		}
+		player.addListener(listener)
+		try {
+			seekIfReady()
+			sought.await()
+		} finally {
+			player.removeListener(listener)
 		}
 	}
 

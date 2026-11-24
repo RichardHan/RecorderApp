@@ -14,6 +14,7 @@ import com.eva.ui.viewmodel.UIEvents
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -102,6 +103,10 @@ internal class AudioPlayerViewModel @AssistedInject constructor(
 				player.cleanUp()
 			}
 		}
+	}
+
+	suspend fun seekToCitation(positionMs: Long) {
+		player.seekToRecording(audioId, positionMs.milliseconds)
 	}
 
 	fun onPlayerEvents(event: PlayerEvents) {

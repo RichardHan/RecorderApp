@@ -129,14 +129,11 @@ fun NavGraphBuilder.audioPlayerRoute(controller: NavHostController) =
         val chatSeekMs by backStackEntry.savedStateHandle
             .getStateFlow<Long?>(com.eva.feature_player.chat.CHAT_SEEK_MS_KEY, null)
             .collectAsStateWithLifecycle()
-        LaunchedEffect(chatSeekMs, isControllerReady, trackData.total) {
-            val ms = chatSeekMs ?: return@LaunchedEffect
-            if (!isControllerReady || trackData.total <= Duration.ZERO) return@LaunchedEffect
-            backStackEntry.savedStateHandle[com.eva.feature_player.chat.CHAT_SEEK_MS_KEY] = null
-            val position = ms.coerceIn(0L, trackData.total.inWholeMilliseconds)
-            playerViewModel.onPlayerEvents(PlayerEvents.OnSeekingPlayer(position.milliseconds))
-            playerViewModel.onPlayerEvents(PlayerEvents.OnSeekEndPlayer)
-        }
+		LaunchedEffect(chatSeekMs, route.audioId) {
+			val ms = chatSeekMs ?: return@LaunchedEffect
+			playerViewModel.seekToCitation(ms)
+			backStackEntry.savedStateHandle[com.eva.feature_player.chat.CHAT_SEEK_MS_KEY] = null
+		}
 
         var showCloud by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
         var transcriptRefresh by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
