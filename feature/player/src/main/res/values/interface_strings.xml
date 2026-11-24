@@ -329,10 +329,10 @@
 	<string name="feature_player_chat_context_badge">Source: %1$s</string>
 	<string name="feature_player_chat_context_with_summary">%1$s · with summary</string>
 	<string name="feature_player_chat_cost_card_title">Before you send</string>
-	<string name="feature_player_chat_cost_text_only">Only the transcript (and summary if available) is sent—no audio is uploaded. Answers are grounded strictly in this recording.</string>
+	<string name="feature_player_chat_cost_text_only">Your cloud model receives this question, recent chat messages, the transcript, and any available summary. The audio stays on your device.</string>
 	<string name="feature_player_chat_estimate_tokens">Estimated input: ~%1$s tokens (%2$s)</string>
 	<string name="feature_player_chat_estimate_cost_usd">Estimated cost: ~US$%1$s / turn (based on your unit prices)</string>
-	<string name="feature_player_chat_estimate_cost_unset">Unit price not set (you can configure per-1M token prices in Settings &gt; Usage)</string>
+	<string name="feature_player_chat_estimate_cost_unset">Set both input and output prices in Settings &gt; Usage to estimate the cost.</string>
 	<string name="feature_player_chat_recorded_usage">This recording so far: %1$s input + %2$s output tokens</string>
 	<string name="feature_player_chat_confirm_title">Send to cloud model?</string>
 	<string name="feature_player_chat_confirm_send">Confirm &amp; send</string>
@@ -340,4 +340,7 @@
 	<string name="feature_player_chat_empty_hint">Ask anything about this recording, or tap a suggested question below.</string>
 	<string name="feature_player_chat_unverified_citations">Some citations could not be matched to a transcript segment.</string>
 	<string name="feature_player_chat_truncated_banner">Long context truncated: %1$s</string>
+	<string name="feature_player_chat_suggest_key_points">What are the key points?</string>
+	<string name="feature_player_chat_suggest_tasks">What are the action items?</string>
+	<string name="feature_player_chat_suggest_decisions">Who made which decisions?</string>
 </resources>

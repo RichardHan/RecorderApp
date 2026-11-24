@@ -329,10 +329,10 @@
 	<string name="feature_player_chat_context_badge">來源：%1$s</string>
 	<string name="feature_player_chat_context_with_summary">%1$s・含摘要重點</string>
 	<string name="feature_player_chat_cost_card_title">送出前預估與說明</string>
-	<string name="feature_player_chat_cost_text_only">只會傳送逐字稿文字（與摘要，若有），不會上傳音訊。回答只根據這段錄音的內容。</string>
+	<string name="feature_player_chat_cost_text_only">雲端模型會收到這次提問、近期的對話訊息、逐字稿及可用的摘要。錄音檔保留在裝置上。</string>
 	<string name="feature_player_chat_estimate_tokens">預估每次輸入約 %1$s tokens（模型：%2$s）</string>
 	<string name="feature_player_chat_estimate_cost_usd">預估費用約 US$%1$s／次（依設定單價計算）</string>
-	<string name="feature_player_chat_estimate_cost_unset">未設定模型單價（可至設定＞用量輸入每百萬 token 單價）</string>
+	<string name="feature_player_chat_estimate_cost_unset">請至設定＞用量填寫輸入及輸出單價，即可預估費用。</string>
 	<string name="feature_player_chat_recorded_usage">此錄音累計已記錄：%1$s 輸入 + %2$s 輸出 tokens</string>
 	<string name="feature_player_chat_confirm_title">要傳送到雲端模型嗎？</string>
 	<string name="feature_player_chat_confirm_send">確認送出</string>
@@ -340,4 +340,7 @@
 	<string name="feature_player_chat_empty_hint">你可以直接提問，或點選下方建議問題開始對話。</string>
 	<string name="feature_player_chat_unverified_citations">部分引用片段無法對應到逐字稿。</string>
 	<string name="feature_player_chat_truncated_banner">內容較長已截斷：%1$s</string>
+	<string name="feature_player_chat_suggest_key_points">重點是什麼？</string>
+	<string name="feature_player_chat_suggest_tasks">有哪些待辦？</string>
+	<string name="feature_player_chat_suggest_decisions">誰說了什麼決定？</string>
 </resources>

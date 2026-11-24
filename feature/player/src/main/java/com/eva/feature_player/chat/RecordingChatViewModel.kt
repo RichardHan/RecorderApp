@@ -99,6 +99,13 @@ class RecordingChatViewModel internal constructor(
 
 	fun bind(id: Long, force: Boolean = false) {
 		if (!force && recordingId == id) return
+		if (recordingId != id) {
+			sendJob?.cancel()
+			confirmedCost = false
+			messages = emptyList()
+			contextInfo = null
+			errorMessage = null
+		}
 		recordingId = id
 		loading = true
 		sourceJob?.cancel()
@@ -110,8 +117,8 @@ class RecordingChatViewModel internal constructor(
 			) { _, settings, hasKey ->
 				settings to hasKey
 			}.collectLatest { (settings, hasKey) ->
-				latestSettings = settings
-				activeModel = settings.summaryModel
+				if (latestSettings != settings || !hasKey) confirmedCost = false
+				loading = true
 				val loaded = withContext(Dispatchers.IO) {
 					val selected = runCatching {
 						PlaybackTranscripts.defaultSelection(store.transcriptsWithEdits(id))
@@ -136,6 +143,8 @@ class RecordingChatViewModel internal constructor(
 					}.getOrNull()
 					LoadedChatState(selected, summary, ctx, history, usage)
 				}
+				latestSettings = settings
+				activeModel = settings.summaryModel
 				contextInfo = loaded.context
 				messages = loaded.history
 				transcriptBlockedReason = ChatRules.transcriptBlockedReason(loaded.transcript, loaded.context)
@@ -167,6 +176,7 @@ class RecordingChatViewModel internal constructor(
 	}
 
 	fun confirmCostAndSend(question: String, onSent: () -> Unit = {}) {
+		if (loading || configBlockedReason != null || transcriptBlockedReason != null) return
 		confirmedCost = true
 		send(question, onSent)
 	}
@@ -174,7 +184,7 @@ class RecordingChatViewModel internal constructor(
 	fun send(question: String, onSent: () -> Unit = {}) {
 		val q = question.trim().take(RecordingChat.MAX_QUESTION_CHARS)
 		val ctx = contextInfo ?: return
-		if (sending || q.isEmpty() || transcriptBlockedReason != null) return
+		if (loading || sending || !confirmedCost || q.isEmpty() || transcriptBlockedReason != null) return
 		val id = recordingId
 		if (id < 0L) return
 
@@ -193,8 +203,12 @@ class RecordingChatViewModel internal constructor(
 					return@launch
 				}
 
+				if (settings != latestSettings || !confirmedCost) {
+					confirmedCost = false
+					return@launch
+				}
 				val client = clientFactory.create(settings, key).boundTo(id)
-				val chatMessages = RecordingChat.buildMessages(messages, q)
+				val chatMessages = RecordingChat.buildMessages(messages, q, redactPii = settings.redactPiiForCloud)
 				val sysPrompt = RecordingChat.systemPrompt(ctx)
 				val outcome = withContext(Dispatchers.IO) {
 					client.completeChat(chatMessages, sysPrompt)
@@ -218,7 +232,6 @@ class RecordingChatViewModel internal constructor(
 							if (events.isEmpty()) null else CloudUsage.forRecording(id, events, settings.modelPrices)
 						}
 						messages = updated
-						confirmedCost = true
 						recordedUsage = refreshedUsage
 						estimate = RecordingChat.estimateRequest(
 							context = ctx,

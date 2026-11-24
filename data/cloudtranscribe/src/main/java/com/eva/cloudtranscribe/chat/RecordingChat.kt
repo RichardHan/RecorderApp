@@ -68,7 +68,7 @@ data class RecordingChatContext(
 			val parts = ArrayList<String>(2)
 			if (segments.size < totalSegments) {
 				val lastEnd = segments.lastOrNull()?.let { it.endMs ?: it.startMs }
-				val note = if (lastEnd != null) {
+				val note = if (lastEnd != null && !singleSegmentTruncated) {
 					UiStrings.get(
 						StringsRes.string.data_cloudtranscribe_only_was_used_segments_1_of,
 						"只用了前 %1\$s（第 1–%2\$s 段，共 %3\$s 段）",
@@ -85,7 +85,8 @@ data class RecordingChatContext(
 					)
 				}
 				parts += note
-			} else if (singleSegmentTruncated) {
+			}
+			if (singleSegmentTruncated) {
 				parts += UiStrings.get(
 					StringsRes.string.data_cloudtranscribe_chat_transcript_truncated,
 					"逐字稿過長，已截斷部分內容",
@@ -129,12 +130,6 @@ object RecordingChat {
 	const val MAX_HISTORY_CHARS = 6_000
 	const val MAX_QUESTION_CHARS = 500
 	const val DEFAULT_EXPECTED_OUTPUT_TOKENS = 250L
-
-	val SUGGESTED_QUESTIONS: List<String> = listOf(
-		"重點是什麼？",
-		"有哪些待辦？",
-		"誰說了什麼決定？",
-	)
 
 	fun usableSummary(summary: SummaryRecord?): SummaryRecord? = summary?.takeIf {
 		it.status == RunStatus.SUCCESS &&
@@ -222,6 +217,7 @@ object RecordingChat {
 		newQuestion: String,
 		maxHistoryTurns: Int = MAX_HISTORY_TURNS,
 		maxHistoryChars: Int = MAX_HISTORY_CHARS,
+		redactPii: Boolean = false,
 	): List<ChatMessage> {
 		val cleanQuestion = newQuestion.trim().take(MAX_QUESTION_CHARS)
 		require(cleanQuestion.isNotEmpty()) { "blank question" }
@@ -242,7 +238,7 @@ object RecordingChat {
 		}
 		selected.reverse()
 		selected += ChatMessage(role = ChatRole.USER, content = cleanQuestion)
-		return selected
+		return if (redactPii) selected.map { it.copy(content = PiiRedactor.redact(it.content)) } else selected
 	}
 
 	fun parse(answer: String, context: RecordingChatContext): ChatParsed {
@@ -286,7 +282,7 @@ object RecordingChat {
 		expectedOutputTokens: Long = DEFAULT_EXPECTED_OUTPUT_TOKENS,
 	): ChatEstimate {
 		val sysTokens = estimateTokens(systemPrompt(context))
-		val q = draftQuestion.trim().ifEmpty { SUGGESTED_QUESTIONS.first() }
+		val q = draftQuestion.trim().ifEmpty { "重點是什麼？" }
 		val msgs = buildMessages(history, q)
 		val msgTokens = msgs.sumOf { estimateTokens(it.content) + 8L }
 		val promptTokens = sysTokens + msgTokens + 12L
@@ -294,9 +290,9 @@ object RecordingChat {
 		val price = TokenPricing.priceMap(prices)[model.trim().lowercase()]
 		val inputPerM = TokenPricing.parseUnitPrice(price?.inputPerMillion)
 		val outputPerM = TokenPricing.parseUnitPrice(price?.outputPerMillion)
-		val cost = if (inputPerM != null) {
+		val cost = if (inputPerM != null && outputPerM != null) {
 			val inputCost = promptTokens / TokenPricing.PER_MILLION * inputPerM
-			val outputCost = if (outputPerM != null) expectedOutputTokens / TokenPricing.PER_MILLION * outputPerM else 0.0
+			val outputCost = expectedOutputTokens / TokenPricing.PER_MILLION * outputPerM
 			inputCost + outputCost
 		} else null
 
@@ -305,7 +301,7 @@ object RecordingChat {
 			expectedOutputTokens = expectedOutputTokens,
 			model = model,
 			estimatedCostUsd = cost,
-			unitPriceConfigured = inputPerM != null,
+			unitPriceConfigured = cost != null,
 		)
 	}
 }

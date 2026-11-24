@@ -3,7 +3,7 @@ package com.eva.feature_player.chat
 import com.eva.cloudtranscribe.api.AudioPayload
 import com.eva.cloudtranscribe.api.CallOutcome
 import com.eva.cloudtranscribe.api.ChatMessage
-import com.eva.cloudtranscribe.api.ChatRole
+import com.eva.cloudtranscribe.model.PiiRedactor
 import com.eva.cloudtranscribe.api.CloudAiClient
 import com.eva.cloudtranscribe.model.CloudSettings
 import com.eva.cloudtranscribe.model.Provenance
@@ -143,7 +143,6 @@ class RecordingChatViewModelTest {
 		waitUntil { !vm.loading }
 		assertNotNull(vm.transcriptBlockedReason)
 		vm.send("重點是什麼？")
-		Thread.sleep(50)
 		assertEquals(0, calls.get())
 	}
 
@@ -158,9 +157,52 @@ class RecordingChatViewModelTest {
 		waitUntil { !vm.loading }
 		assertNull(vm.transcriptBlockedReason)
 		assertNotNull(vm.configBlockedReason)
-		vm.send("重點是什麼？")
-		waitUntil { !vm.sending && vm.errorMessage != null }
+		vm.confirmCostAndSend("重點是什麼？")
+		assertTrue(!vm.confirmedCost)
 		assertEquals(0, calls.get())
+	}
+
+	@Test
+	fun confirmation_is_required_before_sending_and_is_scoped_to_the_recording() {
+		val calls = AtomicInteger()
+		val (vm, store, _) = createVm { _, _ ->
+			calls.incrementAndGet()
+			CallOutcome.Text("ok")
+		}
+		vm.bind(5L)
+		waitUntil { !vm.loading }
+		vm.send("first")
+		assertEquals(0, calls.get())
+		vm.confirmCostAndSend("first")
+		waitUntil { vm.messages.size == 2 && !vm.sending }
+		store.saveTranscript(sampleTranscript.copy(id = "other", recordingId = 6L))
+		vm.bind(6L)
+		waitUntil { !vm.loading }
+		vm.send("second")
+		assertTrue(!vm.confirmedCost)
+		assertTrue(vm.messages.isEmpty())
+		assertEquals(1, calls.get())
+	}
+
+	@Test
+	fun cloud_request_masks_personal_data_in_questions_and_history_and_keeps_local_text() {
+		val requests = mutableListOf<List<ChatMessage>>()
+		val (vm, store, _) = createVm(settings = CloudSettings(
+			baseUrl = "https://api.example/v1",
+			redactPiiForCloud = true,
+		)) { msgs, _ ->
+			requests += msgs
+			CallOutcome.Text("call 0912-345-678")
+		}
+		vm.bind(5L)
+		waitUntil { !vm.loading }
+		vm.confirmCostAndSend("ask amy@example.com")
+		waitUntil { !vm.sending && vm.messages.size == 2 }
+		vm.send("try bob@example.com")
+		waitUntil { !vm.sending && vm.messages.size == 4 }
+		assertEquals(listOf("ask " + PiiRedactor.EMAIL, "call " + PiiRedactor.PHONE,
+			"try " + PiiRedactor.EMAIL), requests.last().map { it.content })
+		assertEquals("ask amy@example.com", store.chatHistory(5L).first().text)
 	}
 
 	@Test

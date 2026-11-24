@@ -106,8 +106,8 @@ internal fun RecordingChatScreen(
 
 	val submitQuestion: (String) -> Unit = { raw ->
 		val trimmed = raw.trim().take(RecordingChat.MAX_QUESTION_CHARS)
-		if (trimmed.isNotEmpty() && !sending && transcriptBlockedReason == null) {
-			if (confirmedCost || configBlockedReason != null) {
+		if (trimmed.isNotEmpty() && !loading && !sending && transcriptBlockedReason == null && configBlockedReason == null) {
+			if (confirmedCost) {
 				onSend(trimmed) { if (raw == input) input = "" }
 			} else {
 				onRefreshEstimate(trimmed)
@@ -166,7 +166,7 @@ internal fun RecordingChatScreen(
 			)
 		},
 		bottomBar = {
-			if (transcriptBlockedReason == null) {
+			if (!loading && transcriptBlockedReason == null) {
 				ChatInputBar(
 					value = input,
 					onValueChange = { input = it.take(RecordingChat.MAX_QUESTION_CHARS) },
@@ -518,7 +518,12 @@ private fun SuggestedQuestionsSection(
 			modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
 			horizontalArrangement = Arrangement.spacedBy(8.dp),
 		) {
-			RecordingChat.SUGGESTED_QUESTIONS.forEach { q ->
+			listOf(
+				StringsRes.string.feature_player_chat_suggest_key_points,
+				StringsRes.string.feature_player_chat_suggest_tasks,
+				StringsRes.string.feature_player_chat_suggest_decisions,
+			).forEach { res ->
+				val q = stringResource(res)
 				AssistChip(
 					enabled = enabled,
 					onClick = { onSelect(q) },

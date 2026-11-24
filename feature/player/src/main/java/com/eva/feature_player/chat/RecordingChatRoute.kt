@@ -35,7 +35,7 @@ fun NavGraphBuilder.recordingChatRoute(controller: NavHostController) =
 			confirmedCost = viewModel.confirmedCost,
 			onBack = dropUnlessResumed(block = controller::popBackStack),
 			onNavigateToSettings = dropUnlessResumed {
-				controller.navigate(NavRoutes.AudioSettings)
+				controller.navigate(NavRoutes.AudioSettings(openCloudAi = true))
 			},
 			onSeekTo = { ms ->
 				controller.previousBackStackEntry?.savedStateHandle?.set(CHAT_SEEK_MS_KEY, ms)

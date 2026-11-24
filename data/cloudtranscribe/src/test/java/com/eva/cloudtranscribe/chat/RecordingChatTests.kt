@@ -182,6 +182,16 @@ class RecordingChatTests {
 	}
 
 	@Test
+	fun estimate_requires_both_unit_prices_and_accepts_explicit_zero() {
+		val ctx = RecordingChat.buildContext(transcript())
+		fun cost(input: String, output: String) = RecordingChat.estimateRequest(ctx, emptyList(), "Q",
+			"model", listOf(ModelPrice("model", input, output))).estimatedCostUsd
+		assertNull(cost("1.5", ""))
+		assertNull(cost("", "1.5"))
+		assertEquals(0.0, cost("0", "0")!!, 0.0)
+	}
+
+	@Test
 	fun chat_history_round_trips_and_clears_in_transcript_store() {
 		val dir = Files.createTempDirectory("chat-store").toFile()
 		try {

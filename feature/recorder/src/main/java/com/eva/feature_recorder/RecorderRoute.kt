@@ -124,7 +124,7 @@ fun NavGraphBuilder.recorderRoute(navController: NavHostController) =
 				showNotes = true,
 				onShowRecordings = dropUnlessResumed { navController.navigate(NavRoutes.VoiceRecordings) },
 				onNavigateToBin = dropUnlessResumed { navController.navigate(NavRoutes.TrashRecordings) },
-				onNavigateToSettings = dropUnlessResumed { navController.navigate(NavRoutes.AudioSettings) },
+				onNavigateToSettings = dropUnlessResumed { navController.navigate(NavRoutes.AudioSettings()) },
 			)
 		}
 	}
