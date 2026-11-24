@@ -3,6 +3,7 @@ package com.eva.feature_player.chat
 import com.eva.cloudtranscribe.api.AudioPayload
 import com.eva.cloudtranscribe.api.CallOutcome
 import com.eva.cloudtranscribe.api.ChatMessage
+import com.eva.cloudtranscribe.chat.RecordingChat
 import com.eva.cloudtranscribe.model.PiiRedactor
 import com.eva.cloudtranscribe.api.CloudAiClient
 import com.eva.cloudtranscribe.model.CloudSettings
@@ -163,6 +164,20 @@ class RecordingChatViewModelTest {
 	}
 
 	@Test
+	fun blank_question_in_confirmCostAndSend_does_not_confirm_cost_or_call_client() {
+		val calls = AtomicInteger()
+		val (vm, _, _) = createVm { _, _ ->
+			calls.incrementAndGet()
+			CallOutcome.Text("ok")
+		}
+		vm.bind(5L)
+		waitUntil { !vm.loading }
+		vm.confirmCostAndSend("   ")
+		assertTrue(!vm.confirmedCost)
+		assertEquals(0, calls.get())
+	}
+
+	@Test
 	fun confirmation_is_required_before_sending_and_is_scoped_to_the_recording() {
 		val calls = AtomicInteger()
 		val (vm, store, _) = createVm { _, _ ->
@@ -203,6 +218,15 @@ class RecordingChatViewModelTest {
 		assertEquals(listOf("ask " + PiiRedactor.EMAIL, "call " + PiiRedactor.PHONE,
 			"try " + PiiRedactor.EMAIL), requests.last().map { it.content })
 		assertEquals("ask amy@example.com", store.chatHistory(5L).first().text)
+		val expected = RecordingChat.estimateRequest(
+			context = vm.contextInfo!!,
+			history = vm.messages,
+			draftQuestion = "",
+			model = "gemini-3.8-flash",
+			prices = emptyList(),
+			redactPii = true,
+		)
+		assertEquals(expected.promptTokens, vm.estimate!!.promptTokens)
 	}
 
 	@Test

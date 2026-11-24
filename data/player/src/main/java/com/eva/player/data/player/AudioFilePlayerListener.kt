@@ -46,6 +46,10 @@ internal class AudioFilePlayerListener(private val player: Player) : Player.List
 		_isStreamMuted.update { volume == 0f }
 	}
 
+	override fun onPlaybackStateChanged(playbackState: Int) {
+		updatePlayerState(playbackState)
+	}
+
 	override fun onPlayerError(error: PlaybackException) {
 		// need to check for exceptions
 		_errorsFlow.trySend(error)
@@ -79,15 +83,19 @@ internal class AudioFilePlayerListener(private val player: Player) : Player.List
 			PlayerPlayBackSpeed.fromInt(paramsSpeed) ?: speed
 		}
 		// update the player state
+		updatePlayerState(player.playbackState)
+		// update volume
+		_isStreamMuted.update { player.volume == 0f }
+	}
+
+	private fun updatePlayerState(playbackState: Int) {
 		_playerState.update { oldState ->
-			when (player.playbackState) {
+			when (playbackState) {
 				Player.STATE_IDLE -> PlayerState.IDLE
 				Player.STATE_ENDED -> PlayerState.COMPLETED
 				Player.STATE_READY -> PlayerState.PLAYER_READY
-				else -> return@update oldState
+				else -> oldState
 			}
 		}
-		// update volume
-		_isStreamMuted.update { player.volume == 0f }
 	}
 }

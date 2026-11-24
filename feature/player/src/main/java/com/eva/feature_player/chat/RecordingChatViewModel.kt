@@ -157,6 +157,7 @@ class RecordingChatViewModel internal constructor(
 						draftQuestion = "",
 						model = settings.summaryModel,
 						prices = settings.modelPrices,
+						redactPii = settings.redactPiiForCloud,
 					)
 				}
 				loading = false
@@ -172,13 +173,15 @@ class RecordingChatViewModel internal constructor(
 			draftQuestion = draftQuestion,
 			model = latestSettings.summaryModel,
 			prices = latestSettings.modelPrices,
+			redactPii = latestSettings.redactPiiForCloud,
 		)
 	}
 
 	fun confirmCostAndSend(question: String, onSent: () -> Unit = {}) {
-		if (loading || configBlockedReason != null || transcriptBlockedReason != null) return
+		val q = question.trim().take(RecordingChat.MAX_QUESTION_CHARS)
+		if (q.isEmpty() || loading || sending || configBlockedReason != null || transcriptBlockedReason != null) return
 		confirmedCost = true
-		send(question, onSent)
+		send(q, onSent)
 	}
 
 	fun send(question: String, onSent: () -> Unit = {}) {
@@ -239,6 +242,7 @@ class RecordingChatViewModel internal constructor(
 							draftQuestion = "",
 							model = settings.summaryModel,
 							prices = settings.modelPrices,
+							redactPii = settings.redactPiiForCloud,
 						)
 						onSent()
 					}
@@ -302,6 +306,7 @@ class RecordingChatViewModel internal constructor(
 					draftQuestion = "",
 					model = latestSettings.summaryModel,
 					prices = latestSettings.modelPrices,
+					redactPii = latestSettings.redactPiiForCloud,
 				)
 			}
 		}

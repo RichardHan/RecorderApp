@@ -182,6 +182,18 @@ class RecordingChatTests {
 	}
 
 	@Test
+	fun estimate_accounts_for_pii_redaction_when_enabled() {
+		val ctx = RecordingChat.buildContext(transcript())
+		val longPii = "a".repeat(80) + "@example.com " + "b".repeat(80) + "@example.com"
+		val history = listOf(
+			RecordingChatMessage("m1", 42L, "t1", ChatMessageRole.USER, longPii, createdAtMillis = 1L),
+		)
+		val rawEst = RecordingChat.estimateRequest(ctx, history, longPii, "gemini-3.8-flash", emptyList(), redactPii = false)
+		val redactedEst = RecordingChat.estimateRequest(ctx, history, longPii, "gemini-3.8-flash", emptyList(), redactPii = true)
+		assertTrue(redactedEst.promptTokens < rawEst.promptTokens)
+	}
+
+	@Test
 	fun estimate_requires_both_unit_prices_and_accepts_explicit_zero() {
 		val ctx = RecordingChat.buildContext(transcript())
 		fun cost(input: String, output: String) = RecordingChat.estimateRequest(ctx, emptyList(), "Q",

@@ -279,11 +279,12 @@ object RecordingChat {
 		draftQuestion: String,
 		model: String,
 		prices: List<ModelPrice>,
+		redactPii: Boolean = false,
 		expectedOutputTokens: Long = DEFAULT_EXPECTED_OUTPUT_TOKENS,
 	): ChatEstimate {
 		val sysTokens = estimateTokens(systemPrompt(context))
 		val q = draftQuestion.trim().ifEmpty { "重點是什麼？" }
-		val msgs = buildMessages(history, q)
+		val msgs = buildMessages(history, q, redactPii = redactPii)
 		val msgTokens = msgs.sumOf { estimateTokens(it.content) + 8L }
 		val promptTokens = sysTokens + msgTokens + 12L
 

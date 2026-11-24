@@ -158,10 +158,17 @@ internal class AudioFilePlayerImpl(private val player: Player) : AudioFilePlayer
 	override suspend fun seekToRecording(audioId: Long, position: Duration) = withContext(Dispatchers.Main.immediate) {
 		val sought = CompletableDeferred<Unit>()
 		fun seekIfReady() {
+			val playbackState = player.playbackState
+			val isSeekableState = playbackState == Player.STATE_READY || playbackState == Player.STATE_ENDED
 			if (sought.isCompleted || player.currentMediaItem?.mediaId != audioId.toString() ||
-				player.playbackState != Player.STATE_READY || player.duration <= 0 ||
+				!isSeekableState || player.duration <= 0 ||
 				!player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
 			) return
+			if (playbackState == Player.STATE_ENDED && player.playWhenReady &&
+				player.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)
+			) {
+				player.pause()
+			}
 			player.seekTo(position.inWholeMilliseconds.coerceIn(0L, player.duration))
 			sought.complete(Unit)
 		}
