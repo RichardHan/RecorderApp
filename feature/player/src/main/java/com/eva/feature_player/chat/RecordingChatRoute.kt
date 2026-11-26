@@ -44,7 +44,7 @@ fun NavGraphBuilder.recordingChatRoute(controller: NavHostController) =
 			onSend = viewModel::send,
 			onConfirmCostAndSend = viewModel::confirmCostAndSend,
 			onRefreshEstimate = viewModel::refreshEstimate,
-			onCancelSend = viewModel::cancel,
+			onCancelSend = if (viewModel.canCancelSend) viewModel::cancel else null,
 			onClearHistory = viewModel::clearHistory,
 			onDismissError = viewModel::dismissError,
 		)

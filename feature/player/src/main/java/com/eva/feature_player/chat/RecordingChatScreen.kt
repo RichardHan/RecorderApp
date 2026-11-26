@@ -89,7 +89,7 @@ internal fun RecordingChatScreen(
 	onSend: (question: String, onSent: () -> Unit) -> Unit,
 	onConfirmCostAndSend: (question: String, onSent: () -> Unit) -> Unit,
 	onRefreshEstimate: (String) -> Unit,
-	onCancelSend: () -> Unit,
+	onCancelSend: (() -> Unit)?,
 	onClearHistory: () -> Unit,
 	onDismissError: () -> Unit,
 	modifier: Modifier = Modifier,
@@ -626,7 +626,7 @@ private fun AssistantBubble(
 }
 
 @Composable
-private fun ThinkingBubble(onCancel: () -> Unit) {
+private fun ThinkingBubble(onCancel: (() -> Unit)?) {
 	Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
 		Surface(
 			color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -642,8 +642,10 @@ private fun ThinkingBubble(onCancel: () -> Unit) {
 					text = stringResource(StringsRes.string.feature_player_chat_thinking),
 					style = MaterialTheme.typography.bodyMedium,
 				)
-				TextButton(onClick = onCancel, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)) {
-					Text(stringResource(StringsRes.string.feature_player_cancel))
+				if (onCancel != null) {
+					TextButton(onClick = onCancel, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)) {
+						Text(stringResource(StringsRes.string.feature_player_cancel))
+					}
 				}
 			}
 		}

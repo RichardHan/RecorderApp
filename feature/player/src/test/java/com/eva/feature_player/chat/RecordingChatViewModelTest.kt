@@ -22,13 +22,18 @@ import com.eva.cloudtranscribe.usage.TokenUsage
 import com.eva.cloudtranscribe.usage.TokenUsageHooks
 import com.eva.cloudtranscribe.usage.TokenUsageStore
 import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewModelScope
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import java.io.IOException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.job
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -268,6 +273,68 @@ class RecordingChatViewModelTest {
 		vm.clearHistory()
 		waitUntil { vm.messages.isEmpty() }
 		assertTrue(store.chatHistory(5L).isEmpty())
+	}
+
+	@Test
+	fun canceled_request_finishing_during_retry_leaves_retry_in_progress() {
+		assertRetrySurvivesCanceledRequest { CallOutcome.Text("canceled answer") }
+	}
+
+	@Test
+	fun canceled_request_failing_during_retry_leaves_retry_in_progress() {
+		assertRetrySurvivesCanceledRequest { throw IOException("canceled request failed") }
+	}
+
+	private fun assertRetrySurvivesCanceledRequest(completeFirst: () -> CallOutcome) {
+		val firstStarted = CountDownLatch(1)
+		val finishFirst = CountDownLatch(1)
+		val firstFinished = CountDownLatch(1)
+		val retryStarted = CountDownLatch(1)
+		val finishRetry = CountDownLatch(1)
+		val (vm, store, _) = createVm { messages, _ ->
+			when (messages.last().content) {
+				"first question" -> {
+					firstStarted.countDown()
+					check(finishFirst.await(5, TimeUnit.SECONDS))
+					completeFirst()
+				}
+				"retry question" -> {
+					retryStarted.countDown()
+					check(finishRetry.await(5, TimeUnit.SECONDS))
+					CallOutcome.Text("retry answer")
+				}
+				else -> error("unexpected question")
+			}
+		}
+		vm.bind(5L)
+		waitUntil { !vm.loading }
+		val scopeJob = vm.viewModelScope.coroutineContext.job
+		val existingJobs = scopeJob.children.toSet()
+
+		try {
+			vm.confirmCostAndSend("first question")
+			assertTrue(firstStarted.await(5, TimeUnit.SECONDS))
+			scopeJob.children.single { it !in existingJobs }.invokeOnCompletion { firstFinished.countDown() }
+
+			vm.cancel()
+			vm.send("retry question")
+			assertTrue(retryStarted.await(5, TimeUnit.SECONDS))
+			finishFirst.countDown()
+			assertTrue(firstFinished.await(5, TimeUnit.SECONDS))
+
+			assertTrue(vm.sending)
+			assertEquals("retry question", vm.pendingQuestion)
+			assertTrue(vm.canCancelSend)
+			assertNull(vm.errorMessage)
+			assertTrue(store.chatHistory(5L).isEmpty())
+
+			finishRetry.countDown()
+			waitUntil { !vm.sending && vm.messages.size == 2 }
+			assertEquals(listOf("retry question", "retry answer"), store.chatHistory(5L).map { it.text })
+		} finally {
+			finishFirst.countDown()
+			finishRetry.countDown()
+		}
 	}
 
 	@Test

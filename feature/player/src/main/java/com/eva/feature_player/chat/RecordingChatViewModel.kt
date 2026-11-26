@@ -31,10 +31,13 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -71,10 +74,11 @@ class RecordingChatViewModel internal constructor(
 		private set
 	var messages by mutableStateOf<List<RecordingChatMessage>>(emptyList())
 		private set
-	var sending by mutableStateOf(false)
-		private set
 	var pendingQuestion by mutableStateOf<String?>(null)
 		private set
+	private var savingAnswer by mutableStateOf(false)
+	val sending: Boolean get() = pendingQuestion != null
+	val canCancelSend: Boolean get() = sending && !savingAnswer
 	var errorMessage by mutableStateOf<String?>(null)
 		private set
 	var transcriptBlockedReason by mutableStateOf<String?>(null)
@@ -100,7 +104,7 @@ class RecordingChatViewModel internal constructor(
 	fun bind(id: Long, force: Boolean = false) {
 		if (!force && recordingId == id) return
 		if (recordingId != id) {
-			sendJob?.cancel()
+			cancelInFlightSend()
 			confirmedCost = false
 			messages = emptyList()
 			contextInfo = null
@@ -191,11 +195,9 @@ class RecordingChatViewModel internal constructor(
 		val id = recordingId
 		if (id < 0L) return
 
-		sendJob?.cancel()
-		sendJob = viewModelScope.launch {
-			sending = true
-			pendingQuestion = q
-			errorMessage = null
+		pendingQuestion = q
+		errorMessage = null
+		sendJob = viewModelScope.launch(start = CoroutineStart.LAZY) {
 			try {
 				val settings = settingsRepo.current()
 				val key = keys.read()
@@ -229,6 +231,7 @@ class RecordingChatViewModel internal constructor(
 							model = settings.summaryModel,
 						)
 						val updated = messages + pair.first + pair.second
+					savingAnswer = true
 						val refreshedUsage = withContext(Dispatchers.IO) {
 							store.saveChatHistory(id, updated)
 							val events = tokenUsageStore.eventsForRecording(id)
@@ -269,27 +272,38 @@ class RecordingChatViewModel internal constructor(
 			} catch (e: CancellationException) {
 				throw e
 			} catch (e: Exception) {
+				coroutineContext.ensureActive()
 				errorMessage = UiStrings.get(
 					StringsRes.string.feature_player_question_failed,
 					"提問失敗：%1\$s",
 					e.message ?: e.javaClass.simpleName,
 				)
 			} finally {
-				sending = false
-				pendingQuestion = null
+				if (sendJob === coroutineContext.job) finishSend()
 			}
 		}
+		sendJob?.start()
 	}
 
 	fun cancel() {
-		sendJob?.cancel()
-		sendJob = null
-		sending = false
-		pendingQuestion = null
+		if (!canCancelSend) return
+		cancelInFlightSend()
 		errorMessage = UiStrings.get(
 			StringsRes.string.feature_player_canceled_nothing_was_saved,
 			"已取消，未儲存",
 		)
+	}
+
+	private fun cancelInFlightSend() {
+		val job = sendJob
+		finishSend()
+		job?.cancel()
+	}
+
+	private fun finishSend() {
+		sendJob = null
+		pendingQuestion = null
+		savingAnswer = false
 	}
 
 	fun clearHistory() {
