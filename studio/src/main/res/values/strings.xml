@@ -219,4 +219,11 @@
 	<string name="manage_categories">Manage categories</string>
 	<string name="save_category">Save category</string>
 	<string name="remove_category">Remove category from recordings</string>
+	<string name="segment_length">Audio per request · %1$d seconds</string>
+	<string name="parallel_requests">Simultaneous requests · %1$d</string>
+	<string name="skip_silence">Skip nearly silent segments</string>
+	<string name="import_transcript">Import transcript</string>
+	<string name="import_replace">Use this imported document as the current transcript and keep the previous version?</string>
+	<string name="discard_capture">Discard recording</string>
+	<string name="discard_session">Discard this recording and its attached photos?</string>
 </resources>

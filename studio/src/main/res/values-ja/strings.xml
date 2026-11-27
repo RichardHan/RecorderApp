@@ -219,4 +219,11 @@
 	<string name="manage_categories">カテゴリを管理</string>
 	<string name="save_category">カテゴリを保存</string>
 	<string name="remove_category">録音からこのカテゴリを外す</string>
+	<string name="segment_length">リクエストごとの長さ · %1$d 秒</string>
+	<string name="parallel_requests">同時リクエスト数 · %1$d</string>
+	<string name="skip_silence">ほぼ無音の区間をスキップ</string>
+	<string name="import_transcript">文字起こしを読み込む</string>
+	<string name="import_replace">以前の版を保存して読み込んだ文書に切り替えますか？</string>
+	<string name="discard_capture">録音を破棄</string>
+	<string name="discard_session">この録音と添付した写真を破棄しますか？</string>
 </resources>

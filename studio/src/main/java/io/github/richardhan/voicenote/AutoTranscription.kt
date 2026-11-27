@@ -20,7 +20,7 @@ import java.io.File
 import java.util.UUID
 
 private fun Context.autoPrefs() = getSharedPreferences("auto_transcription", Context.MODE_PRIVATE)
-internal fun SpeechConnection.profileId(): String = transcriptDigest(listOf(base, model, chatModel, protocol.name, vocabulary, key).joinToString("\u0000")).toHexString()
+internal fun SpeechConnection.profileId(): String = transcriptDigest(listOf(base, model, chatModel, protocol.name, vocabulary, segmentSeconds, concurrentRequests, skipSilence, key).joinToString("\u0000")).toHexString()
 
 internal fun Context.queueTranscription(file: File) {
 	val prefs = autoPrefs()

@@ -34,7 +34,7 @@ private inline fun saveMetadata(temp: File, target: File, write: () -> Unit) {
 }
 
 @Synchronized
-internal fun saveTranscription(file: File, text: String, receipt: TranscriptionReceipt, segments: JSONArray? = null) {
+internal fun saveTranscription(file: File, text: String, receipt: TranscriptionReceipt?, segments: JSONArray? = null) {
 	require(text.isNotBlank())
 	val destination = transcriptFile(file)
 	val metadata = receiptFile(file)
@@ -48,7 +48,7 @@ internal fun saveTranscription(file: File, text: String, receipt: TranscriptionR
 		Files.deleteIfExists(timing.toPath())
 		Files.move(temp.toPath(), destination.toPath(), ATOMIC_MOVE, REPLACE_EXISTING)
 		val hash = transcriptDigest(text)
-		saveMetadata(temp, metadata) {
+		if (receipt != null) saveMetadata(temp, metadata) {
 			val values = Properties().apply {
 				setProperty("digest", Base64.getEncoder().encodeToString(hash))
 				setProperty("model", receipt.model)

@@ -24,7 +24,7 @@ Application ID 為 `io.github.richardhan.voicenote`。這個 repo 現在只保�
 
 ## 從舊版匯入錄音
 
-OpenRouter Recorder 會與舊版 RecorderApp 並存。要搬移錄音，可在舊版分享音檔給 OpenRouter Recorder，再按「匯入」；也可以在新 App 按「選取音檔」，一次選取多個檔案。支援舊版錄製的 M4A、Ogg Opus、AMR 窄頻與寬頻音檔。匯入會複製音訊，原始檔仍在原處。舊版的逐字稿、聊天紀錄與設定需在舊版查看。
+OpenRouter Recorder 會與舊版 RecorderApp 並存。要搬移錄音，可在舊版分享音檔給 OpenRouter Recorder，再按「匯入」；也可以在新 App 按「選取音檔」，一次選取多個檔案。支援舊版錄製的 M4A、Ogg Opus、AMR 窄頻與寬頻音檔。匯入會複製音訊，原始檔仍在原處。舊版匯出的文字、SRT 或 WebVTT 可在相對應的錄音按「匯入逐字稿」，保留字幕時間。舊版私有的聊天紀錄與帳戶設定仍需在舊版查看。
 
 ## 建置
 

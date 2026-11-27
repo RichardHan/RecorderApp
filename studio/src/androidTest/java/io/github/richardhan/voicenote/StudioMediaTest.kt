@@ -36,6 +36,16 @@ class StudioMediaTest {
 		assertArrayEquals(original, file.readBytes())
 	}
 
+	@Test fun importedSubtitlesRetainTheirTimesAndHaveNoProviderReceipt() {
+		val file = folder.newFile("recording.m4a")
+		val vtt = "WEBVTT\n\n1\n00:00:01.250 --> 00:00:02.500\nA &amp; B\n"
+		val (text, segments) = importedTranscript(vtt)
+		saveTranscription(file, text, null, segments)
+		assertEquals("A & B", text)
+		assertNull(loadSavedTranscript(file).receipt)
+		assertEquals(listOf(TimedText(1.25, 2.5, text)), readTiming(file))
+	}
+
 	@Test fun photosAreResizedAndPrivateHistorySurvivesUntilPermanentDeletion() {
 		val directory = File(app.filesDir, "audio").apply { mkdirs() }
 		val audio = File.createTempFile("photo-", ".wav", directory)

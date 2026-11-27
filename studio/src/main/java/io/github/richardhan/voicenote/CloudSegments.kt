@@ -1,8 +1,9 @@
 package io.github.richardhan.voicenote
 
 import android.util.Base64
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Semaphore
+import java.util.concurrent.atomic.AtomicReference
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -49,36 +50,62 @@ internal fun generatedText(protocol: SpeechProtocol, body: JSONObject): String {
 }
 
 internal suspend fun segmentedTranscript(file: File, endpoint: String, model: String, protocol: SpeechProtocol, vocabulary: String,
-	request: (JSONObject) -> JSONObject) {
-	val identity = listOf(endpoint, model, protocol.name, vocabulary, file.length(), file.lastModified()).joinToString("\u0000")
+	seconds: Int, concurrent: Int, skipSilence: Boolean, request: (JSONObject) -> JSONObject) = supervisorScope {
+	require(seconds in 10..300 && concurrent in 1..6)
+	val identity = listOf(endpoint, model, protocol.name, vocabulary, seconds, skipSilence, file.length(), file.lastModified()).joinToString("\u0000")
 	val checkpoint = File(file.parentFile, file.name + "." + transcriptDigest(identity).toHexString() + ".checkpoint")
 	val completed = if (checkpoint.exists()) JSONArray(checkpoint.readText()) else JSONArray()
-	val task = currentCoroutineContext()
+	// Each in-flight request holds PCM, a WAV copy and base64 JSON until the HTTP write completes.
+	val bytesPerRequest = seconds * 16000L * 24
+	val heapLimit = (Runtime.getRuntime().maxMemory() / 2 / bytesPerRequest).toInt().coerceAtLeast(1)
+	val slots = Semaphore(minOf(concurrent, heapLimit))
+	val tasks = mutableListOf<Job>()
+	val failure = AtomicReference<Exception?>(null)
 	var index = 0
 	var offset = 0L
 	val began = android.os.SystemClock.elapsedRealtime()
-	fun segment(samples: FloatArray) {
-		task.ensureActive()
+	suspend fun segment(samples: FloatArray) {
+		currentCoroutineContext().ensureActive()
+		val part = index++
 		val start = offset / 16000.0
 		offset += samples.size
-		if (index >= completed.length()) {
-			val reply = request(audioPayload(protocol, model, samples, vocabulary))
-			val text = generatedText(protocol, reply)
-			val usage = reply.optJSONObject("usage") ?: reply.optJSONObject("usageMetadata")
-			completed.put(JSONObject().put("start", start).put("end", offset / 16000.0).put("text", text)
-				.put("cost", reportedCostUsd(usage?.optString("cost")) ?: JSONObject.NULL)
-				.put("tokens", usage?.optLong("total_tokens", usage.optLong("totalTokenCount", -1)) ?: -1))
-			writeSidecar(checkpoint, completed.toString())
-		}
-		index++
+		val end = offset / 16000.0
+		failure.get()?.let { throw it }
+		if (synchronized(completed) { completed.optJSONObject(part) != null }) return
+		slots.acquire()
+		failure.get()?.let { slots.release(); throw it }
+		tasks.add(launch(Dispatchers.IO) {
+			try {
+				val row = JSONObject().put("start", start).put("end", end)
+				if (skipSilence && samples.all { kotlin.math.abs(it) < 0.001f }) {
+					row.put("text", "[silence]").put("cost", "0").put("tokens", 0).put("requests", 0)
+				} else {
+					val reply = request(audioPayload(protocol, model, samples, vocabulary))
+					val usage = reply.optJSONObject("usage") ?: reply.optJSONObject("usageMetadata")
+					row.put("text", generatedText(protocol, reply))
+						.put("cost", reportedCostUsd(usage?.optString("cost")) ?: JSONObject.NULL)
+						.put("tokens", usage?.optLong("total_tokens", usage.optLong("totalTokenCount", -1)) ?: -1).put("requests", 1)
+				}
+				synchronized(completed) {
+					completed.put(part, row)
+					writeSidecar(checkpoint, completed.toString())
+				}
+			} catch (e: CancellationException) { throw e }
+			catch (e: Exception) { failure.compareAndSet(null, e) }
+			finally { slots.release() }
+		})
 	}
-	segment(decodeForSpeakers(file, ::segment))
-	task.ensureActive()
+	try { segment(decodeForSpeakers(file, ::segment, seconds)) }
+	catch (e: CancellationException) { throw e }
+	catch (e: Exception) { failure.compareAndSet(null, e) }
+	tasks.joinAll()
+	failure.get()?.let { throw it }
+	currentCoroutineContext().ensureActive()
 	require(index == completed.length())
 	val rows = (0 until index).map(completed::getJSONObject)
 	val costs = rows.map { reportedCostUsd(it.optString("cost"))?.toBigDecimalOrNull() }
 	val tokens = rows.map { it.optLong("tokens", -1) }.takeIf { values -> values.all { it >= 0 } }?.sum()
 	val totalCost = if (costs.all { it != null }) costs.filterNotNull().sumOf { it }.toPlainString() else null
-	saveTranscription(file, rows.joinToString("\n") { it.getString("text") }, TranscriptionReceipt(model, android.os.SystemClock.elapsedRealtime() - began, totalCost, tokens, index, java.net.URI(endpoint).host), completed)
+	saveTranscription(file, rows.joinToString("\n") { it.getString("text") }, TranscriptionReceipt(model, android.os.SystemClock.elapsedRealtime() - began, totalCost, tokens, rows.sumOf { it.optInt("requests", 1) }, java.net.URI(endpoint).host), completed)
 	check(!checkpoint.exists() || checkpoint.delete())
 }

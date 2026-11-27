@@ -162,6 +162,10 @@ private fun Studio(
 		}
 	}
 	val active = library.started != 0L
+	var discard by remember { mutableStateOf(false) }
+	if (discard && active) AlertDialog(onDismissRequest = { discard = false }, text = { Text(stringResource(R.string.discard_session)) },
+		confirmButton = { TextButton(onClick = { discard = false; context.controlCapture(CaptureAction.DISCARD) }) { Text(stringResource(R.string.discard_capture)) } },
+		dismissButton = { TextButton(onClick = { discard = false }) { Text(stringResource(R.string.cancel)) } })
 	val paused = library.isPaused
 	val elapsed by produceState(0L, library.started, paused) {
 		value = library.recordedDurationMs() / 1000
@@ -206,6 +210,9 @@ private fun Studio(
 								Text(stringResource(if (active) R.string.stop else R.string.record))
 							}
 							if (active) {
+								TextButton(onClick = { discard = true }, colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
+									Text(stringResource(R.string.discard_capture))
+								}
 								TextButton(onClick = library::captureBookmark, colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
 									Text(stringResource(R.string.bookmark) + " (" + library.bookmarkCount + ")")
 								}

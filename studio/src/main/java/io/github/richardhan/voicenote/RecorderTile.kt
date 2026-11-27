@@ -16,11 +16,15 @@ class RecorderTile : TileService() {
 			updateTile()
 		}
 	}
-	@Suppress("DEPRECATION")
 	override fun onClick() {
 		super.onClick()
 		val intent = Intent(this, WidgetRecordEntry::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 		if (Build.VERSION.SDK_INT >= 34) startActivityAndCollapse(PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE))
-		else startActivityAndCollapse(intent)
+		else openOnOlderAndroid(intent)
 	}
+
+	// Android 10–13 only expose the Intent overload. Android 14+ goes through PendingIntent above.
+	@android.annotation.SuppressLint("StartActivityAndCollapseDeprecated")
+	@Suppress("DEPRECATION")
+	private fun openOnOlderAndroid(intent: Intent) = startActivityAndCollapse(intent)
 }

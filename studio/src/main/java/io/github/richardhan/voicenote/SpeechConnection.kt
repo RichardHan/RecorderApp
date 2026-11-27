@@ -54,6 +54,9 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	var chatModel by mutableStateOf("")
 	internal var protocol by mutableStateOf(SpeechProtocol.Multipart)
 	var vocabulary by mutableStateOf("")
+	var segmentSeconds by mutableIntStateOf(20)
+	var concurrentRequests by mutableIntStateOf(1)
+	var skipSilence by mutableStateOf(false)
 	private var running: kotlinx.coroutines.Job? = null
 	fun cancel() { running?.cancel() }
 
@@ -72,6 +75,9 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 				chatModel = it.optString("chatModel")
 				protocol = SpeechProtocol.entries.firstOrNull { mode -> mode.name == it.optString("protocol") } ?: SpeechProtocol.Multipart
 				vocabulary = it.optString("vocabulary")
+				segmentSeconds = it.optInt("seconds", 20).coerceIn(10, 300)
+				concurrentRequests = it.optInt("concurrent", 1).coerceIn(1, 6)
+				skipSilence = it.optBoolean("skipSilence")
 				hasSavedConnection = true
 				savedProfile = profileId()
 			}
@@ -80,6 +86,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	fun saveConnection() = request {
 		require(valid())
 		val data = JSONObject().put("custom", custom).put("base", base).put("key", key).put("model", model).put("chatModel", chatModel).put("protocol", protocol.name).put("vocabulary", vocabulary)
+			.put("seconds", segmentSeconds).put("concurrent", concurrentRequests).put("skipSilence", skipSilence)
 		withContext(Dispatchers.IO) { vault.save(data) }
 		hasSavedConnection = true
 		savedProfile = profileId()
@@ -206,7 +213,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		if (mode != SpeechProtocol.Multipart) {
 			val gemini = mode == SpeechProtocol.Gemini
 			val target = if (gemini) "$server/models/${android.net.Uri.encode(chosen)}:generateContent" else "$server/chat/completions"
-			segmentedTranscript(file, server.toString(), chosen, mode, spelling) { json -> jsonRequest(target, token, json, gemini) }
+			segmentedTranscript(file, server.toString(), chosen, mode, spelling, segmentSeconds, concurrentRequests, skipSilence) { json -> jsonRequest(target, token, json, gemini) }
 			return
 		}
 		val url = "$server/audio/transcriptions"

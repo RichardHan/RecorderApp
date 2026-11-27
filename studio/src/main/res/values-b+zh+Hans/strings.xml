@@ -219,4 +219,11 @@
 	<string name="manage_categories">管理分类</string>
 	<string name="save_category">保存分类</string>
 	<string name="remove_category">移除录音的此分类</string>
+	<string name="segment_length">每次请求音频长度 · %1$d 秒</string>
+	<string name="parallel_requests">并发请求数 · %1$d</string>
+	<string name="skip_silence">跳过近乎无声的片段</string>
+	<string name="import_transcript">导入文字稿</string>
+	<string name="import_replace">使用导入的文档作为当前文字稿并保留旧版本吗？</string>
+	<string name="discard_capture">放弃录音</string>
+	<string name="discard_session">要放弃这段录音及其附加照片吗？</string>
 </resources>

@@ -105,6 +105,14 @@ jobs:
                         adb push "$RUNNER_TEMP/studio-model-check" /data/local/tmp/
                         # Debug instrumented tests of the single app module (:studio); x86_64 libs are kept by default.
                         ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.modelFixture=true --max-workers=2 --continue --stacktrace
+                        bash .github/scripts/studio-preview.sh
+
+            -   name: Upload Studio emulator preview
+                uses: actions/upload-artifact@v4
+                with:
+                    name: studio-preview-api${{ matrix.api-level }}
+                    path: ${{ runner.temp }}/studio-preview/studio.png
+                    if-no-files-found: error
 
             -   name: Module-wise test summary
                 if: always()

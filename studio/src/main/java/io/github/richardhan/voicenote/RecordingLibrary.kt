@@ -239,13 +239,15 @@ class RecordingLibrary(private val app: Application) {
 					try {
 						withContext(Dispatchers.IO) { live.recognize(models, cloud, target) { line ->
 							withContext(Dispatchers.Main) {
-								if (captureTarget == target) liveText = line
-								postLive(target, line, generation)
+								if (captureTarget == target || target.isFile) {
+									if (captureTarget == target) liveText = line
+									postLive(target, line, generation)
+								}
 							}
 						} }
 						if (target.isFile) postLive(target, app.getString(R.string.saved_recording), generation)
 					} catch (e: CancellationException) { throw e }
-					catch (_: Exception) { message = if (cloud == null) R.string.offline_error else R.string.failed }
+					catch (_: Exception) { if (captureTarget == target || target.isFile) message = if (cloud == null) R.string.offline_error else R.string.failed }
 					catch (_: LinkageError) { message = R.string.offline_error }
 					finally { recognizing.remove(target); transcriptRevision++ }
 				}
@@ -303,6 +305,12 @@ class RecordingLibrary(private val app: Application) {
 		} catch (_: RuntimeException) {
 			message = if (pause) R.string.pause_error else R.string.resume_error
 		}
+	}
+
+	internal fun discard() {
+		if (started == 0L) return
+		runCatching { recorder?.stop() }
+		release()
 	}
 
 	fun finish() {

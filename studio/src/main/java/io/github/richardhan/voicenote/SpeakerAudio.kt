@@ -15,7 +15,7 @@ private const val RATE = 16000
 private const val MAX_SECONDS = 600
 
 /** Downmix PCM frames and average over each output sampling interval across codec buffers. */
-internal class MonoSamples(private val onChunk: ((FloatArray) -> Unit)? = null) {
+internal class MonoSamples(private val onChunk: ((FloatArray) -> Unit)? = null, private val chunkSeconds: Int = 20) {
 	private val chunks = mutableListOf<FloatArray>()
 	private var count = 0
 	private var phase = 0L
@@ -36,7 +36,7 @@ internal class MonoSamples(private val onChunk: ((FloatArray) -> Unit)? = null) 
 			if (phase < inputRate) continue
 			val amplitude = sum / frames
 			while (phase >= inputRate) {
-				if (onChunk != null && count == RATE * 20) {
+				if (onChunk != null && count == RATE * chunkSeconds) {
 					onChunk(finish())
 					chunks.clear()
 					count = 0
@@ -71,7 +71,7 @@ private fun MonoSamples.append(buffer: ByteBuffer, format: MediaFormat) {
 		encoding == AudioFormat.ENCODING_PCM_FLOAT)
 }
 
-internal suspend fun decodeForSpeakers(file: File, onChunk: ((FloatArray) -> Unit)? = null): FloatArray {
+internal suspend fun decodeForSpeakers(file: File, onChunk: (suspend (FloatArray) -> Unit)? = null, chunkSeconds: Int = 20): FloatArray {
 	val extractor = MediaExtractor()
 	try {
 		extractor.setDataSource(file.path)
@@ -81,7 +81,9 @@ internal suspend fun decodeForSpeakers(file: File, onChunk: ((FloatArray) -> Uni
 			throw RecordingTooLong()
 		extractor.selectTrack(track)
 		val mime = requireNotNull(format.getString(MediaFormat.KEY_MIME))
-		val samples = MonoSamples(onChunk)
+		val ready = ArrayDeque<FloatArray>()
+		val samples = MonoSamples(if (onChunk == null) null else ready::addLast, chunkSeconds)
+		suspend fun drain() { if (onChunk != null) while (ready.isNotEmpty()) onChunk(ready.removeFirst()) }
 		if (mime == MediaFormat.MIMETYPE_AUDIO_RAW) {
 			var data = ByteBuffer.allocateDirect(65536)
 			while (extractor.sampleSize >= 0) {
@@ -94,6 +96,7 @@ internal suspend fun decodeForSpeakers(file: File, onChunk: ((FloatArray) -> Uni
 				if (size < 0) break
 				data.position(0).limit(size)
 				samples.append(data, format)
+					drain()
 				if (!extractor.advance()) break
 			}
 		} else {
@@ -120,6 +123,7 @@ internal suspend fun decodeForSpeakers(file: File, onChunk: ((FloatArray) -> Uni
 						val data = requireNotNull(decoder.getOutputBuffer(output))
 						data.position(info.offset).limit(info.offset + info.size)
 						samples.append(data, decoder.getOutputFormat(output))
+						drain()
 					}
 					decoder.releaseOutputBuffer(output, false)
 					if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break

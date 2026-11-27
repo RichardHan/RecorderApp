@@ -15,7 +15,7 @@ class StudioApplication : Application() {
 	internal val library by lazy { RecordingLibrary(this) }
 }
 
-internal enum class CaptureAction { START, PAUSE, RESUME, FINISH }
+internal enum class CaptureAction { START, PAUSE, RESUME, FINISH, DISCARD }
 
 internal fun Context.controlCapture(action: CaptureAction, slackGeneration: String? = null, cloudProfile: String? = null) {
 	val command = Intent(this, CaptureService::class.java).setAction(action.name).putExtra("slackGeneration", slackGeneration).putExtra("cloudProfile", cloudProfile)
@@ -76,6 +76,7 @@ class CaptureService : Service() {
 			CaptureAction.PAUSE.name -> library.setPaused(true)
 			CaptureAction.RESUME.name -> library.setPaused(false)
 			CaptureAction.FINISH.name -> library.finish()
+			CaptureAction.DISCARD.name -> library.discard()
 		}
 		refreshWidgets()
 		if (library.started == 0L) {

@@ -219,4 +219,11 @@
 	<string name="manage_categories">管理分類</string>
 	<string name="save_category">儲存分類</string>
 	<string name="remove_category">移除錄音的此項分類</string>
+	<string name="segment_length">每次請求音訊長度 · %1$d 秒</string>
+	<string name="parallel_requests">同時請求數 · %1$d</string>
+	<string name="skip_silence">略過近乎無聲的片段</string>
+	<string name="import_transcript">匯入逐字稿</string>
+	<string name="import_replace">將匯入的文件設為目前逐字稿，並保留舊版本嗎？</string>
+	<string name="discard_capture">捨棄錄音</string>
+	<string name="discard_session">要捨棄這段錄音及其附加照片嗎？</string>
 </resources>

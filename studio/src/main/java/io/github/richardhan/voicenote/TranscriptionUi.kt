@@ -45,6 +45,13 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 				OutlinedTextField(speech.key, { speech.key = it }, singleLine = true, visualTransformation = PasswordVisualTransformation(),
 					label = { Text(stringResource(R.string.key)) })
 				OutlinedTextField(speech.model, { speech.model = it }, singleLine = true, label = { Text(stringResource(R.string.model_id)) })
+				if (speech.protocol != SpeechProtocol.Multipart) {
+					Text(stringResource(R.string.segment_length, speech.segmentSeconds))
+					FlowRow { for (seconds in listOf(20, 60, 120, 300)) TextButton(onClick = { speech.segmentSeconds = seconds }) { Text("${seconds}s") } }
+					Text(stringResource(R.string.parallel_requests, speech.concurrentRequests))
+					FlowRow { for (count in 1..6) TextButton(onClick = { speech.concurrentRequests = count }) { Text(count.toString()) } }
+					FilterChip(selected = speech.skipSilence, onClick = { speech.skipSilence = !speech.skipSilence }, label = { Text(stringResource(R.string.skip_silence)) })
+				}
 				OutlinedTextField(speech.vocabulary, { speech.vocabulary = it }, label = { Text(stringResource(R.string.vocabulary)) })
 				if (speech.protocol == SpeechProtocol.Chat) FlowRow {
 					for (id in listOf("gemini-4-hydrogen", "gemini-3.8-flash", "gemini-3.5-transcribe")) {
@@ -76,6 +83,7 @@ internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConn
 	var offlineConfirm by remember { mutableStateOf(false) }
 	var edit by remember { mutableStateOf(false) }
 	val video = file.extension == "youtube"
+	ImportTranscript(file, speech)
 	val link = if (video) produceState("", file) {
 		value = withContext(Dispatchers.IO) {
 			try { file.readText() } catch (_: IOException) { "" }
