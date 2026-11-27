@@ -15,7 +15,7 @@ private const val RATE = 16000
 private const val MAX_SECONDS = 600
 
 /** Downmix PCM frames and average over each output sampling interval across codec buffers. */
-internal class MonoSamples {
+internal class MonoSamples(private val onChunk: ((FloatArray) -> Unit)? = null) {
 	private val chunks = mutableListOf<FloatArray>()
 	private var count = 0
 	private var phase = 0L
@@ -36,6 +36,11 @@ internal class MonoSamples {
 			if (phase < inputRate) continue
 			val amplitude = sum / frames
 			while (phase >= inputRate) {
+				if (onChunk != null && count == RATE * 20) {
+					onChunk(finish())
+					chunks.clear()
+					count = 0
+				}
 				if (count >= RATE * MAX_SECONDS) throw RecordingTooLong()
 				if (count % RATE == 0) chunks.add(FloatArray(RATE))
 				chunks.last()[count % RATE] = amplitude
@@ -66,17 +71,17 @@ private fun MonoSamples.append(buffer: ByteBuffer, format: MediaFormat) {
 		encoding == AudioFormat.ENCODING_PCM_FLOAT)
 }
 
-internal suspend fun decodeForSpeakers(file: File): FloatArray {
+internal suspend fun decodeForSpeakers(file: File, onChunk: ((FloatArray) -> Unit)? = null): FloatArray {
 	val extractor = MediaExtractor()
 	try {
 		extractor.setDataSource(file.path)
 		val track = (0 until extractor.trackCount).first { extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true }
 		val format = extractor.getTrackFormat(track)
-		if (format.containsKey(MediaFormat.KEY_DURATION) && format.getLong(MediaFormat.KEY_DURATION) > MAX_SECONDS * 1000000L)
+		if (onChunk == null && format.containsKey(MediaFormat.KEY_DURATION) && format.getLong(MediaFormat.KEY_DURATION) > MAX_SECONDS * 1000000L)
 			throw RecordingTooLong()
 		extractor.selectTrack(track)
 		val mime = requireNotNull(format.getString(MediaFormat.KEY_MIME))
-		val samples = MonoSamples()
+		val samples = MonoSamples(onChunk)
 		if (mime == MediaFormat.MIMETYPE_AUDIO_RAW) {
 			var data = ByteBuffer.allocateDirect(65536)
 			while (extractor.sampleSize >= 0) {

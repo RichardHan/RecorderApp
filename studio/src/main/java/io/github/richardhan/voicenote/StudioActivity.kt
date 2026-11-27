@@ -25,14 +25,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
-import java.text.DateFormat
-import java.util.Date
 import java.util.Locale
 
 class StudioActivity : ComponentActivity() {
-	private val library: RecordingLibrary by viewModels()
+	private val library get() = (application as StudioApplication).library
 	private val speakers: SpeakerAnalysis by viewModels()
 	private val local: LocalSummary by viewModels()
+	private val offline: OfflineSpeechModels by viewModels()
 	private val speech: SpeechConnection by viewModels()
 	private var sharedSources by mutableStateOf(emptyList<Uri>())
 
@@ -44,15 +43,22 @@ class StudioActivity : ComponentActivity() {
 		} else if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) receiveShare(intent)
 		setContent {
 			StudioTheme { appearance, dark, choose ->
-				val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-					if (it) library.start() else library.message = R.string.permission
+				val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+					if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) controlCapture(CaptureAction.START)
+					else library.message = R.string.permission
 				}
 				if (sharedSources.isNotEmpty()) key(sharedSources) { SharedImportDialog(sharedSources, library) { sharedSources = emptyList() } }
-				Studio(library, speech, local, speakers, dark, heading = { StudioHeading(appearance, choose) }) {
-					when {
-						library.started != 0L -> library.finish()
-						checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> library.start()
-						else -> permission.launch(Manifest.permission.RECORD_AUDIO)
+				Studio(library, speech, local, speakers, offline, dark, heading = { StudioHeading(appearance, choose) }) {
+					if (library.started != 0L) controlCapture(CaptureAction.FINISH) else {
+						val needed = buildList {
+							if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.RECORD_AUDIO)
+							if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
+								!getPreferences(MODE_PRIVATE).getBoolean("askedNotification", false)) {
+								add(Manifest.permission.POST_NOTIFICATIONS)
+								getPreferences(MODE_PRIVATE).edit().putBoolean("askedNotification", true).apply()
+							}
+						}
+						if (needed.isEmpty()) controlCapture(CaptureAction.START) else permission.launch(needed.toTypedArray())
 					}
 				}
 			}
@@ -74,13 +80,6 @@ class StudioActivity : ComponentActivity() {
 		outState.putStringArrayList("pendingImports", ArrayList(sharedSources.map(Uri::toString)))
 	}
 
-	override fun onStop() {
-		if (!isChangingConfigurations) {
-			library.stopPlayback()
-			library.finish()
-		}
-		super.onStop()
-	}
 }
 
 @Composable
@@ -89,13 +88,21 @@ private fun Studio(
 	speech: SpeechConnection,
 	local: LocalSummary,
 	speakers: SpeakerAnalysis,
+	offline: OfflineSpeechModels,
 	dark: Boolean,
 	heading: @Composable () -> Unit,
 	toggle: () -> Unit
 ) {
 	var input by rememberSaveable { mutableStateOf("") }
+	val context = androidx.compose.ui.platform.LocalContext.current
 	val query = input.trim()
-	val hits = transcriptHits(library.files, query, speech.revision)
+	var category by rememberSaveable { mutableStateOf("") }
+	var favorites by rememberSaveable { mutableStateOf(false) }
+	val visibleFiles = library.files.filter {
+		(category.isEmpty() || library.catalog.value(it, "category") == category) &&
+			(!favorites || library.catalog.value(it, "favorite").isNotEmpty())
+	}
+	val hits = transcriptHits(visibleFiles, query, speech.revision)
 	var selectedName by rememberSaveable(query) { mutableStateOf<String?>(null) }
 	selectedName?.let { name ->
 		library.files.firstOrNull { it.name == name }?.let { file ->
@@ -131,12 +138,16 @@ private fun Studio(
 						Text(String.format(Locale.ROOT, "%02d:%02d:%02d", elapsed / 3600, elapsed / 60 % 60, elapsed % 60),
 							style = MaterialTheme.typography.displayMedium, fontFamily = FontFamily.Monospace)
 						LiveWaveform(library, accent)
+						if (!active) CaptureSettings(library)
 						FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 							Button(onClick = toggle, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF201917))) {
 								Text(stringResource(if (active) R.string.stop else R.string.record))
 							}
 							if (active) {
-								TextButton(onClick = { library.setPaused(!paused) },
+								TextButton(onClick = library::captureBookmark, colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
+									Text(stringResource(R.string.bookmark) + " (" + library.bookmarkCount + ")")
+								}
+								TextButton(onClick = { context.controlCapture(if (paused) CaptureAction.RESUME else CaptureAction.PAUSE) },
 									colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
 									Text(stringResource(if (paused) R.string.resume_recording else R.string.pause_recording))
 								}
@@ -149,9 +160,11 @@ private fun Studio(
 			if (library.message != 0) item { Text(stringResource(library.message), color = MaterialTheme.colorScheme.error) }
 			item { ConnectionPanel(speech) }
 			item { SummaryModelPanel(local) }
+			item { OfflineModelPanel(offline, speech.busy) }
 			if (speech.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
 			item { Text(stringResource(R.string.library), style = MaterialTheme.typography.titleLarge) }
 			item { ImportActions(library) }
+			item { LibraryFilters(library, category, { category = it }, favorites) { favorites = !favorites } }
 			item {
 				OutlinedTextField(
 					value = input,
@@ -168,18 +181,20 @@ private fun Studio(
 			}
 			when {
 				query.isEmpty() -> {
-					if (library.files.isEmpty()) item { Text(stringResource(R.string.empty)) }
-					items(library.files, key = { it.name }) { file ->
-						val recordedAt = DateFormat.getDateTimeInstance().format(Date(file.lastModified()))
+					if (visibleFiles.isEmpty()) item { Text(stringResource(R.string.empty)) }
+					items(visibleFiles, key = { it.name }) { file ->
+						val recordedAt = library.catalog.title(file)
 						Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
 							Text(recordedAt, Modifier.weight(1f))
-							if (file.extension in audioTypes) TextButton(onClick = { library.togglePlayback(file) }, enabled = !active) {
+							if (file.extension in audioTypes) TextButton(onClick = { context.playRecording(file) }, enabled = !active) {
 								Text(stringResource(if (library.playingFile == file) R.string.stop_playback else R.string.play))
 							}
 						}
+						if (library.playingFile == file) PlaybackControls(library)
+						RecordingActions(file, library)
 						TrimAction(file, library)
 						SpeakerAction(file, speakers, speech.revision, library)
-						TranscriptionRow(file, recordedAt, speech, local)
+						TranscriptionRow(file, recordedAt, speech, local, offline)
 						HorizontalDivider()
 					}
 				}

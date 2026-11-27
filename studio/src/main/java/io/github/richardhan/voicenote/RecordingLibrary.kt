@@ -2,7 +2,6 @@ package io.github.richardhan.voicenote
 
 import android.net.Uri
 import kotlinx.coroutines.*
-import androidx.lifecycle.viewModelScope
 import android.app.Application
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -12,14 +11,45 @@ import android.media.MediaRecorder
 import android.os.Build
 import android.os.SystemClock
 import androidx.compose.runtime.*
-import androidx.lifecycle.AndroidViewModel
 import java.io.File
 
 internal data class FailedImport(val position: Int, val name: String?)
 internal data class BatchImportResult(val total: Int, val failures: List<FailedImport>)
 
-class RecordingLibrary(app: Application) : AndroidViewModel(app) {
+class RecordingLibrary(private val app: Application) {
+	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+	private val settings = app.getSharedPreferences("capture_settings", 0)
+	internal var format by mutableStateOf(CaptureFormat.entries.firstOrNull { it.name == settings.getString("format", "") } ?: CaptureFormat.AAC)
+		private set
+	internal var quality by mutableIntStateOf(settings.getInt("quality", 1).coerceIn(0, 2))
+		private set
+
+	internal var callPause by mutableStateOf(settings.getBoolean("callPause", false))
+		private set
+	internal var tagLocation by mutableStateOf(settings.getBoolean("location", false))
+		private set
+	private var captureLocation: android.location.Location? = null
+
+	internal fun contextOption(key: String, enabled: Boolean) {
+		when (key) {
+			"callPause" -> callPause = enabled
+			"location" -> tagLocation = enabled
+			else -> return
+		}
+		settings.edit().putBoolean(key, enabled).apply()
+	}
+
+	internal fun configure(format: CaptureFormat, quality: Int) {
+		if (started != 0L) return
+		this.format = format
+		this.quality = quality
+		settings.edit().putString("format", format.name).putInt("quality", quality).apply()
+	}
+
 	private val directory = File(app.filesDir, "audio").apply { mkdirs() }
+	internal val catalog = LibraryCatalog(app)
+	private val captureMarkers = mutableStateListOf<RecordingMarker>()
+	internal val bookmarkCount get() = captureMarkers.size
 	private var recorder: MediaRecorder? = null
 	private var pending: File? = null
 	private val audioManager = requireNotNull(app.getSystemService(AudioManager::class.java))
@@ -34,14 +64,60 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 	private var pausedAt by mutableLongStateOf(0L)
 	private var totalPausedMs = 0L
 	val isPaused: Boolean get() = pausedAt != 0L
-	var files by mutableStateOf(savedFiles())
+	private var allFiles by mutableStateOf(savedFiles())
+	val files: List<File> get() = allFiles.filter { catalog.value(it, "trashed").isEmpty() }
+	internal val trashedFiles: List<File> get() = allFiles.filter { catalog.value(it, "trashed").isNotEmpty() }
+	internal fun trash(file: File) {
+		if (playingFile == file) stopPlayback()
+		catalog.update(file, "trashed" to System.currentTimeMillis().toString())
+	}
+
+	internal fun captureBookmark() {
+		if (started != 0L) captureMarkers.add(RecordingMarker(recordedDurationMs(), ""))
+	}
+
+	internal var playbackPaused by mutableStateOf(false)
 		private set
+	internal var playbackDuration by mutableIntStateOf(0)
+		private set
+	internal var playbackSpeed by mutableFloatStateOf(settings.getFloat("speed", 1f))
+		private set
+	internal var seekRevision by mutableIntStateOf(0)
+		private set
+
+	internal fun setSpeed(speed: Float) {
+		if (speed !in 0.5f..2f) return
+		playbackSpeed = speed
+		settings.edit().putFloat("speed", speed).apply()
+		val session = player ?: return
+		if (playbackDuration > 0 && !playbackPaused) runCatching { session.playbackParams = session.playbackParams.setSpeed(speed) }
+	}
+	internal fun pausePlayback(pause: Boolean) {
+		val session = player ?: return
+		if (playbackDuration <= 0 || pause == playbackPaused) return
+		try {
+			if (pause) session.pause() else {
+				session.playbackParams = session.playbackParams.setSpeed(playbackSpeed)
+				session.start()
+			}
+			playbackPaused = pause
+		} catch (_: RuntimeException) { playbackFailed() }
+	}
+	internal fun seekPlayback(ms: Long) {
+		if (playbackDuration <= 0) return
+		try {
+			player?.seekTo(ms.coerceIn(0L, playbackDuration.toLong()), MediaPlayer.SEEK_CLOSEST)
+			seekRevision++
+		} catch (_: IllegalStateException) { playbackFailed() }
+	}
+	internal fun playbackPosition(): Long = try { player?.currentPosition?.toLong() ?: 0L }
+	catch (_: IllegalStateException) { 0L }
 	var message by mutableIntStateOf(0)
 	private fun savedFiles() = directory.listFiles().orEmpty()
 		.filter { it.extension in audioTypes || it.extension == "youtube" }.sortedByDescending { it.name }
 
 	internal fun refresh() {
-		files = savedFiles()
+		allFiles = savedFiles()
 	}
 
 	var importTotal by mutableIntStateOf(0)
@@ -58,7 +134,7 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 		importCompleted = 0
 		lastBatch = null
 		message = 0
-		viewModelScope.launch {
+		scope.launch {
 			try { work() }
 			catch (e: CancellationException) { throw e }
 			catch (_: Exception) { message = R.string.import_error }
@@ -77,7 +153,6 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 		val documents = uris.distinct()
 		runImport(documents.size) {
 			val failures = mutableListOf<FailedImport>()
-			val app = getApplication<Application>()
 			for ((index, uri) in documents.withIndex()) {
 				val failure = withContext(Dispatchers.IO) {
 					try {
@@ -104,11 +179,16 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 			val file = File.createTempFile("capture-", ".part", directory)
 			pending = file
 			@Suppress("DEPRECATION")
-			val session = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(getApplication()) else MediaRecorder()
+			val session = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(app) else MediaRecorder()
 			recorder = session
 			session.setAudioSource(MediaRecorder.AudioSource.MIC)
-			session.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-			session.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+			session.setOutputFormat(format.container)
+			session.setAudioEncoder(format.encoder)
+			session.setAudioChannels(1)
+			session.setAudioSamplingRate(format.rate)
+			session.setAudioEncodingBitRate(format.bitrates[quality])
+			captureLocation = if (tagLocation) app.lastRecordingLocation() else null
+			if (format == CaptureFormat.AAC) captureLocation?.let { session.setLocation(it.latitude.toFloat(), it.longitude.toFloat()) }
 			session.setOutputFile(file.absolutePath)
 			session.prepare()
 			session.start()
@@ -155,7 +235,11 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 		try {
 			session.stop()
 			val file = requireNotNull(pending)
-			check(file.length() > 0 && file.renameTo(File(directory, "${System.currentTimeMillis()}.m4a")))
+			val saved = File(directory, "${System.currentTimeMillis()}.${format.ext}")
+			check(file.length() > 0 && file.renameTo(saved))
+			catalog.update(saved, "device" to listOf(Build.MANUFACTURER, Build.MODEL).joinToString(" "))
+			captureLocation?.let { catalog.update(saved, "location" to "${it.latitude}, ${it.longitude}") }
+			if (captureMarkers.isNotEmpty()) catalog.saveMarkers(saved, captureMarkers)
 			refresh()
 		} catch (_: Exception) {
 			message = R.string.record_error
@@ -164,11 +248,11 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 		}
 	}
 
-	internal fun togglePlayback(file: File) {
+	internal fun togglePlayback(file: File, seekMs: Long? = null) {
 		if (recorder != null) return
 		val wasPlaying = playingFile == file
 		stopPlayback()
-		if (wasPlaying) return
+		if (wasPlaying && seekMs == null) return
 		try {
 			val session = MediaPlayer()
 			player = session
@@ -181,7 +265,14 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 			check(audioManager.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
 			focus = request
 			session.setAudioAttributes(playbackAttributes)
-			session.setOnPreparedListener { if (player === it) it.start() }
+			session.setOnPreparedListener {
+				if (player === it) {
+					playbackDuration = it.duration.coerceAtLeast(0)
+					it.playbackParams = it.playbackParams.setSpeed(playbackSpeed)
+					if (seekMs != null) it.seekTo(seekMs.coerceIn(0L, it.duration.toLong().coerceAtLeast(0L)), MediaPlayer.SEEK_CLOSEST)
+					it.start()
+				}
+			}
 			session.setOnCompletionListener { if (player === it) stopPlayback() }
 			session.setOnErrorListener { failed, _, _ ->
 				if (player === failed) playbackFailed()
@@ -208,9 +299,13 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 		focus?.let { audioManager.abandonAudioFocusRequest(it) }
 		focus = null
 		playingFile = null
+		playbackPaused = false
+		playbackDuration = 0
 	}
 
 	private fun release() {
+		captureMarkers.clear()
+		captureLocation = null
 		runCatching { recorder?.release() }
 		recorder = null
 		pending?.delete()
@@ -220,8 +315,4 @@ class RecordingLibrary(app: Application) : AndroidViewModel(app) {
 		totalPausedMs = 0L
 	}
 
-	override fun onCleared() {
-		stopPlayback()
-		finish()
-	}
 }

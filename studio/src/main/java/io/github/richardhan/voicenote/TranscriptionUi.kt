@@ -56,8 +56,10 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 }
 
 @Composable
-internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConnection, local: LocalSummary) {
+internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConnection, local: LocalSummary, offline: OfflineSpeechModels) {
 	var confirm by remember { mutableStateOf(false) }
+	var offlineConfirm by remember { mutableStateOf(false) }
+	var edit by remember { mutableStateOf(false) }
 	val video = file.extension == "youtube"
 	val link = if (video) produceState("", file) {
 		value = withContext(Dispatchers.IO) {
@@ -68,7 +70,21 @@ internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConn
 	val saved by produceState(SavedTranscript(""), file, speech.revision) {
 		value = withContext(Dispatchers.IO) { loadSavedTranscript(file) }
 	}
+	if (!video && offline.installed) TextButton(enabled = !speech.busy && !offline.busy, onClick = {
+		if (saved.text.isBlank()) speech.recognize(file, offline) else offlineConfirm = true
+	}) { Text(stringResource(R.string.offline_asr)) }
+	if (offlineConfirm) AlertDialog(onDismissRequest = { offlineConfirm = false }, text = { Text(stringResource(R.string.replace_transcript)) },
+		confirmButton = { TextButton(onClick = { offlineConfirm = false; speech.recognize(file, offline) }) { Text(stringResource(R.string.offline_asr)) } },
+		dismissButton = { TextButton(onClick = { offlineConfirm = false }) { Text(stringResource(R.string.cancel)) } })
 	if (saved.text.isNotEmpty()) {
+		TextButton(enabled = !speech.busy, onClick = { edit = true }) { Text(stringResource(R.string.edit_transcript)) }
+		if (edit) {
+			var draft by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(saved.text) }
+			AlertDialog(onDismissRequest = { edit = false }, title = { Text(stringResource(R.string.edit_transcript)) },
+				text = { OutlinedTextField(draft, { draft = it }) },
+				confirmButton = { TextButton(enabled = draft.isNotBlank() && !speech.busy, onClick = { speech.edit(file, draft); edit = false }) { Text(stringResource(R.string.done)) } },
+				dismissButton = { TextButton(onClick = { edit = false }) { Text(stringResource(R.string.cancel)) } })
+		}
 		saved.receipt?.let { receipt ->
 			Text(stringResource(R.string.receipt_model, receipt.model), style = MaterialTheme.typography.labelLarge)
 			val fee = receipt.costUsd?.let { stringResource(R.string.receipt_fee, it) } ?: stringResource(R.string.receipt_no_fee)
@@ -76,6 +92,7 @@ internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConn
 				style = MaterialTheme.typography.bodySmall)
 		}
 		SelectionContainer { Text(saved.text) }
+		TranscriptDocuments(file, saved.text)
 		key(saved.text) { SummaryAction(local, file, saved.text) }
 	}
 	val canSend = !speech.busy && if (video) !speech.custom && speech.key.isNotBlank() && link.isNotBlank() else speech.valid()

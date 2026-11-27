@@ -37,6 +37,17 @@ class SpeechConnection : ViewModel() {
 	var revision by mutableIntStateOf(0)
 		private set
 
+	internal fun recognize(file: File, models: OfflineSpeechModels) = request {
+		withContext(Dispatchers.IO) { models.recognize(file) }
+		revision++
+	}
+
+	internal fun edit(file: File, text: String) = request {
+		require(text.isNotBlank())
+		withContext(Dispatchers.IO) { writeSidecar(transcriptFile(file), text) }
+		revision++
+	}
+
 	fun changeBase(value: String) {
 		base = value
 		key = ""
@@ -62,6 +73,7 @@ class SpeechConnection : ViewModel() {
 		viewModelScope.launch {
 			try { block() }
 			catch (e: CancellationException) { throw e }
+			catch (_: LinkageError) { error = R.string.offline_error }
 			catch (e: HttpFailure) { httpStatus = e.code; error = R.string.http_error }
 			catch (_: Exception) { error = R.string.failed }
 			finally { busy = false }
