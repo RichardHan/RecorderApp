@@ -60,13 +60,17 @@ class OfflineSpeechModels(app: Application) : AndroidViewModel(app) {
 
 	fun pause() { job?.cancel() }
 
-	internal suspend fun recognize(file: File) {
+	internal fun recognizer(): OfflineRecognizer {
 		check(available())
 		val config = OfflineRecognizerConfig(modelConfig = OfflineModelConfig(
 			senseVoice = OfflineSenseVoiceModelConfig(model = network.path, language = "auto", useInverseTextNormalization = true),
 			tokens = tokens.path, numThreads = 2, provider = "cpu"))
+		return OfflineRecognizer(null, config)
+	}
+
+	internal suspend fun recognize(file: File) {
 		val started = SystemClock.elapsedRealtime()
-		val recognizer = OfflineRecognizer(null, config)
+		val recognizer = recognizer()
 		try {
 			val segments = JSONArray()
 			val words = mutableListOf<String>()
@@ -74,24 +78,28 @@ class OfflineSpeechModels(app: Application) : AndroidViewModel(app) {
 			val task = currentCoroutineContext()
 			fun transcribe(samples: FloatArray) {
 				task.ensureActive()
-				val stream = recognizer.createStream()
-				try {
-					stream.acceptWaveform(samples, 16000)
-					recognizer.decode(stream)
-					val text = recognizer.getResult(stream).text.trim()
-					val start = samplesSeen / 16000.0
-					samplesSeen += samples.size
-					if (text.isNotBlank()) {
-						words.add(text)
-						segments.put(JSONObject().put("start", start).put("end", samplesSeen / 16000.0).put("text", text))
-					}
-				} finally { stream.release() }
+				val text = recognizeChunk(recognizer, samples)
+				val start = samplesSeen / 16000.0
+				samplesSeen += samples.size
+				if (text.isNotBlank()) {
+					words.add(text)
+					segments.put(JSONObject().put("start", start).put("end", samplesSeen / 16000.0).put("text", text))
+				}
 			}
 			transcribe(decodeForSpeakers(file, ::transcribe))
 			task.ensureActive()
 			saveTranscription(file, words.joinToString("\n"), TranscriptionReceipt("SenseVoice · offline", SystemClock.elapsedRealtime() - started, "0"), segments)
 		} finally { recognizer.release() }
 	}
+}
+
+internal fun recognizeChunk(recognizer: OfflineRecognizer, samples: FloatArray): String {
+	val stream = recognizer.createStream()
+	return try {
+		stream.acceptWaveform(samples, 16000)
+		recognizer.decode(stream)
+		recognizer.getResult(stream).text.trim()
+	} finally { stream.release() }
 }
 
 @Composable

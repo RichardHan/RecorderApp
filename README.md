@@ -17,7 +17,7 @@ Application ID 為 `io.github.richardhan.voicenote`。這個 repo 現在只保�
 - 離線發言者時間軸（sherpa-onnx），可命名發言者、篩選並匯出 UTF-8 文字。
 - 介面支援英文、繁體中文、簡體中文、日文，並有深色模式。
 
-尚未包含舊版 App 的 Slack 推送、Google Drive 上傳與「問這段錄音」等功能。
+可從桌面小工具或捷徑開啟錄音與最近檔案。「問這段錄音」支援在確認後傳送逐字稿與最近問答給自選的對話模型，並可查看回答引用的原文段落。使用者可選擇用 Android Keystore 儲存連線。
 
 ## 從舊版匯入錄音
 

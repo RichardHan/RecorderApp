@@ -31,8 +31,9 @@ class StudioActivity : ComponentActivity() {
 	private val library get() = (application as StudioApplication).library
 	private val speakers: SpeakerAnalysis by viewModels()
 	private val local: LocalSummary by viewModels()
-	private val offline: OfflineSpeechModels by viewModels()
+	private val offline get() = (application as StudioApplication).offline
 	private val speech: SpeechConnection by viewModels()
+	private var destination by mutableStateOf<String?>(null)
 	private var sharedSources by mutableStateOf(emptyList<Uri>())
 
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,23 +44,34 @@ class StudioActivity : ComponentActivity() {
 		} else if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) receiveShare(intent)
 		setContent {
 			StudioTheme { appearance, dark, choose ->
+				var approveSlack by rememberSaveable { mutableStateOf(false) }
+				var slackSession by rememberSaveable { mutableStateOf<String?>(null) }
 				val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-					if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) controlCapture(CaptureAction.START)
+					if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) controlCapture(CaptureAction.START, slackSession)
 					else library.message = R.string.permission
+					slackSession = null
 				}
-				if (sharedSources.isNotEmpty()) key(sharedSources) { SharedImportDialog(sharedSources, library) { sharedSources = emptyList() } }
-				Studio(library, speech, local, speakers, offline, dark, heading = { StudioHeading(appearance, choose) }) {
-					if (library.started != 0L) controlCapture(CaptureAction.FINISH) else {
-						val needed = buildList {
-							if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.RECORD_AUDIO)
-							if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
-								!getPreferences(MODE_PRIVATE).getBoolean("askedNotification", false)) {
-								add(Manifest.permission.POST_NOTIFICATIONS)
-								getPreferences(MODE_PRIVATE).edit().putBoolean("askedNotification", true).apply()
-							}
+				fun begin(generation: String?) {
+					slackSession = generation
+					val needed = buildList {
+						if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.RECORD_AUDIO)
+						if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
+							!getPreferences(MODE_PRIVATE).getBoolean("askedNotification", false)) {
+							add(Manifest.permission.POST_NOTIFICATIONS)
+							getPreferences(MODE_PRIVATE).edit().putBoolean("askedNotification", true).apply()
 						}
-						if (needed.isEmpty()) controlCapture(CaptureAction.START) else permission.launch(needed.toTypedArray())
 					}
+					if (needed.isEmpty()) { controlCapture(CaptureAction.START, generation); slackSession = null }
+					else permission.launch(needed.toTypedArray())
+				}
+				if (approveSlack) AlertDialog(onDismissRequest = { approveSlack = false }, text = { Text(stringResource(R.string.slack_session)) },
+					confirmButton = { TextButton(onClick = { approveSlack = false; begin(slackPrefs().getString("generation", null)) }) { Text(stringResource(R.string.slack_allow)) } },
+					dismissButton = { TextButton(onClick = { approveSlack = false; begin(null) }) { Text(stringResource(R.string.record_local)) } })
+				if (sharedSources.isNotEmpty()) key(sharedSources) { SharedImportDialog(sharedSources, library) { sharedSources = emptyList() } }
+				Studio(library, speech, local, speakers, offline, dark, destination, { destination = null }, heading = { StudioHeading(appearance, choose) }) {
+					if (library.started != 0L) controlCapture(CaptureAction.FINISH)
+					else if (slackPrefs().getBoolean("live", false) && slackPrefs().contains("generation")) approveSlack = true
+					else begin(null)
 				}
 			}
 		}
@@ -70,6 +82,14 @@ class StudioActivity : ComponentActivity() {
 	}
 
 	private fun receiveShare(intent: Intent) {
+		if (intent.action == OPEN_RECORDER || intent.action == OPEN_LIBRARY) {
+			destination = intent.action
+			return
+		}
+		if (intent.action == Intent.ACTION_VIEW && intent.data?.scheme == "content") {
+			sharedSources = listOfNotNull(intent.data)
+			return
+		}
 		if (intent.action != Intent.ACTION_SEND && intent.action != Intent.ACTION_SEND_MULTIPLE) return
 		sharedSources = try { intent.sharedImportSources() } catch (_: BadParcelableException) { emptyList() }
 		if (sharedSources.isEmpty()) library.message = R.string.import_error
@@ -90,11 +110,15 @@ private fun Studio(
 	speakers: SpeakerAnalysis,
 	offline: OfflineSpeechModels,
 	dark: Boolean,
+	destination: String?,
+	onNavigated: () -> Unit,
 	heading: @Composable () -> Unit,
 	toggle: () -> Unit
 ) {
 	var input by rememberSaveable { mutableStateOf("") }
 	val context = androidx.compose.ui.platform.LocalContext.current
+	val addPhoto = rememberPhotoIntake(library)
+	val revision = speech.revision + library.transcriptRevision
 	val query = input.trim()
 	var category by rememberSaveable { mutableStateOf("") }
 	var favorites by rememberSaveable { mutableStateOf(false) }
@@ -102,11 +126,11 @@ private fun Studio(
 		(category.isEmpty() || library.catalog.value(it, "category") == category) &&
 			(!favorites || library.catalog.value(it, "favorite").isNotEmpty())
 	}
-	val hits = transcriptHits(visibleFiles, query, speech.revision)
+	val hits = transcriptHits(visibleFiles, query, revision)
 	var selectedName by rememberSaveable(query) { mutableStateOf<String?>(null) }
 	selectedName?.let { name ->
 		library.files.firstOrNull { it.name == name }?.let { file ->
-			MatchedTranscript(file, query, speech.revision) { selectedName = null }
+			MatchedTranscript(file, query, revision) { selectedName = null }
 		}
 	}
 	val active = library.started != 0L
@@ -118,8 +142,18 @@ private fun Studio(
 			value = library.recordedDurationMs() / 1000
 		}
 	}
+	val list = androidx.compose.foundation.lazy.rememberLazyListState()
+	LaunchedEffect(destination) {
+		when (destination) {
+			OPEN_RECORDER -> list.scrollToItem(0)
+			OPEN_LIBRARY -> list.scrollToItem(6 + (if (library.message != 0) 1 else 0) + (if (speech.busy) 1 else 0))
+			else -> return@LaunchedEffect
+		}
+		onNavigated()
+	}
 	Surface(Modifier.fillMaxSize()) {
 		LazyColumn(
+			state = list,
 			modifier = Modifier.safeDrawingPadding(),
 			contentPadding = PaddingValues(20.dp),
 			verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -138,7 +172,7 @@ private fun Studio(
 						Text(String.format(Locale.ROOT, "%02d:%02d:%02d", elapsed / 3600, elapsed / 60 % 60, elapsed % 60),
 							style = MaterialTheme.typography.displayMedium, fontFamily = FontFamily.Monospace)
 						LiveWaveform(library, accent)
-						if (!active) CaptureSettings(library)
+						if (!active) CaptureSettings(library, offline.installed)
 						FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 							Button(onClick = toggle, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF201917))) {
 								Text(stringResource(if (active) R.string.stop else R.string.record))
@@ -153,6 +187,8 @@ private fun Studio(
 								}
 							}
 						}
+						if (active && library.liveText.isNotBlank()) Text(library.liveText)
+						library.captureTarget?.let { PhotoActions(library, it, addPhoto) }
 						Text(stringResource(R.string.foreground), style = MaterialTheme.typography.bodySmall)
 					}
 				}
@@ -160,7 +196,8 @@ private fun Studio(
 			if (library.message != 0) item { Text(stringResource(library.message), color = MaterialTheme.colorScheme.error) }
 			item { ConnectionPanel(speech) }
 			item { SummaryModelPanel(local) }
-			item { OfflineModelPanel(offline, speech.busy) }
+			item { OfflineModelPanel(offline, speech.busy || library.recognizing.isNotEmpty()) }
+			item { DrivePanel(); SlackPanel() }
 			if (speech.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
 			item { Text(stringResource(R.string.library), style = MaterialTheme.typography.titleLarge) }
 			item { ImportActions(library) }
@@ -192,9 +229,10 @@ private fun Studio(
 						}
 						if (library.playingFile == file) PlaybackControls(library)
 						RecordingActions(file, library)
+						if (file.extension in audioTypes) PhotoActions(library, file, addPhoto)
 						TrimAction(file, library)
-						SpeakerAction(file, speakers, speech.revision, library)
-						TranscriptionRow(file, recordedAt, speech, local, offline)
+						SpeakerAction(file, speakers, revision, library)
+						if (file in library.recognizing) LinearProgressIndicator() else key(library.transcriptRevision) { TranscriptionRow(file, recordedAt, speech, local, offline) }
 						HorizontalDivider()
 					}
 				}

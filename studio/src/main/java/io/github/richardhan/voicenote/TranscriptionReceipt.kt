@@ -41,6 +41,7 @@ internal fun saveTranscription(file: File, text: String, receipt: TranscriptionR
 	val temp = File.createTempFile("transcript-", ".part", destination.parentFile)
 	try {
 		temp.writeText(text)
+		archiveTranscript(file)
 		// Identical words can have different charges and segment boundaries on a new request.
 		Files.deleteIfExists(metadata.toPath())
 		Files.deleteIfExists(timing.toPath())

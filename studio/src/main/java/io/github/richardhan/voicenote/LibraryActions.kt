@@ -47,7 +47,7 @@ internal fun LibraryFilters(library: RecordingLibrary, category: String, select:
 			if (library.trashedFiles.isEmpty()) Text(stringResource(R.string.empty))
 			for (file in library.trashedFiles) {
 				Text(library.catalog.title(file))
-				TextButton(onClick = { library.catalog.update(file, "trashed" to "") }) { Text(stringResource(R.string.restore)) }
+				TextButton(onClick = { library.catalog.update(file, "trashed" to ""); library.refresh() }) { Text(stringResource(R.string.restore)) }
 			}
 		}
 	}, confirmButton = { TextButton(onClick = { trash = false }) { Text(stringResource(R.string.done)) } })
@@ -115,10 +115,11 @@ internal fun RecordingActions(file: File, library: RecordingLibrary) {
 					context.startActivity(Intent.createChooser(send, null))
 				} catch (_: Exception) { library.message = R.string.document_error }
 			}) { Text(stringResource(R.string.share_recording)) }
+			DriveAction(library, file)
 			TextButton(onClick = { open = false; library.trash(file) }) { Text(stringResource(R.string.move_trash)) }
 		}
 	}, confirmButton = {
-		TextButton(onClick = { catalog.update(file, "title" to title.trim(), "category" to category.trim(), "notes" to notes); open = false }) {
+		TextButton(onClick = { catalog.update(file, "title" to title.trim(), "category" to category.trim(), "notes" to notes); library.refresh(); open = false }) {
 			Text(stringResource(R.string.done))
 		}
 	})

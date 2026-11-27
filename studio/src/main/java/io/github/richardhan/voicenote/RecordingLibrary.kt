@@ -28,6 +28,26 @@ class RecordingLibrary(private val app: Application) {
 		private set
 	internal var tagLocation by mutableStateOf(settings.getBoolean("location", false))
 		private set
+	internal var liveEnabled by mutableStateOf(settings.getBoolean("live", false))
+		private set
+	internal var liveText by mutableStateOf("")
+		private set
+	internal var transcriptRevision by mutableIntStateOf(0)
+		private set
+	internal val recognizing = mutableStateListOf<File>()
+	private var liveCapture: LiveCapture? = null
+	private var liveSlackGeneration: String? = null
+
+	internal fun enableLive(value: Boolean) {
+		if (started != 0L) return
+		settings.edit().putBoolean("live", value).apply()
+		liveEnabled = value
+	}
+	private fun postLive(file: File, text: String, generation: String?) {
+		if (generation != null && app.slackPrefs().getString("generation", null) == generation && app.slackPrefs().getBoolean("live", false)) {
+			runCatching { app.enqueueSlack(file, text) }
+		}
+	}
 	private var captureLocation: android.location.Location? = null
 
 	internal fun contextOption(key: String, enabled: Boolean) {
@@ -52,6 +72,11 @@ class RecordingLibrary(private val app: Application) {
 	internal val bookmarkCount get() = captureMarkers.size
 	private var recorder: MediaRecorder? = null
 	private var pending: File? = null
+	internal var captureTarget by mutableStateOf<File?>(null)
+		private set
+	internal var photoRevision by mutableIntStateOf(0)
+		private set
+	internal fun photosChanged() { photoRevision++ }
 	private val audioManager = requireNotNull(app.getSystemService(AudioManager::class.java))
 	private val playbackAttributes = AudioAttributes.Builder()
 		.setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
@@ -70,6 +95,7 @@ class RecordingLibrary(private val app: Application) {
 	internal fun trash(file: File) {
 		if (playingFile == file) stopPlayback()
 		catalog.update(file, "trashed" to System.currentTimeMillis().toString())
+		app.refreshWidgets()
 	}
 
 	internal fun captureBookmark() {
@@ -118,6 +144,7 @@ class RecordingLibrary(private val app: Application) {
 
 	internal fun refresh() {
 		allFiles = savedFiles()
+		app.refreshWidgets()
 	}
 
 	var importTotal by mutableIntStateOf(0)
@@ -172,12 +199,44 @@ class RecordingLibrary(private val app: Application) {
 		}
 	}
 
-	fun start() {
-		if (recorder != null) return
+	fun start(slackGeneration: String? = null) {
+		if (liveCapture != null || recorder != null) return
 		stopPlayback()
 		try {
 			val file = File.createTempFile("capture-", ".part", directory)
 			pending = file
+			captureTarget = File(directory, "${System.currentTimeMillis()}-${java.util.UUID.randomUUID()}.${format.ext}")
+			liveSlackGeneration = slackGeneration?.takeIf { it == app.slackPrefs().getString("generation", null) && app.slackPrefs().getBoolean("live", false) }
+			val models = (app as StudioApplication).offline
+			liveText = ""
+			if (liveEnabled && models.installed) {
+				val target = File(directory, requireNotNull(captureTarget).nameWithoutExtension + ".wav")
+				captureTarget = target
+				val live = LiveCapture(file)
+				liveCapture = live
+				live.start()
+				started = SystemClock.elapsedRealtime()
+				message = 0
+				captureLocation = if (tagLocation) app.lastRecordingLocation() else null
+				recognizing.add(target)
+				val generation = liveSlackGeneration
+				postLive(target, app.getString(R.string.active), generation)
+				scope.launch {
+					try {
+						withContext(Dispatchers.IO) { live.recognize(models, target) { line ->
+							withContext(Dispatchers.Main) {
+								if (captureTarget == target) liveText = line
+								postLive(target, line, generation)
+							}
+						} }
+						if (target.isFile) postLive(target, app.getString(R.string.saved_recording), generation)
+					} catch (e: CancellationException) { throw e }
+					catch (_: Exception) { message = R.string.offline_error }
+					catch (_: LinkageError) { message = R.string.offline_error }
+					finally { recognizing.remove(target); transcriptRevision++ }
+				}
+				return
+			}
 			@Suppress("DEPRECATION")
 			val session = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(app) else MediaRecorder()
 			recorder = session
@@ -192,6 +251,7 @@ class RecordingLibrary(private val app: Application) {
 			session.setOutputFile(file.absolutePath)
 			session.prepare()
 			session.start()
+			postLive(requireNotNull(captureTarget), app.getString(R.string.active), liveSlackGeneration)
 			started = SystemClock.elapsedRealtime()
 			message = 0
 		} catch (_: Exception) {
@@ -201,7 +261,7 @@ class RecordingLibrary(private val app: Application) {
 	}
 
 	internal fun peakAmplitude(): Int = try {
-		recorder?.maxAmplitude ?: 0
+		liveCapture?.peak ?: recorder?.maxAmplitude ?: 0
 	} catch (_: IllegalStateException) {
 		0
 	}
@@ -213,14 +273,15 @@ class RecordingLibrary(private val app: Application) {
 	}
 
 	fun setPaused(pause: Boolean) {
-		val session = recorder ?: return
+		val session = recorder
+		if (session == null && liveCapture == null) return
 		if (pause == isPaused) return
 		try {
 			if (pause) {
-				session.pause()
+				session?.pause() ?: liveCapture?.pause(true)
 				pausedAt = SystemClock.elapsedRealtime()
 			} else {
-				session.resume()
+				session?.resume() ?: liveCapture?.pause(false)
 				totalPausedMs += SystemClock.elapsedRealtime() - pausedAt
 				pausedAt = 0L
 			}
@@ -231,16 +292,21 @@ class RecordingLibrary(private val app: Application) {
 	}
 
 	fun finish() {
-		val session = recorder ?: return
+		val session = recorder
+		val live = liveCapture
+		if (session == null && live == null) return
 		try {
-			session.stop()
+			session?.stop() ?: live?.stop()
 			val file = requireNotNull(pending)
-			val saved = File(directory, "${System.currentTimeMillis()}.${format.ext}")
+			val saved = requireNotNull(captureTarget)
 			check(file.length() > 0 && file.renameTo(saved))
+			live?.published?.complete(true)
+			if (live == null) postLive(saved, app.getString(R.string.saved_recording), liveSlackGeneration)
 			catalog.update(saved, "device" to listOf(Build.MANUFACTURER, Build.MODEL).joinToString(" "))
 			captureLocation?.let { catalog.update(saved, "location" to "${it.latitude}, ${it.longitude}") }
 			if (captureMarkers.isNotEmpty()) catalog.saveMarkers(saved, captureMarkers)
 			refresh()
+			app.queueDrive(saved, automatic = true)
 		} catch (_: Exception) {
 			message = R.string.record_error
 		} finally {
@@ -249,7 +315,7 @@ class RecordingLibrary(private val app: Application) {
 	}
 
 	internal fun togglePlayback(file: File, seekMs: Long? = null) {
-		if (recorder != null) return
+		if (liveCapture != null || recorder != null) return
 		val wasPlaying = playingFile == file
 		stopPlayback()
 		if (wasPlaying && seekMs == null) return
@@ -304,12 +370,17 @@ class RecordingLibrary(private val app: Application) {
 	}
 
 	private fun release() {
+		liveCapture?.let { if (!it.published.isCompleted) it.abort() }
+		liveCapture = null
+		liveSlackGeneration = null
 		captureMarkers.clear()
 		captureLocation = null
 		runCatching { recorder?.release() }
 		recorder = null
 		pending?.delete()
 		pending = null
+		captureTarget?.takeUnless(File::exists)?.let { File(File(app.noBackupFilesDir, "photos"), it.name).deleteRecursively() }
+		captureTarget = null
 		started = 0L
 		pausedAt = 0L
 		totalPausedMs = 0L

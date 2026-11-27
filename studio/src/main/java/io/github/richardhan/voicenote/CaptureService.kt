@@ -8,13 +8,14 @@ import android.os.Build
 import android.os.IBinder
 
 class StudioApplication : Application() {
+	internal val offline by lazy { OfflineSpeechModels(this) }
 	internal val library by lazy { RecordingLibrary(this) }
 }
 
 internal enum class CaptureAction { START, PAUSE, RESUME, FINISH }
 
-internal fun Context.controlCapture(action: CaptureAction) {
-	val command = Intent(this, CaptureService::class.java).setAction(action.name)
+internal fun Context.controlCapture(action: CaptureAction, slackGeneration: String? = null) {
+	val command = Intent(this, CaptureService::class.java).setAction(action.name).putExtra("slackGeneration", slackGeneration)
 	try {
 		if (action == CaptureAction.START) startForegroundService(command) else startService(command)
 	} catch (_: IllegalStateException) {
@@ -59,7 +60,7 @@ class CaptureService : Service() {
 		when (intent?.action) {
 			CaptureAction.START.name -> try {
 				startForeground(notificationId, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
-				library.start()
+				library.start(intent.getStringExtra("slackGeneration"))
 				if (library.started != 0L && library.callPause && callPause == null) {
 					callPause = CallPause(this) {
 						if (library.started != 0L && !library.isPaused) {

@@ -40,6 +40,9 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 				OutlinedTextField(speech.key, { speech.key = it }, singleLine = true, visualTransformation = PasswordVisualTransformation(),
 					label = { Text(stringResource(R.string.key)) })
 				OutlinedTextField(speech.model, { speech.model = it }, singleLine = true, label = { Text(stringResource(R.string.model_id)) })
+				OutlinedTextField(speech.chatModel, { speech.chatModel = it }, singleLine = true, label = { Text(stringResource(R.string.chat_model)) })
+				TextButton(enabled = !speech.busy && speech.valid(), onClick = { speech.saveConnection() }) { Text(stringResource(R.string.save_connection)) }
+				if (speech.hasSavedConnection) TextButton(enabled = !speech.busy, onClick = { speech.forgetConnection() }) { Text(stringResource(R.string.forget_connection)) }
 				if (!speech.custom) {
 					Box {
 						TextButton(onClick = { speech.loadModels(); menu = true }, enabled = !speech.busy) { Text(stringResource(R.string.refresh)) }
@@ -93,6 +96,9 @@ internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConn
 		}
 		SelectionContainer { Text(saved.text) }
 		TranscriptDocuments(file, saved.text)
+		SlackShare(file, saved.text)
+		TranscriptHistory(file, saved.text, speech.revision)
+		TranscriptChat(file, saved.text, speech)
 		key(saved.text) { SummaryAction(local, file, saved.text) }
 	}
 	val canSend = !speech.busy && if (video) !speech.custom && speech.key.isNotBlank() && link.isNotBlank() else speech.valid()

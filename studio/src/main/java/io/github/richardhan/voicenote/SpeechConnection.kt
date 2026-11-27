@@ -2,7 +2,8 @@ package io.github.richardhan.voicenote
 
 import android.os.SystemClock
 import androidx.compose.runtime.*
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +20,9 @@ private data class SpeechResponse(val body: JSONObject, val gatewayCost: String?
 private fun JSONObject.costUsd() = reportedCostUsd(optJSONObject("usage")?.optString("cost"))
 private class HttpFailure(val code: Int) : Exception()
 
-class SpeechConnection : ViewModel() {
+class SpeechConnection internal constructor(app: Application, private val open: HttpsOpen) : AndroidViewModel(app) {
+	constructor(app: Application) : this(app, ::openHttps)
+	private val vault = ConnectionVault(app, "studio-speech")
 	var custom by mutableStateOf(false)
 		private set
 	var base by mutableStateOf(OPEN_ROUTER)
@@ -44,8 +47,61 @@ class SpeechConnection : ViewModel() {
 
 	internal fun edit(file: File, text: String) = request {
 		require(text.isNotBlank())
-		withContext(Dispatchers.IO) { writeSidecar(transcriptFile(file), text) }
+		withContext(Dispatchers.IO) { archiveTranscript(file); writeSidecar(transcriptFile(file), text) }
 		revision++
+	}
+
+	var chatModel by mutableStateOf("")
+
+	var hasSavedConnection by mutableStateOf(false)
+		private set
+	init {
+		try {
+			vault.load()?.let {
+				custom = it.getBoolean("custom")
+				base = it.getString("base")
+				key = it.getString("key")
+				model = it.getString("model")
+				chatModel = it.optString("chatModel")
+				hasSavedConnection = true
+			}
+		} catch (_: Exception) { error = R.string.connection_error }
+	}
+	fun saveConnection() = request {
+		require(valid())
+		val data = JSONObject().put("custom", custom).put("base", base).put("key", key).put("model", model).put("chatModel", chatModel)
+		withContext(Dispatchers.IO) { vault.save(data) }
+		hasSavedConnection = true
+	}
+	fun forgetConnection() = request {
+		withContext(Dispatchers.IO) { vault.remove() }
+		key = ""
+		hasSavedConnection = false
+	}
+
+	internal fun ask(file: File, transcript: String, question: String) {
+		val server = endpoint()
+		if (server == null || key.isBlank() || chatModel.isBlank()) { error = R.string.invalid; return }
+		val modelId = chatModel.trim()
+		val token = key.trim()
+		request {
+			withContext(Dispatchers.IO) {
+				val target = chatFile(file, transcript)
+				val history = readMessages(target)
+				val payload = chatPayload(modelId, transcript, history, question).toString().toByteArray()
+				val response = exchange("$server/chat/completions", token) { conn ->
+					conn.requestMethod = "POST"
+					conn.doOutput = true
+					conn.setRequestProperty("Content-Type", "application/json")
+					conn.outputStream.use { it.write(payload) }
+				}
+				val answer = response.body.getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
+				require(answer.isNotBlank())
+				history.put(JSONObject().put("question", question).put("answer", answer).put("model", modelId))
+				writeSidecar(target, history.toString())
+			}
+			revision++
+		}
 	}
 
 	fun changeBase(value: String) {
@@ -149,7 +205,7 @@ class SpeechConnection : ViewModel() {
 	}
 
 	private fun exchange(url: String, token: String, send: (HttpsURLConnection) -> Unit = {}): SpeechResponse {
-		val connection = URI(url).toURL().openConnection() as HttpsURLConnection
+		val connection = open(URI(url).toURL())
 		try {
 			connection.instanceFollowRedirects = false
 			connection.connectTimeout = 15000

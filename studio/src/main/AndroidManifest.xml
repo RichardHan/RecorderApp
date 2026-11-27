@@ -16,7 +16,12 @@
 		<provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.files" android:exported="false" android:grantUriPermissions="true">
 			<meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/share_paths"/>
 		</provider>
+		<receiver android:name=".StudioWidget" android:exported="false">
+			<intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
+			<meta-data android:name="android.appwidget.provider" android:resource="@xml/studio_widget"/>
+		</receiver>
 		<activity android:name=".StudioActivity" android:launchMode="singleTop" android:exported="true">
+			<meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts"/>
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN"/>
 				<category android:name="android.intent.category.LAUNCHER"/>
@@ -31,6 +36,11 @@
 				<action android:name="android.intent.action.SEND_MULTIPLE"/>
 				<category android:name="android.intent.category.DEFAULT"/>
 				<data android:mimeType="audio/*"/>
+			</intent-filter>
+			<intent-filter>
+				<action android:name="android.intent.action.VIEW"/>
+				<category android:name="android.intent.category.DEFAULT"/>
+				<data android:scheme="content" android:mimeType="audio/*"/>
 			</intent-filter>
 		</activity>
 	</application>

@@ -16,10 +16,11 @@ internal enum class CaptureFormat(val label: String, val ext: String, val contai
 }
 
 @Composable
-internal fun CaptureSettings(library: RecordingLibrary) {
+internal fun CaptureSettings(library: RecordingLibrary, modelInstalled: Boolean) {
 	var formatMenu by remember { mutableStateOf(false) }
 	var rateMenu by remember { mutableStateOf(false) }
-	FlowRow {
+	if (modelInstalled) FilterChip(selected = library.liveEnabled, onClick = { library.enableLive(!library.liveEnabled) }, label = { Text(stringResource(R.string.live_asr)) })
+	if (!modelInstalled || !library.liveEnabled) FlowRow {
 		Box {
 			FilledTonalButton(onClick = { formatMenu = true }) { Text(library.format.label) }
 			DropdownMenu(formatMenu, { formatMenu = false }) {

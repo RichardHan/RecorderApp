@@ -25,6 +25,11 @@ android {
 	packaging { jniLibs { useLegacyPackaging = compressNative } }
 }
 dependencies {
+	implementation("com.google.android.gms:play-services-auth:22.0.0")
+	implementation("androidx.work:work-runtime:2.12.0")
+	androidTestImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+	androidTestImplementation("com.squareup.okhttp3:okhttp-tls:4.12.0")
+	androidTestImplementation("androidx.work:work-testing:2.12.0")
 	androidTestImplementation("androidx.test:runner:1.7.0")
 	androidTestImplementation("androidx.test.ext:junit:1.3.0")
 	testImplementation("junit:junit:4.13.2")
