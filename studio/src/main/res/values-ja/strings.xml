@@ -207,4 +207,7 @@
 	<string name="speech_pace">発話速度 · 約 %1$d 語または漢字・かな／分</string>
 	<string name="clean_text">空白と改行を整理</string>
 	<string name="mask_contacts">メールアドレスと電話番号を伏せる</string>
+	<string name="metered_model">従量制の接続で %1$d MiB をダウンロードしますか？</string>
+	<string name="download_anyway">ダウンロード</string>
+	<string name="download_named_model">%1$s をダウンロード · %2$d MiB</string>
 </resources>

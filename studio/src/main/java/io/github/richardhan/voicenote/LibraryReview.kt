@@ -52,7 +52,10 @@ internal fun LibraryReview(library: RecordingLibrary, speech: SpeechConnection, 
 	if (!open) return
 	val files = library.files
 	val receipts by produceState(emptyMap<File, SavedTranscript>(), files, revision) {
-		value = withContext(Dispatchers.IO) { files.associateWith(::loadSavedTranscript).filterValues { it.text.isNotBlank() } }
+		value = withContext(Dispatchers.IO) { files.mapNotNull { file ->
+			val saved = loadSavedTranscript(file)
+			if (saved.text.isBlank()) null else file to saved.copy(text = saved.text.take(160))
+		}.toMap() }
 	}
 	val known = receipts.values.mapNotNull { it.receipt?.costUsd?.toBigDecimalOrNull() }
 	val stats = stringResource(R.string.library_stats, files.size, receipts.size, files.sumOf(File::length) / 1048576.0)
@@ -74,8 +77,13 @@ internal fun LibraryReview(library: RecordingLibrary, speech: SpeechConnection, 
 			if (selected.isNotEmpty()) {
 				TextButton(onClick = { archive.launch("studio-transcripts.zip") }) { Text(stringResource(R.string.export_selected)) }
 				TextButton(onClick = {
-					combined = selected.entries.joinToString("\n\n") { (file, saved) ->
-						transcriptPassages(saved.text).joinToString("\n") { library.catalog.title(file) + " · " + it }
+					val sources = selected.keys.associateWith { library.catalog.title(it) }
+					scope.launch {
+						combined = withContext(Dispatchers.IO) {
+							sources.entries.joinToString("\n\n") { (file, name) ->
+								transcriptPassages(readTranscript(file)).joinToString("\n") { "$name · $it" }
+							}
+						}
 					}
 				}) { Text(stringResource(R.string.ask_selected)) }
 			}

@@ -19,7 +19,7 @@ class RecorderTile : TileService() {
 	@Suppress("DEPRECATION")
 	override fun onClick() {
 		super.onClick()
-		val intent = Intent(this, StudioActivity::class.java).setAction(OPEN_RECORDER).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+		val intent = Intent(this, WidgetRecordEntry::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 		if (Build.VERSION.SDK_INT >= 34) startActivityAndCollapse(PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE))
 		else startActivityAndCollapse(intent)
 	}

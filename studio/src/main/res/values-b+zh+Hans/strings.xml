@@ -207,4 +207,7 @@
 	<string name="speech_pace">语速 · 每分钟约 %1$d 个单词或中日文字符</string>
 	<string name="clean_text">整理空格与换行</string>
 	<string name="mask_contacts">遮蔽电子邮箱与电话号码</string>
+	<string name="metered_model">要用计量网络下载 %1$d MiB 吗？</string>
+	<string name="download_anyway">下载</string>
+	<string name="download_named_model">下载 %1$s · %2$d MiB</string>
 </resources>

@@ -207,4 +207,7 @@
 	<string name="speech_pace">語速 · 每分鐘約 %1$d 個單詞或中日文字元</string>
 	<string name="clean_text">整理空白與換行</string>
 	<string name="mask_contacts">遮蔽電子郵件與電話號碼</string>
+	<string name="metered_model">要使用計量網路下載 %1$d MiB 嗎？</string>
+	<string name="download_anyway">下載</string>
+	<string name="download_named_model">下載 %1$s · %2$d MiB</string>
 </resources>

@@ -103,7 +103,7 @@ internal class LiveCapture(private val temp: File) {
 					input.readFully(bytes)
 					val shorts = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
 					val samples = FloatArray(bytes.size / 2) { shorts.get() / 32768f }
-					val text = if (cloud == null) recognizeChunk(requireNotNull(recognizer), samples) else cloud.liveWords(samples, lines.lastOrNull().orEmpty())
+					val text = if (cloud == null) requireNotNull(recognizer).words(samples) else cloud.liveWords(samples, lines.lastOrNull().orEmpty())
 					val start = offset / 32000.0
 					offset += bytes.size
 					if (text.isNotBlank()) {
@@ -113,8 +113,8 @@ internal class LiveCapture(private val temp: File) {
 					}
 				}
 				if (published.await() && !failed && lines.isNotEmpty()) saveTranscription(target, lines.joinToString("\n"),
-					TranscriptionReceipt(cloud?.model ?: "SenseVoice · live", android.os.SystemClock.elapsedRealtime() - startTime, if (cloud == null) "0" else null), segments)
-			} finally { recognizer?.release() }
+					TranscriptionReceipt(cloud?.model ?: (models.selected.label + " · live"), android.os.SystemClock.elapsedRealtime() - startTime, if (cloud == null) "0" else null), segments)
+			} finally { recognizer?.close() }
 		}
 	}
 }

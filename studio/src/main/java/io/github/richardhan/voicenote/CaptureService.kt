@@ -1,6 +1,8 @@
 package io.github.richardhan.voicenote
 
 import android.app.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -8,6 +10,7 @@ import android.os.Build
 import android.os.IBinder
 
 class StudioApplication : Application() {
+	internal var requestWidgetCapture by androidx.compose.runtime.mutableStateOf(false)
 	internal val offline by lazy { OfflineSpeechModels(this) }
 	internal val library by lazy { RecordingLibrary(this) }
 }
@@ -74,6 +77,7 @@ class CaptureService : Service() {
 			CaptureAction.RESUME.name -> library.setPaused(false)
 			CaptureAction.FINISH.name -> library.finish()
 		}
+		refreshWidgets()
 		if (library.started == 0L) {
 			stopForeground(STOP_FOREGROUND_REMOVE)
 			stopSelf(startId)

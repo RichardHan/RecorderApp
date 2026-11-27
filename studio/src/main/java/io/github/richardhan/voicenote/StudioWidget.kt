@@ -11,6 +11,16 @@ import android.widget.RemoteViews
 internal const val OPEN_LIBRARY = "io.github.richardhan.voicenote.LIBRARY"
 internal const val OPEN_RECORDER = "io.github.richardhan.voicenote.RECORDER"
 
+class WidgetRecordEntry : android.app.Activity() {
+	override fun onCreate(state: android.os.Bundle?) {
+		super.onCreate(state)
+		(application as StudioApplication).requestWidgetCapture = true
+		startActivity(Intent(this, StudioActivity::class.java).setAction(OPEN_RECORDER)
+			.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+		finish()
+	}
+}
+
 class StudioWidget : AppWidgetProvider() {
 	override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
 		val library = (context.applicationContext as StudioApplication).library
@@ -18,7 +28,9 @@ class StudioWidget : AppWidgetProvider() {
 		val views = RemoteViews(context.packageName, R.layout.studio_widget)
 		fun open(action: String) = PendingIntent.getActivity(context, 0, Intent(context, StudioActivity::class.java).setAction(action),
 			PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-		views.setOnClickPendingIntent(R.id.open_recorder, open(OPEN_RECORDER))
+		val record = PendingIntent.getActivity(context, 0, Intent(context, WidgetRecordEntry::class.java), PendingIntent.FLAG_IMMUTABLE)
+		views.setTextViewText(R.id.open_recorder, context.getString(if (library.started != 0L) R.string.active else R.string.record))
+		views.setOnClickPendingIntent(R.id.open_recorder, record)
 		views.setOnClickPendingIntent(R.id.open_library, open(OPEN_LIBRARY))
 		views.setTextViewText(R.id.open_library, recent?.let { library.catalog.title(it) } ?: context.getString(R.string.library))
 		for (id in ids) manager.updateAppWidget(id, views)

@@ -77,13 +77,22 @@ class StudioActivity : ComponentActivity() {
 				},
 					confirmButton = { TextButton(onClick = { approveSharing = false; begin(slackPrefs().getString("generation", null).takeIf { slackPrefs().getBoolean("live", false) }, speech.savedProfile.takeIf { useCloud }) }) { Text(stringResource(R.string.slack_allow)) } },
 					dismissButton = { TextButton(onClick = { approveSharing = false; begin(null) }) { Text(stringResource(R.string.record_local)) } })
+				fun startSession() {
+					if (useCloud || (slackPrefs().getBoolean("live", false) && slackPrefs().contains("generation"))) approveSharing = true
+					else begin(null)
+				}
+				val app = application as StudioApplication
+				LaunchedEffect(app.requestWidgetCapture) {
+					if (app.requestWidgetCapture) {
+						app.requestWidgetCapture = false
+						if (library.started == 0L) startSession()
+					}
+				}
 				if (sharedSources.isNotEmpty()) key(sharedSources) { SharedImportDialog(sharedSources, library) { sharedSources = emptyList() } }
 				Studio(library, speech, local, speakers, offline, dark, if (canLiveCloud) ({
 					FilterChip(selected = liveCloud, onClick = { liveCloud = !liveCloud }, label = { Text(stringResource(R.string.live_cloud)) })
 				}) else null, destination, { destination = null }, heading = { StudioHeading(appearance, choose) }) {
-					if (library.started != 0L) controlCapture(CaptureAction.FINISH)
-					else if (useCloud || (slackPrefs().getBoolean("live", false) && slackPrefs().contains("generation"))) approveSharing = true
-					else begin(null)
+					if (library.started != 0L) controlCapture(CaptureAction.FINISH) else startSession()
 				}
 			}
 		}

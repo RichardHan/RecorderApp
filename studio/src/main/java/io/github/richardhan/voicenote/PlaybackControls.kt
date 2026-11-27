@@ -16,6 +16,7 @@ internal fun PlaybackControls(library: RecordingLibrary) {
 	}
 	var drag by remember { mutableStateOf<Float?>(null) }
 	val duration = library.playbackDuration
+	library.playingFile?.let { PlaybackWaveform(it, duration, position) }
 	Text(formatClipTime(position.toInt()) + " / " + formatClipTime(duration))
 	Slider(value = drag ?: position.toFloat().coerceIn(0f, duration.toFloat()), valueRange = 0f..duration.coerceAtLeast(1).toFloat(),
 		enabled = duration > 0, onValueChange = { drag = it }, onValueChangeFinished = { drag?.let { library.seekPlayback(it.toLong()) }; drag = null })
