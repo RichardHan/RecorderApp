@@ -118,6 +118,12 @@ private fun Studio(
 	var input by rememberSaveable { mutableStateOf("") }
 	val context = androidx.compose.ui.platform.LocalContext.current
 	val addPhoto = rememberPhotoIntake(library)
+	val guides = remember(context) { context.getSharedPreferences("studio_guide", 0) }
+	var guide by rememberSaveable { mutableStateOf(!guides.getBoolean("seen", false)) }
+	fun closeGuide() { guides.edit().putBoolean("seen", true).apply(); guide = false }
+	if (guide) AlertDialog(onDismissRequest = ::closeGuide, title = { Text(stringResource(R.string.studio)) },
+		text = { Text(stringResource(R.string.get_started)) },
+		confirmButton = { TextButton(onClick = ::closeGuide) { Text(stringResource(R.string.done)) } })
 	val revision = speech.revision + library.transcriptRevision
 	val query = input.trim()
 	var category by rememberSaveable { mutableStateOf("") }
@@ -198,9 +204,9 @@ private fun Studio(
 			item { SummaryModelPanel(local) }
 			item { OfflineModelPanel(offline, speech.busy || library.recognizing.isNotEmpty()) }
 			item { DrivePanel(); SlackPanel() }
-			if (speech.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+			if (speech.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()); TextButton(onClick = speech::cancel) { Text(stringResource(R.string.cancel)) } }
 			item { Text(stringResource(R.string.library), style = MaterialTheme.typography.titleLarge) }
-			item { ImportActions(library) }
+			item { ImportActions(library); LibraryReview(library, speech, revision) }
 			item { LibraryFilters(library, category, { category = it }, favorites) { favorites = !favorites } }
 			item {
 				OutlinedTextField(

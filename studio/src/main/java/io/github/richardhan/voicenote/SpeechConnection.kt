@@ -52,7 +52,15 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	}
 
 	var chatModel by mutableStateOf("")
+	var protocol by mutableStateOf(SpeechProtocol.Multipart)
+		internal set
+	var vocabulary by mutableStateOf("")
+	private var running: kotlinx.coroutines.Job? = null
+	fun cancel() { running?.cancel() }
 
+
+	var savedProfile by mutableStateOf("")
+		private set
 	var hasSavedConnection by mutableStateOf(false)
 		private set
 	init {
@@ -63,20 +71,25 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 				key = it.getString("key")
 				model = it.getString("model")
 				chatModel = it.optString("chatModel")
+				protocol = SpeechProtocol.entries.firstOrNull { mode -> mode.name == it.optString("protocol") } ?: SpeechProtocol.Multipart
+				vocabulary = it.optString("vocabulary")
 				hasSavedConnection = true
+				savedProfile = profileId()
 			}
 		} catch (_: Exception) { error = R.string.connection_error }
 	}
 	fun saveConnection() = request {
 		require(valid())
-		val data = JSONObject().put("custom", custom).put("base", base).put("key", key).put("model", model).put("chatModel", chatModel)
+		val data = JSONObject().put("custom", custom).put("base", base).put("key", key).put("model", model).put("chatModel", chatModel).put("protocol", protocol.name).put("vocabulary", vocabulary)
 		withContext(Dispatchers.IO) { vault.save(data) }
 		hasSavedConnection = true
+		savedProfile = profileId()
 	}
 	fun forgetConnection() = request {
 		withContext(Dispatchers.IO) { vault.remove() }
 		key = ""
 		hasSavedConnection = false
+		savedProfile = ""
 	}
 
 	internal fun ask(file: File, transcript: String, question: String) {
@@ -88,14 +101,22 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 			withContext(Dispatchers.IO) {
 				val target = chatFile(file, transcript)
 				val history = readMessages(target)
-				val payload = chatPayload(modelId, transcript, history, question).toString().toByteArray()
-				val response = exchange("$server/chat/completions", token) { conn ->
-					conn.requestMethod = "POST"
-					conn.doOutput = true
-					conn.setRequestProperty("Content-Type", "application/json")
-					conn.outputStream.use { it.write(payload) }
-				}
-				val answer = response.body.getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
+				val payload = chatPayload(modelId, transcript, history, question)
+				val gemini = protocol == SpeechProtocol.Gemini
+				val response = if (gemini) {
+					val messages = payload.getJSONArray("messages")
+					val content = org.json.JSONArray()
+					for (i in 1 until messages.length()) {
+						val msg = messages.getJSONObject(i)
+						val text = msg.getString("content")
+						content.put(JSONObject().put("role", if (msg.getString("role") == "assistant") "model" else "user")
+							.put("parts", org.json.JSONArray().put(JSONObject().put("text", text))))
+					}
+					val body = JSONObject().put("contents", content).put("systemInstruction",
+						JSONObject().put("parts", org.json.JSONArray().put(JSONObject().put("text", messages.getJSONObject(0).getString("content")))))
+					jsonRequest("$server/models/${android.net.Uri.encode(modelId)}:generateContent", token, body, true)
+				} else jsonRequest("$server/chat/completions", token, payload)
+				val answer = generatedText(if (gemini) SpeechProtocol.Gemini else SpeechProtocol.Chat, response)
 				require(answer.isNotBlank())
 				history.put(JSONObject().put("question", question).put("answer", answer).put("model", modelId))
 				writeSidecar(target, history.toString())
@@ -110,6 +131,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	}
 	fun setCustomMode(value: Boolean) {
 		custom = value
+		protocol = SpeechProtocol.Multipart
 		changeBase(if (custom) "" else OPEN_ROUTER)
 		model = if (custom) "" else "openai/whisper-large-v3-turbo"
 		models = emptyList()
@@ -126,7 +148,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		if (busy) return
 		busy = true
 		error = 0
-		viewModelScope.launch {
+		running = viewModelScope.launch {
 			try { block() }
 			catch (e: CancellationException) { throw e }
 			catch (_: LinkageError) { error = R.string.offline_error }
@@ -169,40 +191,76 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 
 	fun transcribe(file: File, timestamps: Boolean) {
 		if (!valid()) { error = R.string.invalid; return }
-		val url = "${endpoint()}/audio/transcriptions"
-		val token = key.trim()
-		val chosen = model.trim()
-		val useGatewayCost = custom
 		request {
-			withContext(Dispatchers.IO) {
-				val started = SystemClock.elapsedRealtime()
-				val reply = exchange(url, token) { connection ->
-					val boundary = UUID.randomUUID().toString()
-					val format = if (timestamps) "--$boundary\r\nContent-Disposition: form-data; name=\"response_format\"\r\n\r\nverbose_json\r\n" else ""
-					val header = format + "--$boundary\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\n$chosen\r\n" +
-						"--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"recording.${file.extension}\"\r\nContent-Type: ${audioTypes.getValue(file.extension)}\r\n\r\n"
-					val prefix = header.toByteArray()
-					val suffix = "\r\n--$boundary--\r\n".toByteArray()
-					connection.requestMethod = "POST"
-					connection.doOutput = true
-					connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
-					connection.setFixedLengthStreamingMode(prefix.size + file.length() + suffix.size)
-					connection.outputStream.use { out ->
-						out.write(prefix)
-						file.inputStream().use { it.copyTo(out) }
-						out.write(suffix)
-					}
-				}
-				val elapsedMs = SystemClock.elapsedRealtime() - started
-				val gatewayCost = if (useGatewayCost) reportedCostUsd(reply.gatewayCost) else null
-				val cost = gatewayCost ?: reply.body.costUsd()
-				val text = requireNotNull(reply.body.opt("text") as? String)
-				val segments = if (timestamps) reply.body.optJSONArray("segments") else null
-				saveTranscription(file, text, TranscriptionReceipt(chosen, elapsedMs, cost), segments)
-			}
+			withContext(Dispatchers.IO) { transcribeNow(file, timestamps) }
 			revision++
 		}
 	}
+
+	internal suspend fun transcribeNow(file: File, timestamps: Boolean) {
+		require(valid())
+		val server = requireNotNull(endpoint())
+		val token = key.trim()
+		val chosen = model.trim()
+		val mode = protocol
+		val spelling = vocabulary
+		if (mode != SpeechProtocol.Multipart) {
+			val gemini = mode == SpeechProtocol.Gemini
+			val target = if (gemini) "$server/models/${android.net.Uri.encode(chosen)}:generateContent" else "$server/chat/completions"
+			segmentedTranscript(file, server.toString(), chosen, mode, spelling) { json -> jsonRequest(target, token, json, gemini) }
+			return
+		}
+		val url = "$server/audio/transcriptions"
+		val useGatewayCost = custom
+		val started = SystemClock.elapsedRealtime()
+		val reply = exchange(url, token) { connection ->
+			val boundary = UUID.randomUUID().toString()
+			val format = if (timestamps) "--$boundary\r\nContent-Disposition: form-data; name=\"response_format\"\r\n\r\nverbose_json\r\n" else ""
+			val header = format + "--$boundary\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\n$chosen\r\n" +
+				"--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"recording.${file.extension}\"\r\nContent-Type: ${audioTypes.getValue(file.extension)}\r\n\r\n"
+			val hint = if (spelling.isBlank()) "" else "--$boundary\r\nContent-Disposition: form-data; name=\"prompt\"\r\n\r\n$spelling\r\n"
+			val prefix = (hint + header).toByteArray()
+			val suffix = "\r\n--$boundary--\r\n".toByteArray()
+			connection.requestMethod = "POST"
+			connection.doOutput = true
+			connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+			connection.setFixedLengthStreamingMode(prefix.size + file.length() + suffix.size)
+			connection.outputStream.use { out ->
+				out.write(prefix)
+				file.inputStream().use { it.copyTo(out) }
+				out.write(suffix)
+			}
+		}
+		val elapsedMs = SystemClock.elapsedRealtime() - started
+		val gatewayCost = if (useGatewayCost) reportedCostUsd(reply.gatewayCost) else null
+		val cost = gatewayCost ?: reply.body.costUsd()
+		val text = requireNotNull(reply.body.opt("text") as? String)
+		val segments = if (timestamps) reply.body.optJSONArray("segments") else null
+		saveTranscription(file, text, TranscriptionReceipt(chosen, elapsedMs, cost), segments)
+	}
+
+	internal fun textCompletion(text: String, instruction: String): String {
+		val server = requireNotNull(endpoint())
+		require(chatModel.isNotBlank())
+		val prompt = instruction + "\n\n" + text
+		return if (protocol == SpeechProtocol.Gemini) {
+			val body = JSONObject().put("contents", org.json.JSONArray().put(JSONObject().put("parts", org.json.JSONArray().put(JSONObject().put("text", prompt)))))
+			generatedText(protocol, jsonRequest("$server/models/${android.net.Uri.encode(chatModel)}:generateContent", key.trim(), body, true))
+		} else {
+			val body = JSONObject().put("model", chatModel).put("messages", org.json.JSONArray().put(JSONObject().put("role", "user").put("content", prompt)))
+			generatedText(SpeechProtocol.Chat, jsonRequest("$server/chat/completions", key.trim(), body))
+		}
+	}
+
+	private fun jsonRequest(url: String, token: String, body: JSONObject, gemini: Boolean = false): JSONObject =
+		exchange(url, if (gemini) "" else token) { conn ->
+			if (gemini) conn.setRequestProperty("x-goog-api-key", token)
+			conn.requestMethod = "POST"
+			conn.doOutput = true
+			conn.setRequestProperty("Content-Type", "application/json")
+			conn.outputStream.use { it.write(body.toString().toByteArray()) }
+		}.body
+
 
 	private fun exchange(url: String, token: String, send: (HttpsURLConnection) -> Unit = {}): SpeechResponse {
 		val connection = open(URI(url).toURL())

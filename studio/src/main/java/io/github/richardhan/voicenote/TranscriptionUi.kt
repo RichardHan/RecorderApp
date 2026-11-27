@@ -35,13 +35,25 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 					Switch(checked = speech.custom, onCheckedChange = { speech.setCustomMode(it) }, enabled = !speech.busy)
 					Text(stringResource(R.string.custom))
 				}
+				FlowRow {
+					for (mode in SpeechProtocol.entries.filter { speech.custom || it != SpeechProtocol.Gemini }) {
+						FilterChip(selected = speech.protocol == mode, onClick = { speech.protocol = mode }, label = { Text(mode.label) })
+					}
+				}
 				if (speech.custom) OutlinedTextField(speech.base, speech::changeBase, singleLine = true,
 					label = { Text(stringResource(R.string.base)) })
 				OutlinedTextField(speech.key, { speech.key = it }, singleLine = true, visualTransformation = PasswordVisualTransformation(),
 					label = { Text(stringResource(R.string.key)) })
 				OutlinedTextField(speech.model, { speech.model = it }, singleLine = true, label = { Text(stringResource(R.string.model_id)) })
+				OutlinedTextField(speech.vocabulary, { speech.vocabulary = it }, label = { Text(stringResource(R.string.vocabulary)) })
+				if (speech.protocol == SpeechProtocol.Chat) FlowRow {
+					for (id in listOf("gemini-4-hydrogen", "gemini-3.8-flash", "gemini-3.5-transcribe")) {
+						TextButton(onClick = { speech.model = id }) { Text(id) }
+					}
+				}
 				OutlinedTextField(speech.chatModel, { speech.chatModel = it }, singleLine = true, label = { Text(stringResource(R.string.chat_model)) })
 				TextButton(enabled = !speech.busy && speech.valid(), onClick = { speech.saveConnection() }) { Text(stringResource(R.string.save_connection)) }
+				AutoPanel(speech)
 				if (speech.hasSavedConnection) TextButton(enabled = !speech.busy, onClick = { speech.forgetConnection() }) { Text(stringResource(R.string.forget_connection)) }
 				if (!speech.custom) {
 					Box {
@@ -116,7 +128,7 @@ internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConn
 					OutlinedTextField(videoModel, { videoModel = it }, singleLine = true, label = { Text(stringResource(R.string.video_model)) })
 				} else {
 					Text(stringResource(R.string.disclose, speech.base, speech.model))
-					Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+					if (speech.protocol == SpeechProtocol.Multipart) Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
 						Checkbox(checked = timestamps, onCheckedChange = { timestamps = it })
 						Text(stringResource(R.string.turn_timing))
 					}

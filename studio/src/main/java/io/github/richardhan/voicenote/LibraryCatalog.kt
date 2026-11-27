@@ -31,6 +31,13 @@ internal class LibraryCatalog(context: Context) {
 		editor.apply()
 	}
 
+	fun forget(file: File) {
+		val fields = values.keys.filter { it.startsWith(file.name + "/") }
+		val editor = prefs.edit()
+		for (field in fields) { values.remove(field); editor.remove(field) }
+		editor.apply()
+	}
+
 	fun markers(file: File): List<RecordingMarker> {
 		val raw = value(file, "bookmarks")
 		if (raw.isEmpty()) return emptyList()

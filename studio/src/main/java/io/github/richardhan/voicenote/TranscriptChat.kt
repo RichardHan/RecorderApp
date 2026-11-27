@@ -63,7 +63,7 @@ internal fun TranscriptChat(file: File, transcript: String, speech: SpeechConnec
 			}
 			OutlinedTextField(speech.chatModel, { speech.chatModel = it }, label = { Text(stringResource(R.string.chat_model)) }, singleLine = true)
 			FlowRow {
-				for (label in listOf(R.string.prompt_actions, R.string.prompt_chapters, R.string.prompt_summary, R.string.prompt_translate, R.string.prompt_redact)) {
+				for (label in listOf(R.string.prompt_actions, R.string.prompt_chapters, R.string.prompt_summary, R.string.prompt_translate, R.string.prompt_redact, R.string.prompt_follow_up, R.string.prompt_title, R.string.prompt_keywords)) {
 					val task = stringResource(label)
 					TextButton(onClick = { question = task }) { Text(task) }
 				}

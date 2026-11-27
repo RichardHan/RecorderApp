@@ -180,4 +180,25 @@
 	<string name="slack_session">要將這次錄音的狀態傳到已連結的 Slack 頻道嗎？啟用即時轉錄時也會傳送辨識到的文字。</string>
 	<string name="slack_allow">錄音並傳送更新</string>
 	<string name="record_local">只在裝置上錄音</string>
+	<string name="vocabulary">慣用拼寫與詞彙</string>
+	<string name="library_review">錄音總覽</string>
+	<string name="library_stats">%1$d 段錄音 · %2$d 份逐字稿 · 音訊 %3$.1f MiB</string>
+	<string name="reported_total">目前 %2$d 份逐字稿已知費用 · USD %1$s</string>
+	<string name="device_stats">可用空間 %1$d MiB · 電量 %2$d%%</string>
+	<string name="export_selected">匯出選取的逐字稿（ZIP）</string>
+	<string name="ask_selected">準備詢問這些錄音</string>
+	<string name="prompt_follow_up">草擬後續訊息</string>
+	<string name="prompt_title">建議錄音標題</string>
+	<string name="prompt_keywords">擷取關鍵字</string>
+	<string name="auto_trash">移至垃圾桶 30 天後刪除</string>
+	<string name="purge">永久刪除</string>
+	<string name="confirm_purge">要永久刪除「%1$s」及其逐字稿、書籤和照片嗎？</string>
+	<string name="auto_on">啟用自動雲端轉錄</string>
+	<string name="auto_off">關閉自動雲端轉錄</string>
+	<string name="auto_disclosure">每段新錄音儲存後都要傳到 %1$s 並使用 %2$s 嗎？每次請求均可能收費，包含選用的摘要和命名。</string>
+	<string name="auto_summary">自動摘要 · %1$s</string>
+	<string name="auto_title">自動命名 · %1$s</string>
+	<string name="auto_retry">重試自動轉錄</string>
+	<string name="transcript_ready">逐字稿已完成</string>
+	<string name="get_started">按「開始錄音」或從清單匯入音檔。在錄音詳細資料可寫筆記、管理書籤與分享。下載語音模型即可離線轉錄，也可在「模型與連線」設定雲端服務。</string>
 </resources>

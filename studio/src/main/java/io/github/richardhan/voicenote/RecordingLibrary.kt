@@ -76,6 +76,7 @@ class RecordingLibrary(private val app: Application) {
 		private set
 	internal var photoRevision by mutableIntStateOf(0)
 		private set
+	internal fun transcriptChanged() { transcriptRevision++ }
 	internal fun photosChanged() { photoRevision++ }
 	private val audioManager = requireNotNull(app.getSystemService(AudioManager::class.java))
 	private val playbackAttributes = AudioAttributes.Builder()
@@ -96,6 +97,16 @@ class RecordingLibrary(private val app: Application) {
 		if (playingFile == file) stopPlayback()
 		catalog.update(file, "trashed" to System.currentTimeMillis().toString())
 		app.refreshWidgets()
+	}
+
+	internal fun purge(file: File): Boolean {
+		if (file !in trashedFiles || file in recognizing) return false
+		return try {
+			removeRecording(app, file)
+			catalog.forget(file)
+			refresh()
+			true
+		} catch (_: Exception) { message = R.string.document_error; false }
 	}
 
 	internal fun captureBookmark() {
@@ -302,11 +313,15 @@ class RecordingLibrary(private val app: Application) {
 			check(file.length() > 0 && file.renameTo(saved))
 			live?.published?.complete(true)
 			if (live == null) postLive(saved, app.getString(R.string.saved_recording), liveSlackGeneration)
-			catalog.update(saved, "device" to listOf(Build.MANUFACTURER, Build.MODEL).joinToString(" "))
+			val battery = app.getSystemService(android.os.BatteryManager::class.java)?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
+			catalog.update(saved, "device" to listOf(Build.MANUFACTURER, Build.MODEL).joinToString(" "),
+				"battery" to battery?.takeIf { it in 0..100 }?.toString().orEmpty(),
+				"freeMiB" to (directory.usableSpace / 1048576).toString())
 			captureLocation?.let { catalog.update(saved, "location" to "${it.latitude}, ${it.longitude}") }
 			if (captureMarkers.isNotEmpty()) catalog.saveMarkers(saved, captureMarkers)
 			refresh()
 			app.queueDrive(saved, automatic = true)
+			app.queueTranscription(saved)
 		} catch (_: Exception) {
 			message = R.string.record_error
 		} finally {
@@ -332,12 +347,12 @@ class RecordingLibrary(private val app: Application) {
 			focus = request
 			session.setAudioAttributes(playbackAttributes)
 			session.setOnPreparedListener {
-				if (player === it) {
+				if (player === it) try {
 					playbackDuration = it.duration.coerceAtLeast(0)
 					it.playbackParams = it.playbackParams.setSpeed(playbackSpeed)
 					if (seekMs != null) it.seekTo(seekMs.coerceIn(0L, it.duration.toLong().coerceAtLeast(0L)), MediaPlayer.SEEK_CLOSEST)
 					it.start()
-				}
+				} catch (_: RuntimeException) { playbackFailed() }
 			}
 			session.setOnCompletionListener { if (player === it) stopPlayback() }
 			session.setOnErrorListener { failed, _, _ ->

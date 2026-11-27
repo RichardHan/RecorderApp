@@ -123,4 +123,37 @@ class LocalServiceTest {
 		assertEquals(401, speech.httpStatus)
 		assertEquals(1, readMessages(chatFile(audio, readTranscript(audio))).length())
 	}
+	@Test fun geminiRetrySendsOnlyUnfinishedAudioAndUsesTheConfiguredKey() = runBlocking {
+		val wave = File(audio.parentFile, audio.name + ".wav")
+		try {
+			wave.writeBytes(pcmWave(FloatArray(21 * 16000) { 0.1f }))
+			val speech = SpeechConnection(app, open)
+			speech.setCustomMode(true)
+			speech.changeBase("https://example.invalid/v1beta")
+			speech.key = "synthetic-gemini"
+			speech.protocol = SpeechProtocol.Gemini
+			speech.model = "test-gemini"
+			val first = """{"candidates":[{"content":{"parts":[{"text":"First chunk"}]}}]}"""
+			val second = first.replace("First chunk", "Final chunk")
+			reply(200, first); reply(503)
+			assertTrue(runCatching { speech.transcribeNow(wave, false) }.isFailure)
+			assertFalse(transcriptFile(wave).exists())
+			val req = server.takeRequest()
+			assertEquals("/v1beta/models/test-gemini:generateContent", req.path)
+			assertEquals("synthetic-gemini", req.getHeader("x-goog-api-key"))
+			assertTrue(req.body.readUtf8().contains("audio/wav"))
+			server.takeRequest()
+			reply(200, second)
+			speech.transcribeNow(wave, false)
+			assertEquals("First chunk\nFinal chunk", readTranscript(wave))
+			assertEquals(3, server.requestCount)
+			assertEquals(listOf(0.0, 20.0), readTiming(wave).map { it.start })
+		} finally {
+			wave.delete()
+			transcriptFile(wave).delete()
+			timingFile(wave).delete()
+			File(wave.parentFile, wave.name + ".usage").delete()
+		}
+	}
+
 }

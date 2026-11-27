@@ -29,6 +29,9 @@ internal fun LibraryCatalog.title(file: File) = value(file, "title").ifBlank {
 @Composable
 internal fun LibraryFilters(library: RecordingLibrary, category: String, select: (String) -> Unit, favorites: Boolean, changeFavorites: () -> Unit) {
 	var menu by remember { mutableStateOf(false) }
+	val context = LocalContext.current
+	var purge by remember { mutableStateOf<File?>(null) }
+	var automatic by remember { mutableStateOf(context.getSharedPreferences("trash_settings", 0).getBoolean("enabled", false)) }
 	var trash by rememberSaveable { mutableStateOf(false) }
 	FlowRow {
 		FilterChip(selected = favorites, onClick = changeFavorites, label = { Text(stringResource(R.string.favorites)) })
@@ -44,13 +47,21 @@ internal fun LibraryFilters(library: RecordingLibrary, category: String, select:
 	}
 	if (trash) AlertDialog(onDismissRequest = { trash = false }, title = { Text(stringResource(R.string.trash)) }, text = {
 		Column(Modifier.verticalScroll(rememberScrollState())) {
+			FilterChip(selected = automatic, onClick = { automatic = !automatic; context.automaticTrash(automatic) }, label = { Text(stringResource(R.string.auto_trash)) })
 			if (library.trashedFiles.isEmpty()) Text(stringResource(R.string.empty))
 			for (file in library.trashedFiles) {
 				Text(library.catalog.title(file))
+				TextButton(onClick = { purge = file }) { Text(stringResource(R.string.purge)) }
 				TextButton(onClick = { library.catalog.update(file, "trashed" to ""); library.refresh() }) { Text(stringResource(R.string.restore)) }
 			}
 		}
 	}, confirmButton = { TextButton(onClick = { trash = false }) { Text(stringResource(R.string.done)) } })
+	purge?.let { file ->
+		AlertDialog(onDismissRequest = { purge = null }, text = { Text(stringResource(R.string.confirm_purge, library.catalog.title(file))) },
+			confirmButton = { TextButton(onClick = { library.purge(file); purge = null }) { Text(stringResource(R.string.purge)) } },
+			dismissButton = { TextButton(onClick = { purge = null }) { Text(stringResource(R.string.cancel)) } })
+	}
+
 }
 
 @Composable
@@ -81,6 +92,9 @@ internal fun RecordingActions(file: File, library: RecordingLibrary) {
 	val markers = catalog.markers(file)
 	AlertDialog(onDismissRequest = { open = false }, title = { Text(catalog.title(file)) }, text = {
 		Column(Modifier.verticalScroll(rememberScrollState())) {
+			val free = catalog.value(file, "freeMiB").toLongOrNull()
+			val battery = catalog.value(file, "battery").toIntOrNull()
+			if (free != null && battery != null) Text(stringResource(R.string.device_stats, free, battery))
 			catalog.value(file, "location").takeIf { it.isNotBlank() }?.let { Text(it) }
 			catalog.value(file, "device").takeIf { it.isNotBlank() }?.let { Text(it) }
 			OutlinedTextField(title, { title = it }, singleLine = true, label = { Text(stringResource(R.string.recording_name)) })
@@ -115,6 +129,7 @@ internal fun RecordingActions(file: File, library: RecordingLibrary) {
 					context.startActivity(Intent.createChooser(send, null))
 				} catch (_: Exception) { library.message = R.string.document_error }
 			}) { Text(stringResource(R.string.share_recording)) }
+			if (catalog.value(file, "auto") == "failed") TextButton(onClick = { context.queueTranscription(file) }) { Text(stringResource(R.string.auto_retry)) }
 			DriveAction(library, file)
 			TextButton(onClick = { open = false; library.trash(file) }) { Text(stringResource(R.string.move_trash)) }
 		}

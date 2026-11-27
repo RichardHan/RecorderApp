@@ -180,4 +180,25 @@
 	<string name="slack_session">要将本次录音的状态发送到已连接的 Slack 频道吗？启用实时转录时也会发送识别到的文字。</string>
 	<string name="slack_allow">录音并发送更新</string>
 	<string name="record_local">仅在设备上录音</string>
+	<string name="vocabulary">惯用拼写与词汇</string>
+	<string name="library_review">录音总览</string>
+	<string name="library_stats">%1$d 段录音 · %2$d 份文字稿 · 音频 %3$.1f MiB</string>
+	<string name="reported_total">当前 %2$d 份文字稿已知费用 · USD %1$s</string>
+	<string name="device_stats">可用空间 %1$d MiB · 电量 %2$d%%</string>
+	<string name="export_selected">导出选中的文字稿（ZIP）</string>
+	<string name="ask_selected">准备就这些录音提问</string>
+	<string name="prompt_follow_up">起草后续消息</string>
+	<string name="prompt_title">建议录音标题</string>
+	<string name="prompt_keywords">提取关键词</string>
+	<string name="auto_trash">移至回收站 30 天后删除</string>
+	<string name="purge">永久删除</string>
+	<string name="confirm_purge">要永久删除“%1$s”及其文字稿、书签和照片吗？</string>
+	<string name="auto_on">启用自动云端转录</string>
+	<string name="auto_off">关闭自动云端转录</string>
+	<string name="auto_disclosure">要用 %2$s 将每段新录音发送到 %1$s 吗？每次请求均可能收费，包括可选的摘要与命名。</string>
+	<string name="auto_summary">自动摘要 · %1$s</string>
+	<string name="auto_title">自动命名 · %1$s</string>
+	<string name="auto_retry">重试自动转录</string>
+	<string name="transcript_ready">文字稿已完成</string>
+	<string name="get_started">开始录音或从列表导入音频。在录音详情中可写笔记、管理书签和分享。下载语音模型可离线转录，也可在模型与连接中设置云端服务。</string>
 </resources>

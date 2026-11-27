@@ -180,4 +180,25 @@
 	<string name="slack_session">Share updates from this recording with your connected Slack channel? Live transcription will send recognized speech.</string>
 	<string name="slack_allow">Record and send updates</string>
 	<string name="record_local">Record locally</string>
+	<string name="vocabulary">Preferred spellings and vocabulary</string>
+	<string name="library_review">Review recordings</string>
+	<string name="library_stats">%1$d recordings · %2$d transcripts · %3$.1f MiB of audio</string>
+	<string name="reported_total">Reported charges on %2$d current transcripts · USD %1$s</string>
+	<string name="device_stats">Free storage %1$d MiB · Battery %2$d%%</string>
+	<string name="export_selected">Export selected transcripts (ZIP)</string>
+	<string name="ask_selected">Prepare a question about these recordings</string>
+	<string name="prompt_follow_up">Draft a follow-up message</string>
+	<string name="prompt_title">Suggest a recording title</string>
+	<string name="prompt_keywords">Extract keywords</string>
+	<string name="auto_trash">Delete after 30 days in trash</string>
+	<string name="purge">Delete permanently</string>
+	<string name="confirm_purge">Permanently delete %1$s and its transcripts, bookmarks and photos?</string>
+	<string name="auto_on">Enable automatic cloud transcription</string>
+	<string name="auto_off">Turn off automatic cloud transcription</string>
+	<string name="auto_disclosure">Send each newly saved recording to %1$s using %2$s? The provider may charge for each request, including optional summaries and titles.</string>
+	<string name="auto_summary">Generate summary · %1$s</string>
+	<string name="auto_title">Suggest and save title · %1$s</string>
+	<string name="auto_retry">Retry automatic transcription</string>
+	<string name="transcript_ready">Transcript ready</string>
+	<string name="get_started">Start a recording or import audio from the library. Use recording details for notes, bookmarks and sharing. Download a speech model for offline transcription, or choose a provider under Model and connection.</string>
 </resources>

@@ -176,7 +176,7 @@ internal fun TrimAction(file: File, library: RecordingLibrary) {
 				TextButton(enabled = valid && !saving, onClick = { error = 0; previewing = !previewing }) {
 					Text(stringResource(if (previewing) R.string.stop_preview else R.string.preview_clip))
 				}
-				if (valid && start != null && end != null) {
+				if (valid) {
 					val selection = ClipSpan(start, end)
 					for (remove in listOf(false, true)) {
 						val next = selectClip(spans, selection, remove)

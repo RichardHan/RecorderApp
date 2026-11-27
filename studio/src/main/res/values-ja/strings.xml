@@ -180,4 +180,25 @@
 	<string name="slack_session">この録音の状態を Slack に送信しますか？ライブ文字起こし中は認識したテキストも送ります。</string>
 	<string name="slack_allow">録音して更新を送信</string>
 	<string name="record_local">端末だけで録音</string>
+	<string name="vocabulary">優先する表記と用語</string>
+	<string name="library_review">録音を振り返る</string>
+	<string name="library_stats">録音 %1$d 件 · 文字起こし %2$d 件 · 音声 %3$.1f MiB</string>
+	<string name="reported_total">現在の文字起こし %2$d 件の報告料金 · USD %1$s</string>
+	<string name="device_stats">空き容量 %1$d MiB · バッテリー %2$d%%</string>
+	<string name="export_selected">選択した文字起こしを ZIP で保存</string>
+	<string name="ask_selected">選んだ録音について質問を準備</string>
+	<string name="prompt_follow_up">フォローアップ文を作成</string>
+	<string name="prompt_title">録音タイトルを提案</string>
+	<string name="prompt_keywords">キーワードを抽出</string>
+	<string name="auto_trash">ゴミ箱に移動して30日後に削除</string>
+	<string name="purge">完全に削除</string>
+	<string name="confirm_purge">「%1$s」とその文字起こし、ブックマーク、写真を完全に削除しますか？</string>
+	<string name="auto_on">自動クラウド文字起こしを有効化</string>
+	<string name="auto_off">自動クラウド文字起こしを停止</string>
+	<string name="auto_disclosure">新しい録音を %1$s に送信し %2$s で処理しますか？要約やタイトルを含めリクエストごとに料金が発生する場合があります。</string>
+	<string name="auto_summary">要約を生成 · %1$s</string>
+	<string name="auto_title">自動命名 · %1$s</string>
+	<string name="auto_retry">自動文字起こしを再試行</string>
+	<string name="transcript_ready">文字起こし完了</string>
+	<string name="get_started">録音を開始するか、一覧から音声を取り込んでください。録音の詳細からメモ、ブックマーク、共有を利用できます。モデルをダウンロードすると端末内で文字起こしできます。</string>
 </resources>
