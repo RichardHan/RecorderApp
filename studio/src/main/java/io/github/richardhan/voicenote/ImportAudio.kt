@@ -17,7 +17,11 @@ import java.net.URI
 import java.util.UUID
 import javax.net.ssl.HttpsURLConnection
 
-internal val audioTypes = mapOf("m4a" to "audio/mp4", "mp3" to "audio/mpeg", "wav" to "audio/wav", "flac" to "audio/flac", "ogg" to "audio/ogg", "aac" to "audio/aac", "webm" to "audio/webm")
+internal val audioTypes = mapOf(
+	"m4a" to "audio/mp4", "mp3" to "audio/mpeg", "wav" to "audio/wav",
+	"flac" to "audio/flac", "ogg" to "audio/ogg", "aac" to "audio/aac", "webm" to "audio/webm",
+	"amr" to "audio/amr", "awb" to "audio/amr-wb", "3gp" to "audio/3gpp",
+)
 private fun importedAudio(dir: File, openInput: () -> InputStream) {
 	val temp = File.createTempFile("import-", ".part", dir)
 	try {
@@ -38,10 +42,15 @@ private fun importedAudio(dir: File, openInput: () -> InputStream) {
 			require(meta.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO) != "yes")
 			meta.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE)
 		} finally { meta.release() }
-		val ext = when (type) {
+		val mime = type?.lowercase()
+		val ext = when (mime) {
+			// Android also reports raw AMR-NB streams as audio/3gpp.
+			"audio/3gpp" -> temp.inputStream().buffered().use { input ->
+				if ("#!AMR\n".all { input.read() == it.code }) "amr" else "3gp"
+			}
 			"audio/x-wav" -> "wav"
 			"application/ogg" -> "ogg"
-			else -> audioTypes.entries.first { it.value == type }.key
+			else -> audioTypes.entries.first { it.value == mime }.key
 		}
 		check(temp.renameTo(File(dir, "${System.currentTimeMillis()}-${UUID.randomUUID()}.$ext")))
 	} finally { temp.delete() }
