@@ -1,3 +1,0 @@
-<resources>
-	<string name="data_cloudtranscribe_endpoint_must_use_https">Endpoint must use HTTPS</string>
-</resources>

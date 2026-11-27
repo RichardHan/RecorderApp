@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-	<string name="categories_updated">錄音已移至「%s」分類。</string>
-	<string name="select_category_screen">選擇分類</string>
-	<string name="categories_create_success">已建立分類</string>
-	<string name="categories_deleted">刪除分類</string>
-</resources>

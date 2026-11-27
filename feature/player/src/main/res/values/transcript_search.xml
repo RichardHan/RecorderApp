@@ -1,9 +1,0 @@
-<resources>
-    <string name="transcript_search_label">Search this transcript on this device</string>
-    <string name="transcript_search_previous">Previous match</string>
-    <string name="transcript_search_next">Next match</string>
-    <string name="transcript_search_clear">Clear</string>
-    <string name="transcript_search_count">Match %1$d of %2$d</string>
-    <string name="transcript_search_empty">No matching segments</string>
-    <string name="transcript_search_hint">Search pauses automatic scrolling. Tap a timestamp to listen, or clear the search to follow playback again.</string>
-</resources>

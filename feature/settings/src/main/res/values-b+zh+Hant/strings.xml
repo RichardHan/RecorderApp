@@ -1,9 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-	<string name="live_cloud_meeting_notes_label">會前筆記／議程（選填，用於即時重點）</string>
-	<string name="live_cloud_meeting_notes_hint">輸入議程項目、人名或術語，作為即時重點的參考；不會視為實際發言。錄音後摘要目前不使用這份筆記。</string>
-	<string name="live_cloud_meeting_notes_clear">清除筆記</string>
-	<string name="cloud_api_key_saved">已設定（Android Keystore 加密儲存）</string>
-	<string name="cloud_api_key_missing">尚未設定</string>
-	<string name="cloud_api_key_saved_label">已儲存的 API Key（可選取複製）</string>
-</resources>

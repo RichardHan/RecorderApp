@@ -1,5 +1,0 @@
-<resources>
-	<string name="transcript_last_execution">Latest run: %1$.1f s · Reported cost: %2$s (%3$d/%4$d requests)</string>
-	<string name="transcript_cost_unreported">unavailable</string>
-	<string name="transcript_cost_per_hour">Equivalent cost per audio hour: US$%1$s</string>
-</resources>

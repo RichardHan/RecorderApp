@@ -6,16 +6,21 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-      # Optional, but good security practice
       - name: 📝 Validate Gradle wrapper
-        uses: gradle/wrapper-validation-action@v3
+        uses: gradle/actions/wrapper-validation@v4
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -29,5 +34,25 @@ jobs:
       - name: 🔧 Setup Gradle (Caching & Optimization)
         uses: gradle/actions/setup-gradle@v4
 
-      - name: 🏗️ Build debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
+      - name: Install Android SDK packages
+        run: '"${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;37.0.0"'
+
+      # Single app module (:studio). Lint + debug APK + release bundle (same checks as the former studio preview).
+      - name: 🏗️ Lint, debug APK and release bundle
+        run: ./gradlew lintDebug assembleDebug bundleRelease --stacktrace
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: studio/build/reports/lint-results-debug.*
+          if-no-files-found: ignore
+
+      - name: Upload debug APK (preview)
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenRouter-Recorder-preview
+          path: studio/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14

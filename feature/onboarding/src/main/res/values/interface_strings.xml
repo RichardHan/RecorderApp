@@ -1,9 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-	<string name="feature_onboarding_edit">Edit</string>
-	<string name="feature_onboarding_organize">Organize</string>
-	<string name="feature_onboarding_permission_security">Permission security</string>
-	<string name="feature_onboarding_player">Player</string>
-	<string name="feature_onboarding_probable_logo">App logo</string>
-	<string name="feature_onboarding_recorder">Recorder</string>
-</resources>

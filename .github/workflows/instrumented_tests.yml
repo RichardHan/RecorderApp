@@ -6,12 +6,6 @@ on:
     pull_request:
         branches: [ main ]
     workflow_dispatch:
-        inputs:
-            test_scope:
-                description: "Instrumented test scope (all modules or photo attachment acceptance)"
-                type: choice
-                options: [all, photos]
-                default: all
 
 permissions:
     contents: read
@@ -62,15 +56,8 @@ jobs:
                     sudo udevadm control --reload-rules
                     sudo udevadm trigger --name-match=kvm
 
-            -   name: Install dependencies for test assets
-                run: |
-                    sudo apt-get update
-                    sudo apt-get install -y ffmpeg jq
-
-            -   name: Build test assets
-                run: |
-                    chmod +x data/visualizer/test_assets_builder.sh
-                    OUTPUT_DIR="data/visualizer/src/androidTest/assets" ./data/visualizer/test_assets_builder.sh
+            -   name: Install Android SDK packages
+                run: '"${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;37.0.0"'
 
             -   name: AVD cache
                 uses: actions/cache@v4
@@ -104,9 +91,8 @@ jobs:
                     disable-animations: true
                     script: |
                         adb devices
-                        # Keep every module's debug tests, without benchmark/profile release builds.
-                        # Serialize projects sharing one emulator and bound concurrent dex workers.
-                        if [ "${{ inputs.test_scope }}" = "photos" ]; then bash scripts/test-photo-attachments.sh; else ./gradlew connectedDebugAndroidTest -PincludeEmulatorAbis=true --no-parallel --max-workers=2 --continue --stacktrace; fi
+                        # Debug instrumented tests of the single app module (:studio); x86_64 libs are kept by default.
+                        ./gradlew connectedDebugAndroidTest --max-workers=2 --continue --stacktrace
 
             -   name: Module-wise test summary
                 if: always()

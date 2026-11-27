@@ -1,13 +1,19 @@
 plugins {
-	id("com.android.application") version "9.5.0"
-	id("org.jetbrains.kotlin.plugin.compose") version "2.4.20"
+	id("com.android.application")
+	id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// Optional sideload flags (used by the manual APK workflow): -Parm64Only=true keeps only arm64-v8a native
+// libraries, -PcompressNative=true stores them compressed in the APK. Defaults keep arm64-v8a + x86_64.
+val arm64Only = providers.gradleProperty("arm64Only").map(String::toBoolean).getOrElse(false)
+val compressNative = providers.gradleProperty("compressNative").map(String::toBoolean).getOrElse(false)
+
 android {
 	namespace = "io.github.richardhan.voicenote"
 	compileSdk = 37
 	defaultConfig {
 		applicationId = "io.github.richardhan.voicenote"
-		ndk.abiFilters += listOf("arm64-v8a", "x86_64")
+		ndk.abiFilters += if (arm64Only) listOf("arm64-v8a") else listOf("arm64-v8a", "x86_64")
 		minSdk = 29
 		targetSdk = 37
 		versionCode = 1
@@ -16,6 +22,7 @@ android {
 	}
 	testOptions.unitTests.isIncludeAndroidResources = true
 	buildFeatures { compose = true }
+	packaging { jniLibs { useLegacyPackaging = compressNative } }
 }
 dependencies {
 	androidTestImplementation("androidx.test:runner:1.7.0")

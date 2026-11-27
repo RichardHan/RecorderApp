@@ -1,4 +1,0 @@
-<resources>
-	<string name="data_editor_message_invalid_file_location">檔案位置無效</string>
-	<string name="data_editor_message_wrong_file_provided">選取的檔案有誤</string>
-</resources>

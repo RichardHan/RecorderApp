@@ -1,8 +1,0 @@
-<resources>
-	<string name="data_recordings_message_cannot_create_file">Cannot create file</string>
-	<string name="data_recordings_message_cannot_delete_file_don_t_have_access">Cannot delete file don\'t have access</string>
-	<string name="data_recordings_message_cannot_fetch_trash_recordings">Cannot fetch trash recordings</string>
-	<string name="data_recordings_message_file_missing_exception">File missing exception</string>
-	<string name="data_recordings_message_security_exception">SECURITY EXCEPTION</string>
-	<string name="data_recordings_message_sql_exception">SQL EXCEPTION</string>
-</resources>

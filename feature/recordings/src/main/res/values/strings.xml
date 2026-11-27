@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="ask_across_truncated_sources">Only the beginning of these transcripts will be sent: %1$s</string>
-    <string name="ask_across_citation_limit">Source IDs have been checked for existence. Open the recording to verify the evidence for the answer.</string>
-</resources>
