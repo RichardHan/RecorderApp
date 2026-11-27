@@ -210,7 +210,7 @@ class RecordingLibrary(private val app: Application) {
 		}
 	}
 
-	fun start(slackGeneration: String? = null) {
+	fun start(slackGeneration: String? = null, cloudProfile: String? = null) {
 		if (liveCapture != null || recorder != null) return
 		stopPlayback()
 		try {
@@ -220,7 +220,10 @@ class RecordingLibrary(private val app: Application) {
 			liveSlackGeneration = slackGeneration?.takeIf { it == app.slackPrefs().getString("generation", null) && app.slackPrefs().getBoolean("live", false) }
 			val models = (app as StudioApplication).offline
 			liveText = ""
-			if (liveEnabled && models.installed) {
+			val cloud = cloudProfile?.let {
+				SpeechConnection(app).takeIf { saved -> saved.valid() && saved.protocol != SpeechProtocol.Multipart && saved.profileId() == it }
+			}
+			if (cloud != null || (liveEnabled && models.installed)) {
 				val target = File(directory, requireNotNull(captureTarget).nameWithoutExtension + ".wav")
 				captureTarget = target
 				val live = LiveCapture(file)
@@ -234,7 +237,7 @@ class RecordingLibrary(private val app: Application) {
 				postLive(target, app.getString(R.string.active), generation)
 				scope.launch {
 					try {
-						withContext(Dispatchers.IO) { live.recognize(models, target) { line ->
+						withContext(Dispatchers.IO) { live.recognize(models, cloud, target) { line ->
 							withContext(Dispatchers.Main) {
 								if (captureTarget == target) liveText = line
 								postLive(target, line, generation)
@@ -242,7 +245,7 @@ class RecordingLibrary(private val app: Application) {
 						} }
 						if (target.isFile) postLive(target, app.getString(R.string.saved_recording), generation)
 					} catch (e: CancellationException) { throw e }
-					catch (_: Exception) { message = R.string.offline_error }
+					catch (_: Exception) { message = if (cloud == null) R.string.offline_error else R.string.failed }
 					catch (_: LinkageError) { message = R.string.offline_error }
 					finally { recognizing.remove(target); transcriptRevision++ }
 				}

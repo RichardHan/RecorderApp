@@ -201,4 +201,10 @@
 	<string name="auto_retry">重試自動轉錄</string>
 	<string name="transcript_ready">逐字稿已完成</string>
 	<string name="get_started">按「開始錄音」或從清單匯入音檔。在錄音詳細資料可寫筆記、管理書籤與分享。下載語音模型即可離線轉錄，也可在「模型與連線」設定雲端服務。</string>
+	<string name="live_cloud">即時雲端轉錄 · WAV 16 kHz</string>
+	<string name="live_cloud_confirm">要將本次錄音持續傳到 %1$s 並使用 %2$s 轉錄嗎？每個片段都可能收費。</string>
+	<string name="text_tools">逐字稿工具</string>
+	<string name="speech_pace">語速 · 每分鐘約 %1$d 個單詞或中日文字元</string>
+	<string name="clean_text">整理空白與換行</string>
+	<string name="mask_contacts">遮蔽電子郵件與電話號碼</string>
 </resources>

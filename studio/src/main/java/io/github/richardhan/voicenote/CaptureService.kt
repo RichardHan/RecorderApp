@@ -14,8 +14,8 @@ class StudioApplication : Application() {
 
 internal enum class CaptureAction { START, PAUSE, RESUME, FINISH }
 
-internal fun Context.controlCapture(action: CaptureAction, slackGeneration: String? = null) {
-	val command = Intent(this, CaptureService::class.java).setAction(action.name).putExtra("slackGeneration", slackGeneration)
+internal fun Context.controlCapture(action: CaptureAction, slackGeneration: String? = null, cloudProfile: String? = null) {
+	val command = Intent(this, CaptureService::class.java).setAction(action.name).putExtra("slackGeneration", slackGeneration).putExtra("cloudProfile", cloudProfile)
 	try {
 		if (action == CaptureAction.START) startForegroundService(command) else startService(command)
 	} catch (_: IllegalStateException) {
@@ -60,7 +60,7 @@ class CaptureService : Service() {
 		when (intent?.action) {
 			CaptureAction.START.name -> try {
 				startForeground(notificationId, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
-				library.start(intent.getStringExtra("slackGeneration"))
+				library.start(intent.getStringExtra("slackGeneration"), intent.getStringExtra("cloudProfile"))
 				if (library.started != 0L && library.callPause && callPause == null) {
 					callPause = CallPause(this) {
 						if (library.started != 0L && !library.isPaused) {

@@ -83,9 +83,9 @@ internal class LiveCapture(private val temp: File) {
 		reader.close()
 	}
 
-	suspend fun recognize(models: OfflineSpeechModels, target: File, onText: suspend (String) -> Unit) {
+	suspend fun recognize(models: OfflineSpeechModels, cloud: SpeechConnection?, target: File, onText: suspend (String) -> Unit) {
 		reader.use { input ->
-			val recognizer = models.recognizer()
+			val recognizer = if (cloud == null) models.recognizer() else null
 			try {
 				val segments = JSONArray()
 				val lines = mutableListOf<String>()
@@ -102,7 +102,8 @@ internal class LiveCapture(private val temp: File) {
 					input.seek(44 + offset)
 					input.readFully(bytes)
 					val shorts = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
-					val text = recognizeChunk(recognizer, FloatArray(bytes.size / 2) { shorts.get() / 32768f })
+					val samples = FloatArray(bytes.size / 2) { shorts.get() / 32768f }
+					val text = if (cloud == null) recognizeChunk(requireNotNull(recognizer), samples) else cloud.liveWords(samples, lines.lastOrNull().orEmpty())
 					val start = offset / 32000.0
 					offset += bytes.size
 					if (text.isNotBlank()) {
@@ -112,8 +113,8 @@ internal class LiveCapture(private val temp: File) {
 					}
 				}
 				if (published.await() && !failed && lines.isNotEmpty()) saveTranscription(target, lines.joinToString("\n"),
-					TranscriptionReceipt("SenseVoice · live", android.os.SystemClock.elapsedRealtime() - startTime, "0"), segments)
-			} finally { recognizer.release() }
+					TranscriptionReceipt(cloud?.model ?: "SenseVoice · live", android.os.SystemClock.elapsedRealtime() - startTime, if (cloud == null) "0" else null), segments)
+			} finally { recognizer?.release() }
 		}
 	}
 }

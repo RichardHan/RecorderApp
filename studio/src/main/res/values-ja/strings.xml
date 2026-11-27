@@ -201,4 +201,10 @@
 	<string name="auto_retry">自動文字起こしを再試行</string>
 	<string name="transcript_ready">文字起こし完了</string>
 	<string name="get_started">録音を開始するか、一覧から音声を取り込んでください。録音の詳細からメモ、ブックマーク、共有を利用できます。モデルをダウンロードすると端末内で文字起こしできます。</string>
+	<string name="live_cloud">ライブクラウド文字起こし · WAV 16 kHz</string>
+	<string name="live_cloud_confirm">この録音の音声を %1$s に継続的に送り %2$s で文字起こししますか？区間ごとに料金がかかる場合があります。</string>
+	<string name="text_tools">文字起こしツール</string>
+	<string name="speech_pace">発話速度 · 約 %1$d 語または漢字・かな／分</string>
+	<string name="clean_text">空白と改行を整理</string>
+	<string name="mask_contacts">メールアドレスと電話番号を伏せる</string>
 </resources>

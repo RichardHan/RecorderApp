@@ -201,4 +201,10 @@
 	<string name="auto_retry">Retry automatic transcription</string>
 	<string name="transcript_ready">Transcript ready</string>
 	<string name="get_started">Start a recording or import audio from the library. Use recording details for notes, bookmarks and sharing. Download a speech model for offline transcription, or choose a provider under Model and connection.</string>
+	<string name="live_cloud">Live cloud transcription · WAV 16 kHz</string>
+	<string name="live_cloud_confirm">Continuously send audio from this session to %1$s for transcription with %2$s? Each segment may incur a charge.</string>
+	<string name="text_tools">Transcript tools</string>
+	<string name="speech_pace">Speech pace · about %1$d words or CJK characters per minute</string>
+	<string name="clean_text">Clean up spacing</string>
+	<string name="mask_contacts">Mask email addresses and phone numbers</string>
 </resources>

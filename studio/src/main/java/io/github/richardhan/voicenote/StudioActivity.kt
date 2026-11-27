@@ -44,14 +44,19 @@ class StudioActivity : ComponentActivity() {
 		} else if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) receiveShare(intent)
 		setContent {
 			StudioTheme { appearance, dark, choose ->
-				var approveSlack by rememberSaveable { mutableStateOf(false) }
+				var approveSharing by rememberSaveable { mutableStateOf(false) }
+				var liveCloud by rememberSaveable { mutableStateOf(false) }
+				var approvedCloud by rememberSaveable { mutableStateOf<String?>(null) }
+				val canLiveCloud = speech.protocol != SpeechProtocol.Multipart && speech.hasSavedConnection && speech.savedProfile == speech.profileId()
+				val useCloud = liveCloud && canLiveCloud
 				var slackSession by rememberSaveable { mutableStateOf<String?>(null) }
 				val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-					if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) controlCapture(CaptureAction.START, slackSession)
+					if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) controlCapture(CaptureAction.START, slackSession, approvedCloud)
 					else library.message = R.string.permission
 					slackSession = null
 				}
-				fun begin(generation: String?) {
+				fun begin(generation: String?, cloud: String? = null) {
+					approvedCloud = cloud
 					slackSession = generation
 					val needed = buildList {
 						if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.RECORD_AUDIO)
@@ -61,16 +66,23 @@ class StudioActivity : ComponentActivity() {
 							getPreferences(MODE_PRIVATE).edit().putBoolean("askedNotification", true).apply()
 						}
 					}
-					if (needed.isEmpty()) { controlCapture(CaptureAction.START, generation); slackSession = null }
+					if (needed.isEmpty()) { controlCapture(CaptureAction.START, generation, cloud); slackSession = null }
 					else permission.launch(needed.toTypedArray())
 				}
-				if (approveSlack) AlertDialog(onDismissRequest = { approveSlack = false }, text = { Text(stringResource(R.string.slack_session)) },
-					confirmButton = { TextButton(onClick = { approveSlack = false; begin(slackPrefs().getString("generation", null)) }) { Text(stringResource(R.string.slack_allow)) } },
-					dismissButton = { TextButton(onClick = { approveSlack = false; begin(null) }) { Text(stringResource(R.string.record_local)) } })
+				if (approveSharing) AlertDialog(onDismissRequest = { approveSharing = false }, text = {
+					Column {
+						if (useCloud) Text(stringResource(R.string.live_cloud_confirm, speech.base, speech.model))
+						if (slackPrefs().getBoolean("live", false)) Text(stringResource(R.string.slack_session))
+					}
+				},
+					confirmButton = { TextButton(onClick = { approveSharing = false; begin(slackPrefs().getString("generation", null).takeIf { slackPrefs().getBoolean("live", false) }, speech.savedProfile.takeIf { useCloud }) }) { Text(stringResource(R.string.slack_allow)) } },
+					dismissButton = { TextButton(onClick = { approveSharing = false; begin(null) }) { Text(stringResource(R.string.record_local)) } })
 				if (sharedSources.isNotEmpty()) key(sharedSources) { SharedImportDialog(sharedSources, library) { sharedSources = emptyList() } }
-				Studio(library, speech, local, speakers, offline, dark, destination, { destination = null }, heading = { StudioHeading(appearance, choose) }) {
+				Studio(library, speech, local, speakers, offline, dark, if (canLiveCloud) ({
+					FilterChip(selected = liveCloud, onClick = { liveCloud = !liveCloud }, label = { Text(stringResource(R.string.live_cloud)) })
+				}) else null, destination, { destination = null }, heading = { StudioHeading(appearance, choose) }) {
 					if (library.started != 0L) controlCapture(CaptureAction.FINISH)
-					else if (slackPrefs().getBoolean("live", false) && slackPrefs().contains("generation")) approveSlack = true
+					else if (useCloud || (slackPrefs().getBoolean("live", false) && slackPrefs().contains("generation"))) approveSharing = true
 					else begin(null)
 				}
 			}
@@ -110,6 +122,7 @@ private fun Studio(
 	speakers: SpeakerAnalysis,
 	offline: OfflineSpeechModels,
 	dark: Boolean,
+	liveCloudOption: (@Composable () -> Unit)?,
 	destination: String?,
 	onNavigated: () -> Unit,
 	heading: @Composable () -> Unit,
@@ -178,7 +191,7 @@ private fun Studio(
 						Text(String.format(Locale.ROOT, "%02d:%02d:%02d", elapsed / 3600, elapsed / 60 % 60, elapsed % 60),
 							style = MaterialTheme.typography.displayMedium, fontFamily = FontFamily.Monospace)
 						LiveWaveform(library, accent)
-						if (!active) CaptureSettings(library, offline.installed)
+						if (!active) { CaptureSettings(library, offline.installed); liveCloudOption?.invoke() }
 						FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 							Button(onClick = toggle, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF201917))) {
 								Text(stringResource(if (active) R.string.stop else R.string.record))

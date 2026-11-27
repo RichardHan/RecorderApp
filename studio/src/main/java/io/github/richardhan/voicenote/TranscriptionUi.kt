@@ -110,6 +110,7 @@ internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConn
 		TranscriptDocuments(file, saved.text)
 		SlackShare(file, saved.text)
 		TranscriptHistory(file, saved.text, speech.revision)
+		TranscriptTools(file, saved.text, speech)
 		TranscriptChat(file, saved.text, speech)
 		key(saved.text) { SummaryAction(local, file, saved.text) }
 	}

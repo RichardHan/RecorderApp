@@ -52,8 +52,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	}
 
 	var chatModel by mutableStateOf("")
-	var protocol by mutableStateOf(SpeechProtocol.Multipart)
-		internal set
+	internal var protocol by mutableStateOf(SpeechProtocol.Multipart)
 	var vocabulary by mutableStateOf("")
 	private var running: kotlinx.coroutines.Job? = null
 	fun cancel() { running?.cancel() }
@@ -237,6 +236,15 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		val text = requireNotNull(reply.body.opt("text") as? String)
 		val segments = if (timestamps) reply.body.optJSONArray("segments") else null
 		saveTranscription(file, text, TranscriptionReceipt(chosen, elapsedMs, cost), segments)
+	}
+
+	internal fun liveWords(samples: FloatArray, previous: String): String {
+		require(protocol != SpeechProtocol.Multipart && valid())
+		val gemini = protocol == SpeechProtocol.Gemini
+		val endpoint = requireNotNull(endpoint())
+		val url = if (gemini) "$endpoint/models/${android.net.Uri.encode(model.trim())}:generateContent" else "$endpoint/chat/completions"
+		val hint = listOf(vocabulary, previous.takeLast(240)).filter(String::isNotBlank).joinToString("\n")
+		return generatedText(protocol, jsonRequest(url, key.trim(), audioPayload(protocol, model.trim(), samples, hint), gemini))
 	}
 
 	internal fun textCompletion(text: String, instruction: String): String {
