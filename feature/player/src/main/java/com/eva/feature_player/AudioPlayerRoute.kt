@@ -126,6 +126,15 @@ fun NavGraphBuilder.audioPlayerRoute(controller: NavHostController) =
             playerViewModel.onPlayerEvents(PlayerEvents.OnSeekEndPlayer)
         }
 
+        val chatSeekMs by backStackEntry.savedStateHandle
+            .getStateFlow<Long?>(com.eva.feature_player.chat.CHAT_SEEK_MS_KEY, null)
+            .collectAsStateWithLifecycle()
+		LaunchedEffect(chatSeekMs, route.audioId) {
+			val ms = chatSeekMs ?: return@LaunchedEffect
+			playerViewModel.seekToCitation(ms)
+			backStackEntry.savedStateHandle[com.eva.feature_player.chat.CHAT_SEEK_MS_KEY] = null
+		}
+
         var showCloud by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
         var transcriptRefresh by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
         if (showCloud) com.eva.feature_player.cloud.CloudTranscriptsDialog(
@@ -164,6 +173,10 @@ fun NavGraphBuilder.audioPlayerRoute(controller: NavHostController) =
                     }
                 },
                 onCloudTranscripts = { showCloud = true },
+                onAskChat = dropUnlessResumed {
+                    val title = (contentState as? com.eva.player_shared.state.ContentLoadState.Content)?.data?.displayName.orEmpty()
+                    controller.navigate(PlayerSubGraph.RecordingChatRoute(route.audioId, title))
+                },
                 transcriptPanel = { panelModifier ->
                     com.eva.feature_player.cloud.PlayerSidePanel(
                         recordingId = route.audioId,
@@ -200,6 +213,10 @@ fun NavGraphBuilder.audioPlayerRoute(controller: NavHostController) =
                         positionMs = { trackData.current.inWholeMilliseconds },
                         totalMs = { trackData.total.inWholeMilliseconds },
                         bookmarkTimesMs = bookMarks.map { it.timeStamp.toMillisecondOfDay().toLong() },
+                        onOpenChat = dropUnlessResumed {
+                            val title = (contentState as? com.eva.player_shared.state.ContentLoadState.Content)?.data?.displayName.orEmpty()
+                            controller.navigate(PlayerSubGraph.RecordingChatRoute(route.audioId, title))
+                        },
                     )
                 },
                 onNavigateToRecordings = {

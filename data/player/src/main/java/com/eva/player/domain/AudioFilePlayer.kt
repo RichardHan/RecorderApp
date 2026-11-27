@@ -58,6 +58,9 @@ interface AudioFilePlayer {
 	 */
 	fun onSeekDuration(duration: Duration)
 
+	/** Wait for this recording to become seekable after navigating back to the player. */
+	suspend fun seekToRecording(audioId: Long, position: Duration)
+
 	/**
 	 * Prepares the controller for the player
 	 * @param audioId ID used by the player session

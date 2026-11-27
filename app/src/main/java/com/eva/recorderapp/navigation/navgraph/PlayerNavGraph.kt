@@ -5,6 +5,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.navigation
 import com.eva.feature_editor.audioEditorRoute
 import com.eva.feature_player.audioPlayerRoute
+import com.eva.feature_player.chat.recordingChatRoute
 import com.eva.ui.navigation.PlayerSubGraph
 
 fun NavGraphBuilder.playerNavGraph(controller: NavHostController) =
@@ -13,4 +14,5 @@ fun NavGraphBuilder.playerNavGraph(controller: NavHostController) =
 	) {
 		audioPlayerRoute(controller = controller)
 		audioEditorRoute(controller = controller)
+		recordingChatRoute(controller = controller)
 	}

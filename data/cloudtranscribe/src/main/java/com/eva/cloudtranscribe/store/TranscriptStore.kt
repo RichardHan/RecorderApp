@@ -100,6 +100,15 @@ class TranscriptStore(root: File) {
 		list(qaDir(recordingId)) { json.decodeFromString(com.eva.cloudtranscribe.qa.QaRecord.serializer(), it) }.sortedByDescending { it.createdAtMillis }
 	fun deleteQa(recordingId: Long, id: String) { synchronized(lock) { File(qaDir(recordingId), "${safe(id)}.json").delete() } }
 
+	private fun chatFile(id: Long) = File(recDir(id), "chat.json")
+	fun chatHistory(recordingId: Long): List<com.eva.cloudtranscribe.chat.RecordingChatMessage> =
+		read(chatFile(recordingId))?.let { raw ->
+			runCatching { json.decodeFromString(com.eva.cloudtranscribe.chat.RecordingChatHistory.serializer(), raw).messages }.getOrNull()
+		}.orEmpty()
+	fun saveChatHistory(recordingId: Long, messages: List<com.eva.cloudtranscribe.chat.RecordingChatMessage>) =
+		write(chatFile(recordingId), json.encodeToString(com.eva.cloudtranscribe.chat.RecordingChatHistory.serializer(), com.eva.cloudtranscribe.chat.RecordingChatHistory(recordingId, messages)))
+	fun clearChatHistory(recordingId: Long) { synchronized(lock) { chatFile(recordingId).delete() } }
+
 	fun saveOutline(recordingId: Long, outline: com.eva.cloudtranscribe.outline.SavedOutline) =
 		write(File(recDir(recordingId), "outline.json"), json.encodeToString(com.eva.cloudtranscribe.outline.SavedOutline.serializer(), outline))
 

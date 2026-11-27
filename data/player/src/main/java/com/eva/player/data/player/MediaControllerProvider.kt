@@ -25,6 +25,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -160,6 +162,14 @@ internal class MediaControllerProvider(private val context: Context) : AudioFile
 
 	override fun onMuteDevice() {
 		player?.onMuteDevice()
+	}
+
+	override suspend fun seekToRecording(audioId: Long, position: Duration) {
+		_playerState.mapLatest { state ->
+			if (state !is MediaControllerState.Connected) return@mapLatest false
+			state.player.seekToRecording(audioId, position)
+			true
+		}.first { it }
 	}
 
 	override fun onSeekDuration(duration: Duration) {

@@ -74,6 +74,7 @@ internal fun AudioPlayerScreen(
     onRenameItem: (Long) -> Unit = {},
     onNavigateToRecordings: () -> Unit = {},
     onCloudTranscripts: () -> Unit = {},
+    onAskChat: (() -> Unit)? = null,
     transcriptPanel: (@Composable (Modifier) -> Unit)? = null,
     deviceContext: com.eva.cloudtranscribe.device.RecordingDeviceContext? = null,
 ) {
@@ -90,6 +91,7 @@ internal fun AudioPlayerScreen(
         sheetState = sheetState,
         showBottomSheet = showBottomSheet,
         deviceContext = deviceContext,
+        onOpenChat = onAskChat,
         onSheetDismiss = { showBottomSheet = false },
     )
 
@@ -106,6 +108,7 @@ internal fun AudioPlayerScreen(
                 },
                 onShareOption = { onFileEvent(UserAudioAction.ShareCurrentAudioFile) },
                 onCloudTranscripts = onCloudTranscripts,
+                onAskChat = { onAskChat?.invoke() },
                 onRenameOption = { model -> onRenameItem(model.id) },
                 onToggleFavourite = { model ->
                     onFileEvent(UserAudioAction.ToggleIsFavourite(model))

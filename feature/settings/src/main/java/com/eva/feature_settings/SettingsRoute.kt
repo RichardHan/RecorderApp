@@ -13,6 +13,8 @@ import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import androidx.navigation.toRoute
+import com.eva.feature_settings.utils.SettingsTabs
 import com.eva.feature_settings.screen.AudioSettingsScreen
 import com.eva.feature_settings.screen.AudioSettingsViewModel
 import com.eva.feature_settings.screen.STTModelsManagerViewModel
@@ -23,7 +25,7 @@ import com.eva.ui.utils.LocalSharedTransitionVisibilityScopeProvider
 import com.eva.ui.utils.UiEventsHandler
 import kotlinx.coroutines.flow.merge
 
-fun NavGraphBuilder.settingsRoute(controller: NavController) = composable<NavRoutes.AudioSettings> {
+fun NavGraphBuilder.settingsRoute(controller: NavController) = composable<NavRoutes.AudioSettings> { entry ->
 
     val settingsViewModel = hiltViewModel<AudioSettingsViewModel>()
     val sttModelsViewmodel = hiltViewModel<STTModelsManagerViewModel>()
@@ -44,6 +46,7 @@ fun NavGraphBuilder.settingsRoute(controller: NavController) = composable<NavRou
 
     CompositionLocalProvider(LocalSharedTransitionVisibilityScopeProvider provides this) {
         AudioSettingsScreen(
+			initialTab = if (entry.toRoute<NavRoutes.AudioSettings>().openCloudAi) SettingsTabs.AI_SETTINGS else SettingsTabs.AUDIO_SETTINGS,
             bulkExport = { com.eva.feature_settings.composables.files.BulkTextExportItem() },
             audioSettings = audioSettings,
             deviceContextSettings = deviceContextSettings,

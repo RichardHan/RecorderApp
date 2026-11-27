@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -34,16 +36,32 @@ fun PlayerSidePanel(
 	positionMs: () -> Long = { 0L },
 	totalMs: () -> Long = { 0L },
 	bookmarkTimesMs: List<Long> = emptyList(),
+	onOpenChat: (() -> Unit)? = null,
 ) {
 	// 0 = transcript, 1 = chapters, 2 = clips, 3 = cleaned transcript, 4 = decisions
 	var tab by rememberSaveable(recordingId) { mutableIntStateOf(0) }
 	Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-		Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-			FilterChip(selected = tab == 0, onClick = { tab = 0 }, label = { Text(stringResource(StringsRes.string.feature_player_transcript)) })
-			FilterChip(selected = tab == 1, onClick = { tab = 1 }, label = { Text(stringResource(StringsRes.string.feature_player_chapters)) })
-			FilterChip(selected = tab == 2, onClick = { tab = 2 }, label = { Text(stringResource(StringsRes.string.feature_player_clip)) })
-			FilterChip(selected = tab == 3, onClick = { tab = 3 }, label = { Text(stringResource(R.string.cleanup_tab)) })
-			FilterChip(selected = tab == 4, onClick = { tab = 4 }, label = { Text(stringResource(StringsRes.string.feature_player_decisions)) })
+		Row(
+			modifier = Modifier.fillMaxWidth(),
+			verticalAlignment = Alignment.CenterVertically,
+			horizontalArrangement = Arrangement.spacedBy(6.dp),
+		) {
+			Row(
+				modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+				horizontalArrangement = Arrangement.spacedBy(6.dp),
+			) {
+				FilterChip(selected = tab == 0, onClick = { tab = 0 }, label = { Text(stringResource(StringsRes.string.feature_player_transcript)) })
+				FilterChip(selected = tab == 1, onClick = { tab = 1 }, label = { Text(stringResource(StringsRes.string.feature_player_chapters)) })
+				FilterChip(selected = tab == 2, onClick = { tab = 2 }, label = { Text(stringResource(StringsRes.string.feature_player_clip)) })
+				FilterChip(selected = tab == 3, onClick = { tab = 3 }, label = { Text(stringResource(R.string.cleanup_tab)) })
+				FilterChip(selected = tab == 4, onClick = { tab = 4 }, label = { Text(stringResource(StringsRes.string.feature_player_decisions)) })
+			}
+			if (onOpenChat != null) {
+				AssistChip(
+					onClick = onOpenChat,
+					label = { Text(stringResource(StringsRes.string.feature_player_ask_about_this_recording), maxLines = 1) },
+				)
+			}
 		}
 		when (tab) {
 			1 -> ChaptersPanel(

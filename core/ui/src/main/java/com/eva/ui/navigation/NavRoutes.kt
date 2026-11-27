@@ -17,7 +17,7 @@ sealed interface NavRoutes {
 	data object ManageCategories : NavRoutes
 
 	@Serializable
-	data object AudioSettings : NavRoutes
+	data class AudioSettings(val openCloudAi: Boolean = false) : NavRoutes
 
 	@Serializable
 	data class CreateOrUpdateCategory(val categoryId: Long? = null) : NavRoutes
