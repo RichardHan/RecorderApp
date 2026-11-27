@@ -15,8 +15,22 @@ internal enum class CaptureFormat(val label: String, val ext: String, val contai
 	WB("AMR-WB", "awb", OutputFormat.AMR_WB, AudioEncoder.AMR_WB, 16000, listOf(6600, 15850, 23850))
 }
 
+internal fun supportedCaptureFormats(): Set<CaptureFormat> {
+	val mimes = android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos
+		.filter { it.isEncoder }.flatMap { it.supportedTypes.asList() }.toSet()
+	return CaptureFormat.entries.filterTo(mutableSetOf()) {
+		when (it) {
+			CaptureFormat.AAC -> android.media.MediaFormat.MIMETYPE_AUDIO_AAC
+			CaptureFormat.OPUS -> android.media.MediaFormat.MIMETYPE_AUDIO_OPUS
+			CaptureFormat.NB -> android.media.MediaFormat.MIMETYPE_AUDIO_AMR_NB
+			CaptureFormat.WB -> android.media.MediaFormat.MIMETYPE_AUDIO_AMR_WB
+		} in mimes
+	}
+}
+
 @Composable
 internal fun CaptureSettings(library: RecordingLibrary, modelInstalled: Boolean) {
+	val supported = remember { supportedCaptureFormats() }
 	var formatMenu by remember { mutableStateOf(false) }
 	var rateMenu by remember { mutableStateOf(false) }
 	if (modelInstalled) FilterChip(selected = library.liveEnabled, onClick = { library.enableLive(!library.liveEnabled) }, label = { Text(stringResource(R.string.live_asr)) })
@@ -25,7 +39,7 @@ internal fun CaptureSettings(library: RecordingLibrary, modelInstalled: Boolean)
 			FilledTonalButton(onClick = { formatMenu = true }) { Text(library.format.label) }
 			DropdownMenu(formatMenu, { formatMenu = false }) {
 				CaptureFormat.entries.forEach { format ->
-					DropdownMenuItem(text = { Text(format.label) }, onClick = { library.configure(format, library.quality); formatMenu = false })
+					DropdownMenuItem(enabled = format in supported, text = { Text(format.label) }, onClick = { library.configure(format, library.quality); formatMenu = false })
 				}
 			}
 		}

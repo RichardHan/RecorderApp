@@ -51,7 +51,19 @@ internal fun SearchResult(hit: TranscriptHit, onClick: () -> Unit) {
 	}
 }
 
-private data class MatchedText(val text: String, val offsets: List<Int>)
+private data class MatchedText(val text: String, val offsets: List<Int>, val timed: List<TimedText>)
+
+private fun MatchedText.timeAt(offset: Int): Long? {
+	var from = 0
+	for (segment in timed) {
+		val start = text.indexOf(segment.text, from)
+		if (start < 0) continue
+		val end = start + segment.text.length
+		if (offset in start until end) return (segment.start * 1000).toLong()
+		from = end
+	}
+	return null
+}
 
 @Composable
 internal fun MatchedTranscript(file: File, query: String, revision: Int, close: () -> Unit) {
@@ -59,7 +71,7 @@ internal fun MatchedTranscript(file: File, query: String, revision: Int, close: 
 		val result by produceState<MatchedText?>(null) {
 			value = withContext(Dispatchers.IO) {
 				val text = readTranscript(file)
-				MatchedText(text, transcriptMatchOffsets(text, query))
+				MatchedText(text, transcriptMatchOffsets(text, query), runCatching { readTiming(file) }.getOrDefault(emptyList()))
 			}
 		}
 		var position by rememberSaveable { mutableIntStateOf(0) }
@@ -68,6 +80,7 @@ internal fun MatchedTranscript(file: File, query: String, revision: Int, close: 
 			title = { Text(stringResource(R.string.transcript)) },
 			text = {
 				val matches = result
+				val context = androidx.compose.ui.platform.LocalContext.current
 				when {
 					matches == null -> LinearProgressIndicator()
 					matches.offsets.isEmpty() -> Text(stringResource(R.string.no_matches))
@@ -87,6 +100,11 @@ internal fun MatchedTranscript(file: File, query: String, revision: Int, close: 
 										Text(stringResource(R.string.next_match))
 									}
 								}
+							}
+							val playbackTime = remember(matches, current) { matches.timeAt(matches.offsets[current]) }
+							if (playbackTime != null && file.extension in audioTypes) TextButton(onClick = { context.playRecording(file, playbackTime) },
+								enabled = (context.applicationContext as StudioApplication).library.started == 0L) {
+								Text(stringResource(R.string.play) + " · " + formatClipTime(playbackTime.toInt()))
 							}
 							key(current) { MatchedPassage(matches.text, matches.offsets[current], query.length) }
 						}

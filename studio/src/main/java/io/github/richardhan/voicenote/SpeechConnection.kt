@@ -235,7 +235,8 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		val cost = gatewayCost ?: reply.body.costUsd()
 		val text = requireNotNull(reply.body.opt("text") as? String)
 		val segments = if (timestamps) reply.body.optJSONArray("segments") else null
-		saveTranscription(file, text, TranscriptionReceipt(chosen, elapsedMs, cost), segments)
+		saveTranscription(file, text, TranscriptionReceipt(chosen, elapsedMs, cost,
+			reply.body.optJSONObject("usage")?.optLong("total_tokens", -1)?.takeIf { it >= 0 }, 1, server.host), segments)
 	}
 
 	internal fun liveWords(samples: FloatArray, previous: String): String {

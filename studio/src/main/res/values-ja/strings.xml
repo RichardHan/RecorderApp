@@ -210,4 +210,13 @@
 	<string name="metered_model">従量制の接続で %1$d MiB をダウンロードしますか？</string>
 	<string name="download_anyway">ダウンロード</string>
 	<string name="download_named_model">%1$s をダウンロード · %2$d MiB</string>
+	<string name="device_audio">端末の音声を探す</string>
+	<string name="device_audio_permission">音声へのアクセスを許可するか、ファイル選択を利用してください。</string>
+	<string name="only_recordings">録音のみ</string>
+	<string name="timed_transcript">文字起こしの区間を再生</string>
+	<string name="receipt_tokens">報告されたトークン数 · %1$d</string>
+	<string name="receipt_requests">完了したリクエスト · %1$d</string>
+	<string name="manage_categories">カテゴリを管理</string>
+	<string name="save_category">カテゴリを保存</string>
+	<string name="remove_category">録音からこのカテゴリを外す</string>
 </resources>

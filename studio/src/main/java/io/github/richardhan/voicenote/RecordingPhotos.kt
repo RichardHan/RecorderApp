@@ -26,8 +26,8 @@ import java.io.File
 import java.util.UUID
 
 private fun photoDir(context: Context, file: File) = File(File(context.noBackupFilesDir, "photos"), file.name)
-private fun photos(context: Context, file: File) = photoDir(context, file).listFiles().orEmpty().filter { it.extension == "jpg" }.sortedBy { it.name }
-private fun photoTime(file: File) = file.name.substringBefore('-').toLong()
+internal fun photos(context: Context, file: File) = photoDir(context, file).listFiles().orEmpty().filter { it.extension == "jpg" }.sortedBy { it.name }
+internal fun photoTime(file: File) = file.name.substringBefore('-').toLong()
 
 internal fun copyPhoto(context: Context, uri: Uri, file: File, ms: Long): File {
 	val dir = photoDir(context, file)

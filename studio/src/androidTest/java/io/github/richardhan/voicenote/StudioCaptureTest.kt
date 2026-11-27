@@ -72,6 +72,39 @@ class StudioCaptureTest {
 		}
 	}
 
+	@Test fun recordsEveryCodecAdvertisedByTheDevice() {
+		instrumentation.uiAutomation.grantRuntimePermission(app.packageName, Manifest.permission.RECORD_AUDIO)
+		val activity = instrumentation.startActivitySync(Intent(app, StudioActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+		val previous = library.format
+		val quality = library.quality
+		try {
+			val formats = supportedCaptureFormats()
+			assertTrue(CaptureFormat.AAC in formats)
+			for (format in formats) {
+				val before = library.files.toSet()
+				instrumentation.runOnMainSync { library.configure(format, 1); activity.controlCapture(CaptureAction.START) }
+				waitFor { library.started != 0L }
+				SystemClock.sleep(750)
+				instrumentation.runOnMainSync { activity.controlCapture(CaptureAction.FINISH) }
+				waitFor { library.started == 0L }
+				val saved = (library.files - before).single()
+				try {
+					assertEquals(format.ext, saved.extension)
+					val media = android.media.MediaMetadataRetriever()
+					try {
+						media.setDataSource(saved.path)
+						assertTrue(requireNotNull(media.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)).toLong() > 0)
+					} finally { media.release() }
+				} finally {
+					saved.delete()
+					instrumentation.runOnMainSync { library.refresh() }
+				}
+			}
+		} finally {
+			instrumentation.runOnMainSync { library.configure(previous, quality); activity.finish(); app.stopService(Intent(app, CaptureService::class.java)) }
+		}
+	}
+
 	@Test fun catalogRestoresOriginalRecordingAndMetadata() {
 		val file = File.createTempFile("catalog-", ".m4a", File(app.filesDir, "audio").apply { mkdirs() })
 		try {

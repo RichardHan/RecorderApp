@@ -67,7 +67,7 @@ internal suspend fun segmentedTranscript(file: File, endpoint: String, model: St
 			val usage = reply.optJSONObject("usage") ?: reply.optJSONObject("usageMetadata")
 			completed.put(JSONObject().put("start", start).put("end", offset / 16000.0).put("text", text)
 				.put("cost", reportedCostUsd(usage?.optString("cost")) ?: JSONObject.NULL)
-				.put("tokens", usage?.optLong("total_tokens", usage.optLong("totalTokenCount", 0)) ?: 0))
+				.put("tokens", usage?.optLong("total_tokens", usage.optLong("totalTokenCount", -1)) ?: -1))
 			writeSidecar(checkpoint, completed.toString())
 		}
 		index++
@@ -77,7 +77,8 @@ internal suspend fun segmentedTranscript(file: File, endpoint: String, model: St
 	require(index == completed.length())
 	val rows = (0 until index).map(completed::getJSONObject)
 	val costs = rows.map { reportedCostUsd(it.optString("cost"))?.toBigDecimalOrNull() }
+	val tokens = rows.map { it.optLong("tokens", -1) }.takeIf { values -> values.all { it >= 0 } }?.sum()
 	val totalCost = if (costs.all { it != null }) costs.filterNotNull().sumOf { it }.toPlainString() else null
-	saveTranscription(file, rows.joinToString("\n") { it.getString("text") }, TranscriptionReceipt(model, android.os.SystemClock.elapsedRealtime() - began, totalCost), completed)
+	saveTranscription(file, rows.joinToString("\n") { it.getString("text") }, TranscriptionReceipt(model, android.os.SystemClock.elapsedRealtime() - began, totalCost, tokens, index, java.net.URI(endpoint).host), completed)
 	check(!checkpoint.exists() || checkpoint.delete())
 }

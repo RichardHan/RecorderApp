@@ -1,7 +1,7 @@
 package io.github.richardhan.voicenote
 
 import android.content.Context
-import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.*
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -12,6 +12,13 @@ internal class LibraryCatalog(context: Context) {
 	private val prefs = context.getSharedPreferences("studio_library", Context.MODE_PRIVATE)
 	private val values = mutableStateMapOf<String, String>().apply {
 		prefs.all.forEach { (key, value) -> if (value is String) put(key, value) }
+	}
+
+	var categoryNames by mutableStateOf(prefs.getStringSet("categories", emptySet()).orEmpty().toSet())
+		private set
+	fun setCategories(names: Set<String>) {
+		categoryNames = names
+		prefs.edit().putStringSet("categories", names).apply()
 	}
 
 	fun value(file: File, field: String) = values["${file.name}/$field"].orEmpty()

@@ -102,6 +102,9 @@ internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConn
 		}
 		saved.receipt?.let { receipt ->
 			Text(stringResource(R.string.receipt_model, receipt.model), style = MaterialTheme.typography.labelLarge)
+			receipt.provider?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+			receipt.requests?.let { Text(stringResource(R.string.receipt_requests, it), style = MaterialTheme.typography.bodySmall) }
+			receipt.totalTokens?.let { Text(stringResource(R.string.receipt_tokens, it), style = MaterialTheme.typography.bodySmall) }
 			val fee = receipt.costUsd?.let { stringResource(R.string.receipt_fee, it) } ?: stringResource(R.string.receipt_no_fee)
 			Text(stringResource(R.string.receipt_time, receipt.elapsedMs / 1000.0) + " · " + fee,
 				style = MaterialTheme.typography.bodySmall)
@@ -111,6 +114,7 @@ internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConn
 		SlackShare(file, saved.text)
 		TranscriptHistory(file, saved.text, speech.revision)
 		TranscriptTools(file, saved.text, speech)
+		TranscriptTimeline(file, speech.revision)
 		TranscriptChat(file, saved.text, speech)
 		key(saved.text) { SummaryAction(local, file, saved.text) }
 	}

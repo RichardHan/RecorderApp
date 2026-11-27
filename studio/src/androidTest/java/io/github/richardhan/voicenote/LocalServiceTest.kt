@@ -27,9 +27,10 @@ class LocalServiceTest {
 	private val certificate = HeldCertificate.Builder().commonName("Studio loopback").addSubjectAlternativeName("127.0.0.1").build()
 	private val client = HandshakeCertificates.Builder().addTrustedCertificate(certificate.certificate).build()
 	private val open: HttpsOpen = { url ->
-		(server.url(url.file).toUrl().openConnection() as HttpsURLConnection).apply { sslSocketFactory = client.sslSocketFactory() }
+		(URL("https", "127.0.0.1", server.port, url.file).openConnection() as HttpsURLConnection).apply { sslSocketFactory = client.sslSocketFactory() }
 	}
 	private lateinit var audio: File
+	private fun nextRequest() = requireNotNull(server.takeRequest(5, java.util.concurrent.TimeUnit.SECONDS)) { "No loopback request received" }
 	private fun reply(code: Int, body: String = "") = server.enqueue(MockResponse().setResponseCode(code).setBody(body))
 
 	@Before fun start() {
@@ -58,15 +59,15 @@ class LocalServiceTest {
 			server.enqueue(MockResponse().setResponseCode(200).setHeader("Location", "https://www.googleapis.com/upload/test-session"))
 			reply(503)
 			assertEquals(Result.retry(), worker.upload(open) { "local-test-token" })
-			assertTrue(server.takeRequest().path!!.contains("generateIds"))
-			assertTrue(server.takeRequest().path!!.contains("test-id"))
-			assertEquals("test-id", JSONObject(server.takeRequest().body.readUtf8()).getString("id"))
-			val upload = server.takeRequest()
+			assertTrue(nextRequest().path!!.contains("generateIds"))
+			assertTrue(nextRequest().path!!.contains("test-id"))
+			assertEquals("test-id", JSONObject(nextRequest().body.readUtf8()).getString("id"))
+			val upload = nextRequest()
 			assertEquals("PUT", upload.method)
 			assertEquals(audio.readText(), upload.body.readUtf8())
 			reply(200, """{"id":"test-id","size":"${audio.length()}","trashed":false}""")
 			assertEquals(Result.success(), worker.upload(open) { "local-test-token" })
-			assertEquals("GET", server.takeRequest().method)
+			assertEquals("GET", nextRequest().method)
 			assertEquals(5, server.requestCount)
 			assertEquals("done", app.library.catalog.value(audio, "drive"))
 		} finally { prefs.edit().remove("account").remove("id/$account/${audio.name}").apply() }
@@ -85,11 +86,11 @@ class LocalServiceTest {
 			payload.writeText("a".repeat(2800) + "tail")
 			reply(200, "ok"); reply(429)
 			assertEquals(Result.retry(), worker.deliver(open))
-			assertEquals(2800, JSONObject(server.takeRequest().body.readUtf8()).getString("text").length)
-			assertEquals("tail", JSONObject(server.takeRequest().body.readUtf8()).getString("text"))
+			assertEquals(2800, JSONObject(nextRequest().body.readUtf8()).getString("text").length)
+			assertEquals("tail", JSONObject(nextRequest().body.readUtf8()).getString("text"))
 			reply(200, "ok")
 			assertEquals(Result.success(), worker.deliver(open))
-			assertEquals("tail", JSONObject(server.takeRequest().body.readUtf8()).getString("text"))
+			assertEquals("tail", JSONObject(nextRequest().body.readUtf8()).getString("text"))
 			assertFalse(payload.exists())
 			assertEquals("sent", app.library.catalog.value(audio, "slack"))
 			payload.writeText("new message")
@@ -111,13 +112,13 @@ class LocalServiceTest {
 		reply(200, """{"text":"Synthetic meeting."}""")
 		complete { speech.transcribe(audio, false) }
 		assertEquals("Synthetic meeting.", readTranscript(audio))
-		assertTrue(server.takeRequest().body.readUtf8().contains("synthetic audio bytes"))
+		assertTrue(nextRequest().body.readUtf8().contains("synthetic audio bytes"))
 		reply(200, """{"choices":[{"message":{"content":"Synthetic [1]"}}]}""")
 		complete { speech.ask(audio, readTranscript(audio), "What happened?") }
 		val chat = readMessages(chatFile(audio, readTranscript(audio)))
 		assertEquals("Synthetic [1]", chat.getJSONObject(0).getString("answer"))
 		assertEquals(listOf(1), sourceNumbers(chat.getJSONObject(0).getString("answer"), 1))
-		assertTrue(server.takeRequest().body.readUtf8().contains("[1] Synthetic meeting."))
+		assertTrue(nextRequest().body.readUtf8().contains("[1] Synthetic meeting."))
 		reply(401)
 		complete { speech.ask(audio, readTranscript(audio), "Try again") }
 		assertEquals(401, speech.httpStatus)
@@ -138,11 +139,11 @@ class LocalServiceTest {
 			reply(200, first); reply(503)
 			assertTrue(runCatching { speech.transcribeNow(wave, false) }.isFailure)
 			assertFalse(transcriptFile(wave).exists())
-			val req = server.takeRequest()
+			val req = nextRequest()
 			assertEquals("/v1beta/models/test-gemini:generateContent", req.path)
 			assertEquals("synthetic-gemini", req.getHeader("x-goog-api-key"))
 			assertTrue(req.body.readUtf8().contains("audio/wav"))
-			server.takeRequest()
+			nextRequest()
 			reply(200, second)
 			speech.transcribeNow(wave, false)
 			assertEquals("First chunk\nFinal chunk", readTranscript(wave))

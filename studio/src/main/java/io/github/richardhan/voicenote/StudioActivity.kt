@@ -228,7 +228,7 @@ private fun Studio(
 			item { DrivePanel(); SlackPanel() }
 			if (speech.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()); TextButton(onClick = speech::cancel) { Text(stringResource(R.string.cancel)) } }
 			item { Text(stringResource(R.string.library), style = MaterialTheme.typography.titleLarge) }
-			item { ImportActions(library); LibraryReview(library, speech, revision) }
+			item { ImportActions(library); DeviceRecordings(library); LibraryReview(library, speech, revision) }
 			item { LibraryFilters(library, category, { category = it }, favorites) { favorites = !favorites } }
 			item {
 				OutlinedTextField(

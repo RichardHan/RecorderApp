@@ -210,4 +210,13 @@
 	<string name="metered_model">Download %1$d MiB over this metered connection?</string>
 	<string name="download_anyway">Download</string>
 	<string name="download_named_model">Download %1$s · %2$d MiB</string>
+	<string name="device_audio">Browse device audio</string>
+	<string name="device_audio_permission">Allow audio access to browse the device library, or use Select audio files.</string>
+	<string name="only_recordings">Recordings only</string>
+	<string name="timed_transcript">Listen by transcript segment</string>
+	<string name="receipt_tokens">Reported tokens · %1$d</string>
+	<string name="receipt_requests">Completed requests · %1$d</string>
+	<string name="manage_categories">Manage categories</string>
+	<string name="save_category">Save category</string>
+	<string name="remove_category">Remove category from recordings</string>
 </resources>

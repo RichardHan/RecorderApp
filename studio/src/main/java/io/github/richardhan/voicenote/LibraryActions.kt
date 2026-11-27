@@ -38,11 +38,12 @@ internal fun LibraryFilters(library: RecordingLibrary, category: String, select:
 		Box {
 			TextButton(onClick = { menu = true }) { Text(category.ifEmpty { stringResource(R.string.all_categories) }) }
 			DropdownMenu(menu, { menu = false }) {
-				for (label in listOf("") + library.files.map { library.catalog.value(it, "category") }.filter { it.isNotEmpty() }.distinct().sorted()) {
+				for (label in listOf("") + (library.catalog.categoryNames + library.files.map { library.catalog.value(it, "category") }).filter(String::isNotBlank).distinct().sorted()) {
 					DropdownMenuItem(text = { Text(label.ifEmpty { stringResource(R.string.all_categories) }) }, onClick = { select(label); menu = false })
 				}
 			}
 		}
+		CategoryManager(library) { old, new -> if (category == old) select(new) }
 		TextButton(onClick = { trash = true }) { Text(stringResource(R.string.trash)) }
 	}
 	if (trash) AlertDialog(onDismissRequest = { trash = false }, title = { Text(stringResource(R.string.trash)) }, text = {
@@ -99,6 +100,15 @@ internal fun RecordingActions(file: File, library: RecordingLibrary) {
 			catalog.value(file, "device").takeIf { it.isNotBlank() }?.let { Text(it) }
 			OutlinedTextField(title, { title = it }, singleLine = true, label = { Text(stringResource(R.string.recording_name)) })
 			OutlinedTextField(category, { category = it }, singleLine = true, label = { Text(stringResource(R.string.category)) })
+			if (catalog.categoryNames.isNotEmpty()) {
+				var choose by remember { mutableStateOf(false) }
+				Box {
+					TextButton(onClick = { choose = true }) { Text(stringResource(R.string.all_categories)) }
+					DropdownMenu(choose, { choose = false }) {
+						for (item in catalog.categoryNames.sorted()) DropdownMenuItem(text = { Text(item) }, onClick = { category = item; choose = false })
+					}
+				}
+			}
 			OutlinedTextField(notes, { notes = it }, label = { Text(stringResource(R.string.notes)) })
 			val favorite = catalog.value(file, "favorite").isNotEmpty()
 			FilterChip(selected = favorite, onClick = { catalog.update(file, "favorite" to if (favorite) "" else "1") }, label = { Text(stringResource(R.string.favorites)) })

@@ -210,4 +210,13 @@
 	<string name="metered_model">要使用計量網路下載 %1$d MiB 嗎？</string>
 	<string name="download_anyway">下載</string>
 	<string name="download_named_model">下載 %1$s · %2$d MiB</string>
+	<string name="device_audio">瀏覽裝置音訊</string>
+	<string name="device_audio_permission">允許音訊存取即可瀏覽裝置，也可使用「選取音檔」。</string>
+	<string name="only_recordings">僅顯示錄音</string>
+	<string name="timed_transcript">依逐字稿段落播放</string>
+	<string name="receipt_tokens">服務回報 Token 數 · %1$d</string>
+	<string name="receipt_requests">已完成請求 · %1$d</string>
+	<string name="manage_categories">管理分類</string>
+	<string name="save_category">儲存分類</string>
+	<string name="remove_category">移除錄音的此項分類</string>
 </resources>
