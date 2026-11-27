@@ -36,6 +36,7 @@ class RecordingLibrary(private val app: Application) {
 		private set
 	internal val recognizing = mutableStateListOf<File>()
 	private var liveCapture: LiveCapture? = null
+	private var localOnly = false
 	private var liveSlackGeneration: String? = null
 
 	internal fun enableLive(value: Boolean) {
@@ -210,17 +211,18 @@ class RecordingLibrary(private val app: Application) {
 		}
 	}
 
-	fun start(slackGeneration: String? = null, cloudProfile: String? = null) {
+	fun start(slackGeneration: String? = null, cloudProfile: String? = null, localOnly: Boolean = false) {
 		if (liveCapture != null || recorder != null) return
 		stopPlayback()
 		try {
 			val file = File.createTempFile("capture-", ".part", directory)
 			pending = file
+			this.localOnly = localOnly
 			captureTarget = File(directory, "${System.currentTimeMillis()}-${java.util.UUID.randomUUID()}.${format.ext}")
-			liveSlackGeneration = slackGeneration?.takeIf { it == app.slackPrefs().getString("generation", null) && app.slackPrefs().getBoolean("live", false) }
+			liveSlackGeneration = slackGeneration?.takeIf { !localOnly && it == app.slackPrefs().getString("generation", null) && app.slackPrefs().getBoolean("live", false) }
 			val models = (app as StudioApplication).offline
 			liveText = ""
-			val cloud = cloudProfile?.let {
+			val cloud = cloudProfile?.takeUnless { localOnly }?.let {
 				SpeechConnection(app).takeIf { saved -> saved.valid() && saved.protocol != SpeechProtocol.Multipart && saved.profileId() == it }
 			}
 			if (cloud != null || (liveEnabled && models.installed)) {
@@ -331,8 +333,10 @@ class RecordingLibrary(private val app: Application) {
 			captureLocation?.let { catalog.update(saved, "location" to "${it.latitude}, ${it.longitude}") }
 			if (captureMarkers.isNotEmpty()) catalog.saveMarkers(saved, captureMarkers)
 			refresh()
-			app.queueDrive(saved, automatic = true)
-			app.queueTranscription(saved)
+			if (!localOnly) {
+				app.queueDrive(saved, automatic = true)
+				app.queueTranscription(saved)
+			}
 		} catch (_: Exception) {
 			message = R.string.record_error
 		} finally {

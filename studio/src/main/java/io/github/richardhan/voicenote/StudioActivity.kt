@@ -46,16 +46,18 @@ class StudioActivity : ComponentActivity() {
 			StudioTheme { appearance, dark, choose ->
 				var approveSharing by rememberSaveable { mutableStateOf(false) }
 				var liveCloud by rememberSaveable { mutableStateOf(false) }
+				var localOnly by rememberSaveable { mutableStateOf(false) }
 				var approvedCloud by rememberSaveable { mutableStateOf<String?>(null) }
 				val canLiveCloud = speech.protocol != SpeechProtocol.Multipart && speech.hasSavedConnection && speech.savedProfile == speech.profileId()
 				val useCloud = liveCloud && canLiveCloud
 				var slackSession by rememberSaveable { mutableStateOf<String?>(null) }
 				val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-					if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) controlCapture(CaptureAction.START, slackSession, approvedCloud)
+					if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) controlCapture(CaptureAction.START, slackSession, approvedCloud, localOnly)
 					else library.message = R.string.permission
 					slackSession = null
 				}
-				fun begin(generation: String?, cloud: String? = null) {
+				fun begin(generation: String?, cloud: String? = null, onlyOnDevice: Boolean = false) {
+					localOnly = onlyOnDevice
 					approvedCloud = cloud
 					slackSession = generation
 					val needed = buildList {
@@ -66,7 +68,7 @@ class StudioActivity : ComponentActivity() {
 							getPreferences(MODE_PRIVATE).edit().putBoolean("askedNotification", true).apply()
 						}
 					}
-					if (needed.isEmpty()) { controlCapture(CaptureAction.START, generation, cloud); slackSession = null }
+					if (needed.isEmpty()) { controlCapture(CaptureAction.START, generation, cloud, onlyOnDevice); slackSession = null }
 					else permission.launch(needed.toTypedArray())
 				}
 				if (approveSharing) AlertDialog(onDismissRequest = { approveSharing = false }, text = {
@@ -76,7 +78,7 @@ class StudioActivity : ComponentActivity() {
 					}
 				},
 					confirmButton = { TextButton(onClick = { approveSharing = false; begin(slackPrefs().getString("generation", null).takeIf { slackPrefs().getBoolean("live", false) }, speech.savedProfile.takeIf { useCloud }) }) { Text(stringResource(R.string.slack_allow)) } },
-					dismissButton = { TextButton(onClick = { approveSharing = false; begin(null) }) { Text(stringResource(R.string.record_local)) } })
+					dismissButton = { TextButton(onClick = { approveSharing = false; begin(null, onlyOnDevice = true) }) { Text(stringResource(R.string.record_local)) } })
 				fun startSession() {
 					if (useCloud || (slackPrefs().getBoolean("live", false) && slackPrefs().contains("generation"))) approveSharing = true
 					else begin(null)
