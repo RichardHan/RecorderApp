@@ -20,7 +20,7 @@ class StudioCaptureTest {
 	private val app = instrumentation.targetContext.applicationContext as StudioApplication
 	private val library get() = app.library
 
-	private fun waitFor(condition: () -> Boolean) {
+	private fun waitFor(description: String = "recording state", condition: () -> Boolean) {
 		val end = SystemClock.elapsedRealtime() + 10000
 		while (SystemClock.elapsedRealtime() < end) {
 			var met = false
@@ -28,7 +28,7 @@ class StudioCaptureTest {
 			if (met) return
 			SystemClock.sleep(100)
 		}
-		fail("Timed out waiting for recording state")
+		fail("Timed out waiting for $description")
 	}
 
 	@Test fun notificationSavesRecordingAfterActivityCloses() {
@@ -48,8 +48,16 @@ class StudioCaptureTest {
 			SystemClock.sleep(650)
 			instrumentation.runOnMainSync { library.captureBookmark(); activity.finish() }
 			waitFor { activity.isDestroyed }
-			fun press(label: Int) = notifications.activeNotifications.single { it.id == 10 }.notification.actions
-				.single { it.title == app.getString(label) }.actionIntent.send()
+			fun press(label: Int) {
+				val title = app.getString(label)
+				var action: android.app.PendingIntent? = null
+				waitFor("notification action '$title'") {
+					val notification = notifications.activeNotifications.firstOrNull { it.id == 10 }?.notification
+					action = notification?.actions?.firstOrNull { it.title.toString() == title }?.actionIntent
+					action != null
+				}
+				requireNotNull(action).send()
+			}
 			press(R.string.pause_recording)
 			waitFor { library.isPaused }
 			press(R.string.resume_recording)
