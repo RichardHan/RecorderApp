@@ -50,4 +50,7 @@
 	<string name="meeting_effective_effort">録音後の文字起こし：%1$s · テキストモデル：%2$s</string>
 	<string name="meeting_export">結果を Markdown で書き出す</string>
 	<string name="meeting_word_count">文字起こしの語数 · %1$d</string>
+	<string name="meeting_estimate_tokens">入力トークンの概算 · 約 %1$d</string>
+	<string name="meeting_estimate_price">設定単価に基づく入力料金の概算 · USD %1$s</string>
+	<string name="meeting_model_price">入力 100 万トークンあたりの USD（任意）</string>
 </resources>

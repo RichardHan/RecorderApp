@@ -75,6 +75,13 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 					val off = stringResource(R.string.meeting_off)
 					Text(stringResource(R.string.meeting_effective_effort, speech.effectiveEffort(speech.model, true) ?: off, speech.effectiveEffort(speech.chatModel) ?: off))
 				}
+				var inputRate by remember(speech.base, speech.chatModel) { mutableStateOf(speech.chatPrice()) }
+				if (speech.chatModel.isNotBlank()) OutlinedTextField(inputRate, {
+					inputRate = it
+					if (it.isBlank() || reportedCostUsd(it) != null) speech.setChatPrice(it)
+				}, isError = inputRate.isNotBlank() && reportedCostUsd(inputRate) == null,
+					label = { Text(stringResource(R.string.meeting_model_price)) }, singleLine = true)
+
 				TextButton(enabled = !speech.busy && speech.valid(), onClick = { speech.saveConnection() }) { Text(stringResource(R.string.save_connection)) }
 				AutoPanel(speech)
 				if (speech.hasSavedConnection) TextButton(enabled = !speech.busy, onClick = { speech.forgetConnection() }) { Text(stringResource(R.string.forget_connection)) }

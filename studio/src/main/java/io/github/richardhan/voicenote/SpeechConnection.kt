@@ -53,6 +53,13 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	}
 
 	var chatModel by mutableStateOf("")
+	private val prices = app.getSharedPreferences("studio_model_prices", 0)
+	private fun priceKey() = transcriptDigest(base.trimEnd('/') + "\u0000" + chatModel.trim()).toHexString()
+	internal fun chatPrice(): String = prices.getString(priceKey(), "").orEmpty()
+	internal fun setChatPrice(value: String) {
+		require(value.isBlank() || reportedCostUsd(value) != null)
+		prices.edit().putString(priceKey(), value.trim()).apply()
+	}
 	internal var effort by mutableStateOf("")
 	internal var speakerLabels by mutableStateOf(false)
 	internal fun effectiveEffort(id: String, transcription: Boolean = false): String? {

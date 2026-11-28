@@ -50,4 +50,7 @@
 	<string name="meeting_effective_effort">Post-recording transcription: %1$s · Text model: %2$s</string>
 	<string name="meeting_export">Export result as Markdown</string>
 	<string name="meeting_word_count">Transcript word count · %1$d</string>
+	<string name="meeting_estimate_tokens">Estimated input tokens · about %1$d</string>
+	<string name="meeting_estimate_price">Estimated input charge at your saved rate · USD %1$s</string>
+	<string name="meeting_model_price">Input USD per million tokens (optional)</string>
 </resources>

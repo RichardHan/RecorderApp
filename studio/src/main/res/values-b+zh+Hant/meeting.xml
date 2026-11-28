@@ -50,4 +50,7 @@
 	<string name="meeting_effective_effort">錄後轉錄：%1$s · 文字模型：%2$s</string>
 	<string name="meeting_export">匯出 Markdown 結果</string>
 	<string name="meeting_word_count">逐字稿字詞數 · %1$d</string>
+	<string name="meeting_estimate_tokens">預估輸入約 %1$d 個 token</string>
+	<string name="meeting_estimate_price">依自訂單價估算輸入費用 · USD %1$s</string>
+	<string name="meeting_model_price">每百萬輸入 token 美元單價（選填）</string>
 </resources>

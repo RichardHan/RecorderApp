@@ -50,4 +50,7 @@
 	<string name="meeting_effective_effort">录后转录：%1$s · 文本模型：%2$s</string>
 	<string name="meeting_export">导出 Markdown 结果</string>
 	<string name="meeting_word_count">文字稿字词数 · %1$d</string>
+	<string name="meeting_estimate_tokens">预计输入约 %1$d 个 token</string>
+	<string name="meeting_estimate_price">按自定义单价估算输入费用 · USD %1$s</string>
+	<string name="meeting_model_price">每百万输入 token 美元单价（选填）</string>
 </resources>

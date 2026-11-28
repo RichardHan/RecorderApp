@@ -26,6 +26,16 @@ internal fun chatFile(audio: File, transcript: String) =
 
 internal fun readMessages(file: File): JSONArray = if (file.exists()) JSONArray(file.readText()) else JSONArray()
 
+internal fun estimatedChatTokens(content: String): Long {
+	val ascii = content.count { it.code < 128 }.toLong()
+	return (ascii + 3) / 4 + content.length - ascii
+}
+
+internal fun inputEstimateUsd(tokens: Long, pricePerMillion: String): String? {
+	val rate = reportedCostUsd(pricePerMillion)?.toBigDecimalOrNull() ?: return null
+	return (rate * tokens.toBigDecimal()).movePointLeft(6).stripTrailingZeros().toPlainString()
+}
+
 private const val chatTextLimit = 32000
 internal fun chatExcerpt(text: String) = text.take(chatTextLimit)
 internal fun chatPayload(model: String, transcript: String, previous: JSONArray, question: String, mask: Boolean = false, summary: String = ""): JSONObject {
@@ -104,11 +114,15 @@ internal fun TranscriptChat(file: File, transcript: String, speech: SpeechConnec
 		TextButton(onClick = { speech.clearChat(file, transcript); clear = false }) { Text(stringResource(R.string.meeting_clear_chat)) }
 	}, dismissButton = { TextButton(onClick = { clear = false }) { Text(stringResource(R.string.cancel)) } })
 	if (confirm) {
-		val characters = remember(transcript, turns, question, summary, mask) { chatPayload(speech.chatModel, transcript, turns, question.trim(), mask, summary).getJSONArray("messages").toString().length }
+		val payload = remember(transcript, turns, question, summary, mask) { chatPayload(speech.chatModel, transcript, turns, question.trim(), mask, summary).getJSONArray("messages").toString() }
+		val tokens = remember(payload) { estimatedChatTokens(payload) }
+		val estimate = inputEstimateUsd(tokens, speech.chatPrice())
 		AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.send_question)) }, text = {
 			Column {
 				Text(stringResource(R.string.chat_disclosure, speech.base))
-				Text(stringResource(R.string.meeting_chat_size, speech.chatModel, characters))
+				Text(stringResource(R.string.meeting_chat_size, speech.chatModel, payload.length))
+				Text(stringResource(R.string.meeting_estimate_tokens, tokens))
+				estimate?.let { Text(stringResource(R.string.meeting_estimate_price, it)) }
 				if (transcript.length > chatTextLimit) Text(stringResource(R.string.meeting_chat_cut, chatTextLimit, transcript.length))
 				FilterChip(selected = mask, onClick = { mask = !mask }, label = { Text(stringResource(R.string.mask_contacts)) })
 			}

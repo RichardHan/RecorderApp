@@ -19,4 +19,10 @@ class MeetingNotesTest {
 		assertFalse("the" in transcriptKeywords(text))
 		assertEquals(mapOf("嗯" to 2, "like" to 1), transcriptFillers(text).toMap())
 	}
+	@Test fun inputEstimateUsesTheConfiguredRateAndDistinguishesMissingPrices() {
+		assertEquals(3L, estimatedChatTokens("abcd繁中"))
+		assertEquals("0.025", inputEstimateUsd(12500, "2"))
+		assertNull(inputEstimateUsd(12500, ""))
+	}
+
 }
