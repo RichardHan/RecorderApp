@@ -16,7 +16,7 @@ internal enum class MeetingTool(val label: Int, val instruction: String) {
 }
 
 internal data class MeetingPassage(val text: String, val ms: Long?)
-internal data class MeetingPoint(val text: String, val source: Int?, val group: String = "", val quote: String = "")
+internal data class MeetingPoint(val text: String, val source: Int?, val group: String = "", val quote: String = "", val manual: Boolean = false)
 internal data class CheckedTask(val text: String, val done: Boolean)
 internal data class MeetingOutput(val points: List<MeetingPoint>, val option: String = "")
 
@@ -111,7 +111,7 @@ internal class MeetingNotes(private val recording: File, transcript: String) {
 	fun save(tool: MeetingTool, result: MeetingOutput) {
 		val rows = JSONArray()
 		for (point in result.points) rows.put(JSONObject().put("text", point.text).put("source", point.source)
-			.put("group", point.group).put("quote", point.quote))
+			.put("group", point.group).put("quote", point.quote).put("manual", point.manual))
 		val target = target(resultKey(tool, result.option))
 		if (tool == MeetingTool.Summary && target.exists()) writeSidecar(target("Summary." + System.currentTimeMillis() + "-" + java.util.UUID.randomUUID()), target.readText())
 		writeSidecar(target, JSONObject().put("option", result.option).put("points", rows).toString())
@@ -128,7 +128,7 @@ internal class MeetingNotes(private val recording: File, transcript: String) {
 		val rows = doc.getJSONArray("points")
 		return MeetingOutput((0 until rows.length()).map { i ->
 			val row = rows.getJSONObject(i)
-			MeetingPoint(row.getString("text"), row.optInt("source", -1).takeIf { it >= 0 }, row.optString("group"), row.optString("quote"))
+			MeetingPoint(row.getString("text"), row.optInt("source", -1).takeIf { it >= 0 }, row.optString("group"), row.optString("quote"), row.optBoolean("manual"))
 		}, doc.getString("option"))
 	}
 

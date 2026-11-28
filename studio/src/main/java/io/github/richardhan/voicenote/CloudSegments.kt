@@ -157,7 +157,7 @@ internal suspend fun transcribeSegment(samples: FloatArray, start: Double, model
 			val from = samples.size * i / count
 			val to = samples.size * (i + 1) / count
 			val reply = if (count == 1) response else attempt(samples.copyOfRange(from, to), 1)
-			val words = if (filtered(reply)) "[${formatClipTime(((start + from / 16000.0) * 1000).toInt())} · filtered]" else generatedText(mode, reply)
+			val words = if (filtered(reply)) "[${formatClipTime(((start + from / 16000.0) * 1000).toInt())}–${formatClipTime(((start + to / 16000.0) * 1000).toInt())} · filtered]" else generatedText(mode, reply)
 			parts.put(JSONObject().put("start", start + from / 16000.0).put("end", start + to / 16000.0).put("text", words))
 		}
 		result.put("parts", parts)

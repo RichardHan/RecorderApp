@@ -56,4 +56,9 @@
 	<string name="ai_notify">Notify when automatic processing finishes</string>
 	<string name="ai_title_needs_summary">Save a summary first to suggest a title.</string>
 	<string name="ai_summary_title">Use this title from the summary</string>
+	<string name="ai_restore_outline">Restore local outline</string>
+	<string name="ai_copy_outline">Copy outline</string>
+	<string name="ai_tasks_highlights">Choose highlights for the checklist</string>
+	<string name="ai_next_recording">For live captions and highlights, enable in-session AI controls before the next recording.</string>
+	<string name="ai_device_ram">Available memory · %1$d of %2$d MiB</string>
 </resources>

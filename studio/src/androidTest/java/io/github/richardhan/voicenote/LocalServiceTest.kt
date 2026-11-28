@@ -157,6 +157,14 @@ class LocalServiceTest {
 			assertEquals(0, result.points.first().source)
 			assertNull(MeetingNotes(audio, "Different transcript").read(tool, "English"))
 		}
+		complete { speech.reviseMeetingPoint(audio, text, MeetingTool.Decisions, null, "Manual agreement") }
+		reply(200, response(rows))
+		complete { speech.generateMeetingNotes(audio, text, MeetingTool.Decisions, "", "English", false) }
+		nextRequest()
+		assertTrue(notes.read(MeetingTool.Decisions)!!.points.any { it.manual && it.text == "Manual agreement" })
+		assertTrue(notes.summaries().isEmpty())
+		notes.save(MeetingTool.Summary, notes.read(MeetingTool.Summary)!!)
+		assertEquals(1, notes.summaries().size)
 		val translation = meetingDocument(MeetingTool.Translation, notes.read(MeetingTool.Translation, "English")!!, passages)
 		assertTrue(translation.contains("Plan agreed.\nResult one"))
 		assertTrue(translation.contains("Send the draft.\nResult two"))
@@ -167,7 +175,7 @@ class LocalServiceTest {
 		assertEquals(2, notes.read(MeetingTool.Translation, "English")!!.points.size)
 		nextRequest()
 		val decision = notes.read(MeetingTool.Decisions)!!.points.first()
-		complete { speech.reviseDecision(audio, text, decision, "Reviewed decision") }
+		complete { speech.reviseMeetingPoint(audio, text, MeetingTool.Decisions, decision, "Reviewed decision") }
 		assertEquals("Reviewed decision", notes.read(MeetingTool.Decisions)!!.points.first().text)
 		complete { speech.changeMeetingTasks(audio, text) { it + CheckedTask("Send draft", false) } }
 		complete { speech.changeMeetingTasks(audio, text) { list -> list.map { it.copy(done = true) } } }

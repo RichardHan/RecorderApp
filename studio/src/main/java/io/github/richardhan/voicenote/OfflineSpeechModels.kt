@@ -90,6 +90,11 @@ internal fun OfflineModelPanel(models: OfflineSpeechModels, transcribing: Boolea
 		}
 	}
 	val context = androidx.compose.ui.platform.LocalContext.current
+	val memory = remember(context) { android.app.ActivityManager.MemoryInfo().also {
+		context.getSystemService(android.app.ActivityManager::class.java)?.getMemoryInfo(it)
+	} }
+	Text(stringResource(R.string.ai_device_ram, memory.availMem / 1048576, memory.totalMem / 1048576))
+	Text(stringResource(R.string.ai_storage, context.filesDir.usableSpace / 1048576, context.filesDir.totalSpace / 1048576))
 	var metered by remember { mutableStateOf(false) }
 	fun change() {
 		if (!models.installed && context.getSystemService(android.net.ConnectivityManager::class.java).isActiveNetworkMetered) metered = true

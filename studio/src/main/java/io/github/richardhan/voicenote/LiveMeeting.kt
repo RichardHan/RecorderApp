@@ -25,7 +25,10 @@ internal fun LiveMeeting(library: RecordingLibrary, speech: SpeechConnection) {
 		FilterChip(selected = library.liveReady, onClick = { library.readyForLive(!library.liveReady) }, label = { Text(stringResource(R.string.ai_ready)) })
 		return
 	}
-	if (!library.aiCapture) return
+	if (!library.aiCapture) {
+		Text(stringResource(R.string.ai_next_recording))
+		return
+	}
 	val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as StudioApplication
 	var approveCloud by remember { mutableStateOf(false) }
 	var approveSlack by remember { mutableStateOf(false) }

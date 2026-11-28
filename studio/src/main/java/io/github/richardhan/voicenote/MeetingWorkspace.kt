@@ -126,7 +126,7 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 		if (tool == MeetingTool.Summary && style == styles.lastIndex) OutlinedTextField(custom, { custom = it }, label = { Text(stringResource(R.string.ai_custom_summary)) })
 		if (tool == MeetingTool.Outline && result == null) {
 			Text(stringResource(if (summary.isBlank()) R.string.ai_need_summary else R.string.ai_local_outline))
-			for (point in summary.lineSequence().map(String::trim).filter(String::isNotBlank)) Text("• " + point.trimStart('-', '•', ' '))
+			SummaryOutline(summary)
 		}
 		if (tool == MeetingTool.Title) {
 			val localTitle = summaryTitle(summary)
@@ -139,7 +139,7 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 		if (tool == MeetingTool.Decisions) {
 			var decision by rememberSaveable { mutableStateOf("") }
 			OutlinedTextField(decision, { decision = it }, label = { Text(stringResource(R.string.ai_manual_decision)) })
-			TextButton(enabled = decision.isNotBlank() && !speech.busy, onClick = { speech.reviseDecision(file, transcript, null, decision.trim()); decision = "" }) { Text(stringResource(R.string.done)) }
+			TextButton(enabled = decision.isNotBlank() && !speech.busy, onClick = { speech.reviseMeetingPoint(file, transcript, tool, null, decision.trim()); decision = "" }) { Text(stringResource(R.string.done)) }
 		}
 		if (!speech.canAnalyze()) { Text(stringResource(R.string.meeting_needs_connection)); ConnectionPanel(speech) }
 		Button(onClick = { confirm = true }, enabled = speech.canAnalyze() && !speech.busy && passages.isNotEmpty() && (!contextMenu || summary.isNotBlank())) { Text(stringResource(R.string.meeting_generate)) }
@@ -155,8 +155,10 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 		if (speech.busy) { LinearProgressIndicator(); TextButton(onClick = speech::cancel) { Text(stringResource(R.string.cancel)) } }
 		if (speech.error != 0) Text(if (speech.error == R.string.http_error) stringResource(speech.error, speech.httpStatus) else stringResource(speech.error))
 		result?.let { output ->
+			if (tool == MeetingTool.Outline) CopyOutline(meetingDocument(tool, output, passages))
 			if (output.points.isNotEmpty() && passages.isNotEmpty()) ExportMeetingResult(file, tool, output, passages)
 			if (tool == MeetingTool.Summary) SummaryVersions(notes, speech.revision)
+			if (tool == MeetingTool.Outline) TextButton(enabled = !speech.busy, onClick = { speech.discardResult(file, transcript, tool, option) }) { Text(stringResource(R.string.ai_restore_outline)) }
 			if (tool == MeetingTool.Cleanup || tool == MeetingTool.Translation) DiscardAction { speech.discardResult(file, transcript, tool, option) }
 			if (output.option.isNotEmpty()) Text(output.option, style = MaterialTheme.typography.labelLarge)
 			if (output.points.isEmpty()) Text(stringResource(R.string.meeting_no_items))
@@ -168,21 +170,21 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 					val source = point.source?.let(passages::getOrNull)
 					if (tool == MeetingTool.Translation && source != null) Text(source.text, style = MaterialTheme.typography.bodySmall)
 					SelectionContainer { Text(point.text) }
-					if (tool == MeetingTool.Decisions) {
+					if (tool == MeetingTool.Decisions || tool == MeetingTool.Chapters) {
 						var editing by remember(point) { mutableStateOf(false) }
 						if (editing) {
 							var draft by remember(point) { mutableStateOf(point.text) }
 							OutlinedTextField(draft, { draft = it })
 							FlowRow {
 								TextButton(enabled = !speech.busy && draft.isNotBlank(), onClick = {
-									speech.reviseDecision(file, transcript, point, draft.trim())
+									speech.reviseMeetingPoint(file, transcript, tool, point, draft.trim())
 									editing = false
 								}) { Text(stringResource(R.string.done)) }
 								TextButton(onClick = { editing = false }) { Text(stringResource(R.string.cancel)) }
 							}
 						} else FlowRow {
 							TextButton(onClick = { editing = true }) { Text(stringResource(R.string.meeting_edit)) }
-							TextButton(enabled = !speech.busy, onClick = { speech.reviseDecision(file, transcript, point, null) }) { Text(stringResource(R.string.meeting_remove)) }
+							TextButton(enabled = !speech.busy, onClick = { speech.reviseMeetingPoint(file, transcript, tool, point, null) }) { Text(stringResource(R.string.meeting_remove)) }
 						}
 					}
 					if (source != null && point.quote.isNotBlank() && tool != MeetingTool.Translation) Text(point.quote, style = MaterialTheme.typography.bodySmall)
@@ -197,6 +199,12 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 		}
 	}
 	if (tool == MeetingTool.Actions) {
+		val highlights = library.catalog.value(file, "highlights").ifBlank { summary }
+		var chooseHighlights by rememberSaveable { mutableStateOf(false) }
+		if (highlights.isNotBlank()) TextButton(onClick = { chooseHighlights = !chooseHighlights }) { Text(stringResource(R.string.ai_tasks_highlights)) }
+		if (chooseHighlights) for (line in highlights.lines().map { it.trim().trimStart('-', '*', '•', '#', ' ') }.filter(String::isNotBlank).distinct()) {
+			TextButton(enabled = !speech.busy && tasks.none { it.text == line }, onClick = { speech.changeMeetingTasks(file, transcript) { it + CheckedTask(line, false) } }) { Text(line) }
+		}
 		val remaining = tasks.filterNot { it.done }.joinToString("\n") { "☐ " + it.text }
 		if (remaining.isNotBlank()) TextButton(onClick = {
 			context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("", remaining))
@@ -276,4 +284,40 @@ private fun FollowUpDraft(file: File, transcript: String, notes: MeetingNotes, t
 	if (confirm) AlertDialog(onDismissRequest = { confirm = false }, text = { Text(stringResource(R.string.meeting_draft_disclose, speech.textDestination, speech.chatModel, tasks.size)) },
 		confirmButton = { TextButton(onClick = { confirm = false; speech.followUp(file, transcript, material, instructions) }) { Text(stringResource(R.string.meeting_generate)) } },
 		dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } })
+}
+
+
+@Composable
+private fun CopyOutline(text: String) {
+	val context = LocalContext.current
+	if (text.isNotBlank()) TextButton(onClick = {
+		context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("", text))
+	}) { Text(stringResource(R.string.ai_copy_outline)) }
+}
+
+@Composable
+private fun SummaryOutline(summary: String) {
+	val collapsed = remember(summary) { mutableStateListOf<Int>() }
+	val headings = mutableListOf<Pair<Int, Int>>()
+	for ((index, raw) in summary.lines().withIndex()) {
+		val line = raw.trim()
+		if (line.isEmpty()) continue
+		val hashes = line.takeWhile { it == '#' }.length
+		val depth = when {
+			hashes > 0 && line.getOrNull(hashes) == ' ' -> hashes
+			line.endsWith(':') || line.endsWith('：') -> 1
+			else -> 0
+		}
+		if (depth > 0) {
+			while (headings.isNotEmpty() && headings.last().first >= depth) headings.removeAt(headings.lastIndex)
+			if (headings.none { it.second in collapsed }) TextButton(
+				modifier = Modifier.padding(start = (headings.size * 12).dp),
+				onClick = { if (index in collapsed) collapsed.remove(index) else collapsed.add(index) }
+			) { Text(line.trimStart('#', ' ')) }
+			headings.add(depth to index)
+		} else if (headings.none { it.second in collapsed }) {
+			Text("• " + line.trimStart('-', '*', '•', ' '), Modifier.padding(start = (headings.size.coerceAtMost(6) * 12).dp))
+		}
+	}
+	CopyOutline(summary)
 }

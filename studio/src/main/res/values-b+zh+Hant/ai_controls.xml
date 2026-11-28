@@ -56,4 +56,9 @@
 	<string name="ai_notify">自動處理完成時通知</string>
 	<string name="ai_title_needs_summary">先儲存摘要，即可建議標題。</string>
 	<string name="ai_summary_title">使用這個摘要標題</string>
+	<string name="ai_restore_outline">還原本機大綱</string>
+	<string name="ai_copy_outline">複製大綱</string>
+	<string name="ai_tasks_highlights">從重點選取待辦</string>
+	<string name="ai_next_recording">下次錄音前開啟「錄音中切換 AI」，即可在錄音時使用字幕與重點。</string>
+	<string name="ai_device_ram">可用記憶體 · %1$d／%2$d MiB</string>
 </resources>

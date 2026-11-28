@@ -56,4 +56,9 @@
 	<string name="ai_notify">自動処理の完了を通知</string>
 	<string name="ai_title_needs_summary">先に要約を保存するとタイトルを提案できます。</string>
 	<string name="ai_summary_title">この要約のタイトルを使う</string>
+	<string name="ai_restore_outline">ローカルのアウトラインに戻す</string>
+	<string name="ai_copy_outline">アウトラインをコピー</string>
+	<string name="ai_tasks_highlights">要点からタスクを選ぶ</string>
+	<string name="ai_next_recording">次の録音を始める前に録音中の AI 操作を有効にすると、字幕や要点を利用できます。</string>
+	<string name="ai_device_ram">利用可能なメモリ · %1$d／%2$d MiB</string>
 </resources>

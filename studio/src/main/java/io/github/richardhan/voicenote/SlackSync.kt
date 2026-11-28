@@ -106,7 +106,8 @@ class SlackRecapWorker(context: Context, params: WorkerParameters) : CoroutineWo
 		val prefs = app.slackPrefs()
 		if (!file.isFile || prefs.getString("approved/$name", null) != grant || prefs.getString("generation", null) != inputData.getString("generation") || !prefs.getBoolean("final", true)) return@withContext Result.success()
 		val text = readTranscript(file)
-		val summary = summaryFile(file, text).takeIf(File::isFile)?.readText()
+		val summary = MeetingNotes(file, text).read(MeetingTool.Summary)?.points?.joinToString("\n") { it.text }
+			?: summaryFile(file, text).takeIf(File::isFile)?.readText()
 		val (fallback, status) = withContext(Dispatchers.Main) { app.library.catalog.value(file, "highlights") to app.library.catalog.value(file, "auto") }
 		val auto = app.getSharedPreferences("auto_transcription", 0)
 		if (summary.isNullOrBlank() && auto.contains("consent") && auto.getBoolean("summary", false) && status !in listOf("done", "failed") &&

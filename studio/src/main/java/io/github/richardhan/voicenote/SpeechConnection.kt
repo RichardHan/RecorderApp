@@ -229,7 +229,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		val token = textSecret.trim()
 		val gemini = nativeText
 		val reasoning = effectiveEffort(modelId)
-		val customText = separateText || custom
+		val customText = textDestination.trimEnd('/') != OPEN_ROUTER
 		request {
 			withContext(Dispatchers.IO) {
 				val target = chatFile(file, transcript)
@@ -288,7 +288,8 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 				}
 				offset += batch.size
 			}
-			val result = MeetingOutput(points, option)
+			val manual = if (tool == MeetingTool.Decisions) notes.read(tool)?.points.orEmpty().filter { it.manual } else emptyList()
+			val result = MeetingOutput(points.filterNot { point -> manual.any { it.text == point.text } } + manual, option)
 			kotlinx.coroutines.currentCoroutineContext().ensureActive()
 			check(file.exists() && readTranscript(file) == transcript)
 			MeetingNotes(file, transcript).save(tool, result)
@@ -311,16 +312,17 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		revision++
 	}
 
-	internal fun reviseDecision(file: File, transcript: String, original: MeetingPoint?, replacement: String?) = request {
+	internal fun reviseMeetingPoint(file: File, transcript: String, tool: MeetingTool, original: MeetingPoint?, replacement: String?) = request {
 		withContext(Dispatchers.IO) {
 			val notes = MeetingNotes(file, transcript)
-			val current = notes.read(MeetingTool.Decisions) ?: MeetingOutput(emptyList())
+			require(tool == MeetingTool.Decisions || tool == MeetingTool.Chapters)
+			val current = notes.read(tool) ?: MeetingOutput(emptyList())
 			val index = current.points.indexOf(original)
 			check(original == null || index >= 0)
 			val points = current.points.toMutableList()
-			if (original == null) points.add(MeetingPoint(requireNotNull(replacement), null))
-			else if (replacement == null) points.removeAt(index) else points[index] = original.copy(text = replacement)
-			notes.save(MeetingTool.Decisions, current.copy(points = points))
+			if (original == null) points.add(MeetingPoint(requireNotNull(replacement), null, manual = true))
+			else if (replacement == null) points.removeAt(index) else points[index] = original.copy(text = replacement, manual = true)
+			notes.save(tool, current.copy(points = points))
 		}
 		revision++
 	}
