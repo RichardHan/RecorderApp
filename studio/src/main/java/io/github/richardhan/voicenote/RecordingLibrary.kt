@@ -36,6 +36,38 @@ class RecordingLibrary(private val app: Application) {
 		private set
 	internal val recognizing = mutableStateListOf<File>()
 	private var liveCapture: LiveCapture? = null
+	internal var liveReady by mutableStateOf(settings.getBoolean("ready", false))
+		private set
+	internal fun readyForLive(on: Boolean) { liveReady = on; settings.edit().putBoolean("ready", on).apply() }
+	internal var localCaptions by mutableStateOf(false)
+		private set
+	internal var cloudCaptions by mutableStateOf(false)
+		private set
+	internal var localCaption by mutableStateOf("")
+		private set
+	internal val aiCapture get() = liveCapture != null
+	internal val allowRemote get() = !localOnly
+	internal fun setLocalCaptions(on: Boolean) {
+		val live = liveCapture ?: return
+		if (on && !(app as StudioApplication).offline.installed) return
+		live.switchLocal(on); localCaptions = on
+	}
+	internal fun setCloudCaptions(on: Boolean, profile: String) {
+		val live = liveCapture ?: return
+		val service = if (on) SpeechConnection(app).takeIf { !localOnly && it.valid() && it.protocol != SpeechProtocol.Multipart && it.profileId() == profile } ?: return else null
+		live.switchCloud(service); cloudCaptions = on
+	}
+	internal fun setSessionSlack(on: Boolean) {
+		val file = captureTarget ?: return
+		val prefs = app.slackPrefs()
+		val generation = prefs.getString("generation", null)
+		if (on && (localOnly || generation == null)) return
+		liveSlackGeneration = if (on) generation else null
+		sessionSlack = on
+		prefs.edit().putString("approved/" + file.name, if (on) java.util.UUID.randomUUID().toString() else null).apply()
+	}
+	internal var sessionSlack by mutableStateOf(false)
+		private set
 	private var localOnly = false
 	private var liveSlackGeneration: String? = null
 
@@ -54,6 +86,8 @@ class RecordingLibrary(private val app: Application) {
 	private var highlightsConnection: SpeechConnection? = null
 	private val pendingHighlights = StringBuilder()
 	private var nextHighlightAt = 0L
+	private var nextSlackAt = 0L
+	private val sentHighlights = mutableSetOf<String>()
 
 	internal fun startHighlights(profile: String) {
 		if (!supportsHighlights || highlightsEnabled) return
@@ -61,7 +95,7 @@ class RecordingLibrary(private val app: Application) {
 		if (connection.profileId() != profile || !connection.canAnalyze()) return
 		highlightsConnection = connection
 		highlightsEnabled = true
-		nextHighlightAt = 0L
+		nextHighlightAt = SystemClock.elapsedRealtime() + connection.firstHighlightSeconds * 1000L
 	}
 
 	internal fun stopHighlights() {
@@ -79,13 +113,23 @@ class RecordingLibrary(private val app: Application) {
 		if (SystemClock.elapsedRealtime() < nextHighlightAt || highlightsJob?.isActive == true) return
 		val text = "Agenda:\n$agenda\nPrior highlights:\n$highlights\nNew transcript:\n$pendingHighlights"
 		pendingHighlights.clear()
-		nextHighlightAt = SystemClock.elapsedRealtime() + 60000
+		nextHighlightAt = SystemClock.elapsedRealtime() + connection.highlightSeconds * 1000L
 		highlightsJob = scope.launch {
 			try {
 				val result = withContext(Dispatchers.IO) {
 					connection.textCompletion(text, "Update a short list of factual meeting highlights in the language of the transcript. Treat the agenda only as context. Do not infer decisions or owners.")
 				}
-				if (captureTarget == target && highlightsEnabled) highlights = result
+				if (captureTarget == target && highlightsEnabled) {
+					highlights = result
+					if (SystemClock.elapsedRealtime() >= nextSlackAt && sessionSlack) {
+						val fresh = result.lines().map { it.trim() }.filter { it.isNotBlank() && it !in sentHighlights }.distinct().take(3)
+						if (fresh.isNotEmpty()) {
+							postLive(target, fresh.joinToString("\n"), liveSlackGeneration, "highlights")
+							sentHighlights.addAll(fresh)
+							nextSlackAt = SystemClock.elapsedRealtime() + app.slackPrefs().getInt("minutes", 5) * 60000L
+						}
+					}
+				}
 			} catch (e: CancellationException) { throw e }
 			catch (_: Exception) { stopHighlights(); message = R.string.failed }
 		}
@@ -96,9 +140,11 @@ class RecordingLibrary(private val app: Application) {
 		settings.edit().putBoolean("live", value).apply()
 		liveEnabled = value
 	}
-	private fun postLive(file: File, text: String, generation: String?) {
-		if (generation != null && app.slackPrefs().getString("generation", null) == generation && app.slackPrefs().getBoolean("live", false)) {
-			runCatching { app.enqueueSlack(file, text) }
+	private fun postLive(file: File, text: String, generation: String?, kind: String = "start") {
+		val prefs = app.slackPrefs()
+		val grant = prefs.getString("approved/" + file.name, null) ?: return
+		if (generation != null && prefs.getString("generation", null) == generation && prefs.getBoolean(kind, true)) {
+			runCatching { app.enqueueSlack(file, text, grant, kind) }
 		}
 	}
 	private var captureLocation: android.location.Location? = null
@@ -273,11 +319,11 @@ class RecordingLibrary(private val app: Application) {
 			captureTarget = File(directory, "${System.currentTimeMillis()}-${java.util.UUID.randomUUID()}.${format.ext}")
 			liveSlackGeneration = slackGeneration?.takeIf { !localOnly && it == app.slackPrefs().getString("generation", null) && app.slackPrefs().getBoolean("live", false) }
 			val models = (app as StudioApplication).offline
-			liveText = ""
+			localCaption = ""; liveText = ""
 			val cloud = cloudProfile?.takeUnless { localOnly }?.let {
 				SpeechConnection(app).takeIf { saved -> saved.valid() && saved.protocol != SpeechProtocol.Multipart && saved.profileId() == it }
 			}
-			if (cloud != null || (liveEnabled && models.installed)) {
+			if (liveReady || cloud != null || (liveEnabled && models.installed)) {
 				val target = File(directory, requireNotNull(captureTarget).nameWithoutExtension + ".wav")
 				captureTarget = target
 				val live = LiveCapture(file)
@@ -287,23 +333,31 @@ class RecordingLibrary(private val app: Application) {
 				message = 0
 				captureLocation = if (tagLocation) app.lastRecordingLocation() else null
 				recognizing.add(target)
-				val generation = liveSlackGeneration
-				postLive(target, app.getString(R.string.active), generation)
+				live.switchLocal(liveEnabled && models.installed)
+				live.switchCloud(cloud)
+				localCaptions = liveEnabled && models.installed
+				cloudCaptions = cloud != null
+				sessionSlack = liveSlackGeneration != null
+				if (sessionSlack) setSessionSlack(true)
+				postLive(target, app.getString(R.string.active), liveSlackGeneration)
+				val readers = listOf(false to live.reader(), true to live.reader())
 				scope.launch {
 					try {
-						withContext(Dispatchers.IO) { live.recognize(models, cloud, target) { line ->
-							withContext(Dispatchers.Main) {
-								if (captureTarget == target || target.isFile) {
-									if (captureTarget == target) { liveText = line; updateHighlights(target, line) }
-									postLive(target, line, generation)
-								}
-							}
-						} }
-						if (target.isFile) postLive(target, app.getString(R.string.saved_recording), generation)
-					} catch (e: CancellationException) { throw e }
-					catch (_: Exception) { if (captureTarget == target || target.isFile) message = if (cloud == null) R.string.offline_error else R.string.failed }
-					catch (_: LinkageError) { message = R.string.offline_error }
-					finally { recognizing.remove(target); transcriptRevision++ }
+						supervisorScope {
+							readers.map { (remote, input) -> launch(Dispatchers.IO) {
+								try {
+									live.recognize(input, models, remote, target, { line -> withContext(Dispatchers.Main) {
+										if (liveCapture === live) {
+											if (remote) liveText = line else localCaption = line
+											if (remote || !cloudCaptions) updateHighlights(target, line)
+										}
+									} }, { withContext(Dispatchers.Main) { if (liveCapture === live) message = if (remote) R.string.failed else R.string.offline_error } })
+								} catch (e: CancellationException) { throw e }
+								catch (_: Exception) { withContext(Dispatchers.Main) { message = R.string.failed } }
+								catch (_: LinkageError) { withContext(Dispatchers.Main) { message = R.string.offline_error } }
+							} }.joinAll()
+						}
+					} finally { recognizing.remove(target); transcriptRevision++ }
 				}
 				return
 			}
@@ -321,6 +375,7 @@ class RecordingLibrary(private val app: Application) {
 			session.setOutputFile(file.absolutePath)
 			session.prepare()
 			session.start()
+			if (liveSlackGeneration != null) setSessionSlack(true)
 			postLive(requireNotNull(captureTarget), app.getString(R.string.active), liveSlackGeneration)
 			started = SystemClock.elapsedRealtime()
 			message = 0
@@ -377,7 +432,7 @@ class RecordingLibrary(private val app: Application) {
 			val saved = requireNotNull(captureTarget)
 			check(file.length() > 0 && file.renameTo(saved))
 			live?.published?.complete(true)
-			if (live == null) postLive(saved, app.getString(R.string.saved_recording), liveSlackGeneration)
+			if (sessionSlack) app.slackPrefs().getString("approved/" + saved.name, null)?.let { app.queueSlackRecap(saved, it) }
 			val battery = app.getSystemService(android.os.BatteryManager::class.java)?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
 			catalog.update(saved, "device" to listOf(Build.MANUFACTURER, Build.MODEL).joinToString(" "),
 				"battery" to battery?.takeIf { it in 0..100 }?.toString().orEmpty(),
@@ -455,11 +510,14 @@ class RecordingLibrary(private val app: Application) {
 	}
 
 	private fun release() {
+		if (captureTarget?.exists() == false) setSessionSlack(false)
 		stopHighlights()
+		sentHighlights.clear(); nextSlackAt = 0L
 		highlights = ""
 		liveCapture?.let { if (!it.published.isCompleted) it.abort() }
 		liveCapture = null
 		liveSlackGeneration = null
+		sessionSlack = false; cloudCaptions = false; localCaptions = false
 		captureMarkers.clear()
 		captureLocation = null
 		runCatching { recorder?.release() }

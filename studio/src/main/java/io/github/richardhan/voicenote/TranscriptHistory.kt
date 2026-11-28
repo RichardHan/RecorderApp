@@ -36,28 +36,63 @@ internal fun archiveTranscript(file: File) {
 }
 
 @Composable
-internal fun TranscriptHistory(file: File, current: String, revision: Int) {
+internal fun TranscriptHistory(file: File, current: String, revision: Int, speech: SpeechConnection) {
 	val versions by produceState(emptyList<File>(), file, revision) {
 		value = withContext(Dispatchers.IO) { historyDirectory(file).listFiles().orEmpty().filter { !it.name.startsWith(".") && File(it, "text.txt").isFile }.sortedByDescending { it.name } }
 	}
 	if (versions.isEmpty()) return
 	var open by remember { mutableStateOf(false) }
-	var selected by remember { mutableStateOf<File?>(null) }
-	TextButton(onClick = { selected = versions.first(); open = true }) { Text(stringResource(R.string.versions)) }
+	var left by remember { mutableStateOf<File?>(null) }
+	var right by remember { mutableStateOf<File?>(null) }
+	var pickLeft by remember { mutableStateOf(true) }
+	var confirm by remember { mutableStateOf(false) }
+	fun label(dir: File?) = dir?.let { DateFormat.getDateTimeInstance().format(Date(it.name.substringBefore('-').toLongOrNull() ?: it.lastModified())) }
+	TextButton(onClick = { left = versions.first(); right = null; open = true }) { Text(stringResource(R.string.versions)) }
 	if (!open) return
-	val previous by produceState("", selected) {
-		value = withContext(Dispatchers.IO) { selected?.let { File(it, "text.txt").takeIf(File::exists)?.readText() }.orEmpty() }
-	}
 	AlertDialog(onDismissRequest = { open = false }, title = { Text(stringResource(R.string.versions)) }, text = {
 		Column(Modifier.verticalScroll(rememberScrollState())) {
-			for (dir in versions) TextButton(onClick = { selected = dir }) {
-				Text(DateFormat.getDateTimeInstance().format(Date(dir.name.substringBefore('-').toLongOrNull() ?: dir.lastModified())))
+			FlowRow {
+				FilterChip(selected = pickLeft, onClick = { pickLeft = true }, label = { Text(stringResource(R.string.ai_left)) })
+				FilterChip(selected = !pickLeft, onClick = { pickLeft = false }, label = { Text(stringResource(R.string.ai_right)) })
 			}
-			Text(stringResource(R.string.previous_text), style = MaterialTheme.typography.titleMedium)
-			SelectionContainer { Text(previous) }
-			HorizontalDivider()
-			Text(stringResource(R.string.current_text), style = MaterialTheme.typography.titleMedium)
-			SelectionContainer { Text(current) }
+			for (dir in listOf(null) + versions) TextButton(onClick = { if (pickLeft) left = dir else right = dir }) { Text(label(dir) ?: stringResource(R.string.current_text)) }
+			Row { for (dir in listOf(left, right)) key(dir, pickLeft) {
+				val words by produceState("", dir, current) { value = withContext(Dispatchers.IO) { dir?.let { File(it,"text.txt").readText() } ?: current } }
+				Column(Modifier.weight(1f)) { Text(label(dir) ?: stringResource(R.string.current_text)); SelectionContainer { Text(words) } }
+			} }
+			val selected = if (pickLeft) left else right
+			if (selected != null) {
+				val summaries by produceState(emptyList<String>(), selected, speech.revision) {
+					value = withContext(Dispatchers.IO) { selected.listFiles().orEmpty().filter { it.name.startsWith("summary-") }.sortedByDescending { it.name }.map { it.readText() } }
+				}
+				for (body in summaries) SelectionContainer { Text(body) }
+				TextButton(enabled = speech.canAnalyze() && !speech.busy, onClick = { confirm = true }) { Text(stringResource(R.string.ai_summary_version)) }
+				if (confirm) AlertDialog(onDismissRequest = { confirm = false }, text = { Text(stringResource(R.string.meeting_disclose, speech.textDestination, speech.chatModel)) },
+					confirmButton = { TextButton(onClick = { confirm = false; speech.summarizeArchive(selected, speech.defaultSummary) }) { Text(stringResource(R.string.meeting_generate)) } },
+					dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } })
+			}
 		}
 	}, confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.done)) } })
+}
+
+@Composable
+internal fun DiscardAction(remove: () -> Unit) {
+	var confirm by remember { mutableStateOf(false) }
+	TextButton(onClick = { confirm = true }) { Text(stringResource(R.string.meeting_remove)) }
+	if (confirm) AlertDialog(onDismissRequest = { confirm = false }, text = { Text(stringResource(R.string.ai_discard_result)) },
+		confirmButton = { TextButton(onClick = { confirm = false; remove() }) { Text(stringResource(R.string.meeting_remove)) } },
+		dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } })
+}
+
+@Composable
+internal fun SummaryVersions(notes: MeetingNotes, revision: Int) {
+	val versions by produceState(emptyList<File>(), notes, revision) { value = withContext(Dispatchers.IO) { notes.summaries() } }
+	if (versions.isEmpty()) return
+	var open by remember { mutableStateOf(false) }
+	TextButton(onClick = { open = !open }) { Text(stringResource(R.string.ai_summary_history)) }
+	if (open) for (f in versions) {
+		val output by produceState<MeetingOutput?>(null, f) { value = withContext(Dispatchers.IO) { notes.readOutput(f) } }
+		Text(DateFormat.getDateTimeInstance().format(Date(f.lastModified())))
+		output?.points?.forEach { Text(it.text) }
+	}
 }

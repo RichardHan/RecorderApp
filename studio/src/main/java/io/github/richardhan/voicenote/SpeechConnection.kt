@@ -53,8 +53,28 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	}
 
 	var chatModel by mutableStateOf("")
+	internal var separateText by mutableStateOf(false)
+	internal var textBase by mutableStateOf("")
+		private set
+	internal var textKey by mutableStateOf("")
+	internal var textGemini by mutableStateOf(false)
+	internal val textDestination get() = if (separateText) textBase else base
+	private val textSecret get() = if (separateText) textKey else key
+	private val nativeText get() = if (separateText) textGemini else protocol == SpeechProtocol.Gemini
+	internal fun setTextAddress(address: String) {
+		if (address != textBase) { textBase = address; textKey = "" }
+	}
+	internal var probeResult by mutableStateOf("")
+		private set
+	internal fun probe(summary: Boolean) = request {
+		require(hasSavedConnection && savedProfile == profileId())
+		probeResult = ""
+		val send = if (summary) textClient() else textClient(base, key, model, protocol == SpeechProtocol.Gemini)
+		val answer = withContext(Dispatchers.IO) { send("Studio connection check", "Reply with OK.") }
+		probeResult = answer.take(160)
+	}
 	private val prices = app.getSharedPreferences("studio_model_prices", 0)
-	private fun priceKey() = transcriptDigest(base.trimEnd('/') + "\u0000" + chatModel.trim()).toHexString()
+	private fun priceKey() = transcriptDigest(textDestination.trimEnd('/') + "\u0000" + chatModel.trim()).toHexString()
 	internal fun chatPrice(): String = prices.getString(priceKey(), "").orEmpty()
 	internal fun setChatPrice(value: String) {
 		require(value.isBlank() || reportedCostUsd(value) != null)
@@ -63,7 +83,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	internal var effort by mutableStateOf("")
 	internal var speakerLabels by mutableStateOf(false)
 	internal fun effectiveEffort(id: String, transcription: Boolean = false): String? {
-		if (protocol == SpeechProtocol.Gemini || effort !in setOf("low", "medium", "high") || id.isBlank()) return null
+		if ((if (transcription) protocol == SpeechProtocol.Gemini else nativeText) || effort !in setOf("low", "medium", "high") || id.isBlank()) return null
 		val name = id.lowercase()
 		if ("transcribe" in name || "flash-lite" in name) return null
 		if (transcription && (protocol != SpeechProtocol.Chat || speakerLabels || name.endsWith("gemini-4-argon"))) return null
@@ -81,6 +101,16 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	var segmentSeconds by mutableIntStateOf(20)
 	var concurrentRequests by mutableIntStateOf(1)
 	var skipSilence by mutableStateOf(false)
+	internal var liveSeconds by mutableIntStateOf(60)
+	internal var overlapSeconds by mutableIntStateOf(3)
+	internal var highlightSeconds by mutableIntStateOf(60)
+	internal var firstHighlightSeconds by mutableIntStateOf(0)
+	internal var correctLive by mutableStateOf(false)
+	internal var warnLength by mutableStateOf(true)
+	internal var retrySegments by mutableStateOf(false)
+	internal var defaultSummary by mutableStateOf("")
+	internal var summaryNotes by mutableStateOf(false)
+	internal var defaultCloud by mutableStateOf(false)
 	private var running: kotlinx.coroutines.Job? = null
 	fun cancel() { running?.cancel() }
 
@@ -97,6 +127,10 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 				key = it.getString("key")
 				model = it.getString("model")
 				chatModel = it.optString("chatModel")
+				separateText = it.optBoolean("separateText")
+				textBase = it.optString("textBase")
+				textKey = it.optString("textKey")
+				textGemini = it.optBoolean("textGemini")
 				effort = it.optString("effort")
 				speakerLabels = it.optBoolean("speakerLabels")
 				protocol = SpeechProtocol.entries.firstOrNull { mode -> mode.name == it.optString("protocol") } ?: SpeechProtocol.Multipart
@@ -104,16 +138,30 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 				segmentSeconds = it.optInt("seconds", 20).coerceIn(10, 300)
 				concurrentRequests = it.optInt("concurrent", 1).coerceIn(1, 6)
 				skipSilence = it.optBoolean("skipSilence")
+				liveSeconds = it.optInt("liveSeconds", 60).coerceIn(15,600)
+				overlapSeconds = it.optInt("overlap", 3).coerceIn(0,5)
+				highlightSeconds = it.optInt("highlights", 60).coerceIn(15,600)
+				firstHighlightSeconds = it.optInt("first", 0).coerceIn(0,600)
+				correctLive = it.optBoolean("correctLive")
+				warnLength = it.optBoolean("warnLength", true)
+				retrySegments = it.optBoolean("retrySegments")
+				defaultSummary = it.optString("defaultSummary")
+				summaryNotes = it.optBoolean("summaryNotes")
+				defaultCloud = it.optBoolean("defaultCloud")
 				hasSavedConnection = true
 				savedProfile = profileId()
 			}
 		} catch (_: Exception) { error = R.string.connection_error }
 	}
 	fun saveConnection() = request {
-		require(valid())
+		require(canSave())
 		val data = JSONObject().put("custom", custom).put("base", base).put("key", key).put("model", model).put("chatModel", chatModel).put("protocol", protocol.name).put("vocabulary", vocabulary)
+			.put("separateText", separateText).put("textBase", textBase).put("textKey", textKey).put("textGemini", textGemini)
 			.put("effort", effort).put("speakerLabels", speakerLabels)
 			.put("seconds", segmentSeconds).put("concurrent", concurrentRequests).put("skipSilence", skipSilence)
+		data.put("liveSeconds", liveSeconds).put("overlap", overlapSeconds).put("highlights", highlightSeconds).put("first", firstHighlightSeconds)
+			.put("correctLive", correctLive).put("warnLength", warnLength).put("retrySegments", retrySegments)
+			.put("defaultSummary", defaultSummary).put("summaryNotes", summaryNotes).put("defaultCloud", defaultCloud)
 		withContext(Dispatchers.IO) { vault.save(data) }
 		hasSavedConnection = true
 		savedProfile = profileId()
@@ -121,6 +169,8 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	fun forgetConnection() = request {
 		withContext(Dispatchers.IO) { vault.remove() }
 		key = ""
+		textKey = ""
+		probeResult = ""
 		hasSavedConnection = false
 		savedProfile = ""
 	}
@@ -134,16 +184,18 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	}
 
 	internal fun ask(file: File, transcript: String, question: String, mask: Boolean = false, summary: String = "") {
-		val server = endpoint()
-		if (server == null || key.isBlank() || chatModel.isBlank()) { error = R.string.invalid; return }
+		val server = endpoint(textDestination)
+		if (server == null || textSecret.isBlank() || chatModel.isBlank()) { error = R.string.invalid; return }
 		val modelId = chatModel.trim()
-		val token = key.trim()
+		val token = textSecret.trim()
+		val gemini = nativeText
+		val reasoning = effectiveEffort(modelId)
+		val customText = separateText || custom
 		request {
 			withContext(Dispatchers.IO) {
 				val target = chatFile(file, transcript)
 				val history = readMessages(target)
 				val payload = chatPayload(modelId, transcript, history, question, mask, summary)
-				val gemini = protocol == SpeechProtocol.Gemini
 				val response = if (gemini) {
 					val messages = payload.getJSONArray("messages")
 					val content = org.json.JSONArray()
@@ -156,7 +208,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 					val body = JSONObject().put("contents", content).put("systemInstruction",
 						JSONObject().put("parts", org.json.JSONArray().put(JSONObject().put("text", messages.getJSONObject(0).getString("content")))))
 					jsonRequest("$server/models/${android.net.Uri.encode(modelId)}:generateContent", token, body, true)
-				} else jsonRequest("$server/chat/completions", token, applyEffort(payload, effectiveEffort(modelId)))
+				} else jsonRequest("$server/chat/completions", token, applyEffort(payload, reasoning, customText))
 				val answer = generatedText(if (gemini) SpeechProtocol.Gemini else SpeechProtocol.Chat, response)
 				require(answer.isNotBlank())
 				kotlinx.coroutines.currentCoroutineContext().ensureActive()
@@ -167,21 +219,33 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		}
 	}
 
-	internal fun canAnalyze() = endpoint() != null && key.isNotBlank() && chatModel.isNotBlank()
+	internal fun canAnalyze() = endpoint(textDestination) != null && textSecret.isNotBlank() && chatModel.isNotBlank()
 
 	internal fun generateMeetingNotes(file: File, transcript: String, tool: MeetingTool, option: String, language: String, mask: Boolean) = request {
 		require(canAnalyze())
 		val complete = textClient()
 		withContext(Dispatchers.IO) {
-			val passages = meetingPassages(file, transcript).map { if (mask) it.copy(text = maskIdentifiers(it.text)) else it }
+			val notes = MeetingNotes(file, transcript)
+			val summaryPoints = if (tool == MeetingTool.Outline) notes.read(MeetingTool.Summary)?.points else null
+			val plainSummary = if (tool == MeetingTool.Outline && summaryPoints.isNullOrEmpty()) summaryFile(file, transcript).takeIf(File::isFile)?.readText().orEmpty() else ""
+			val evidence = if (tool != MeetingTool.Outline) meetingPassages(file, transcript)
+				else (summaryPoints?.map { MeetingPassage(it.text, null) }?.takeIf { it.isNotEmpty() } ?: transcriptPassages(plainSummary).map { MeetingPassage(it, null) })
+			require(evidence.isNotEmpty())
+			val agenda = if (summaryNotes && tool == MeetingTool.Summary) withContext(Dispatchers.Main) { (getApplication<Application>() as StudioApplication).library.catalog.value(file, "notes") } else ""
+			val passages = evidence.map { if (mask) it.copy(text = maskIdentifiers(it.text)) else it }
 			val points = mutableListOf<MeetingPoint>()
 			var offset = 0
 			for (batch in meetingBatches(tool, passages)) {
 				kotlinx.coroutines.currentCoroutineContext().ensureActive()
 				val input = batch.mapIndexed { i, passage -> "[${i + 1}] ${passage.text}" }.joinToString("\n")
-				val answer = complete(input, meetingInstruction(tool, option, language))
+				val context = if (agenda.isBlank()) input else input + "\nAgenda (reference, not evidence):\n" + if (mask) maskIdentifiers(agenda) else agenda
+				val answer = complete(context, meetingInstruction(tool, option, language))
 				points += parseMeetingOutput(tool, answer, batch, option).points.map { point ->
-					point.copy(source = point.source?.plus(offset))
+					val index = point.source?.plus(offset)
+					if (tool == MeetingTool.Outline) {
+						val cited = index?.let { summaryPoints?.getOrNull(it) }
+						point.copy(source = cited?.source, quote = cited?.quote.orEmpty())
+					} else point.copy(source = index)
 				}
 				offset += batch.size
 			}
@@ -208,15 +272,35 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		revision++
 	}
 
-	internal fun reviseDecision(file: File, transcript: String, original: MeetingPoint, replacement: String?) = request {
+	internal fun reviseDecision(file: File, transcript: String, original: MeetingPoint?, replacement: String?) = request {
 		withContext(Dispatchers.IO) {
 			val notes = MeetingNotes(file, transcript)
-			val current = requireNotNull(notes.read(MeetingTool.Decisions))
+			val current = notes.read(MeetingTool.Decisions) ?: MeetingOutput(emptyList())
 			val index = current.points.indexOf(original)
-			check(index >= 0)
+			check(original == null || index >= 0)
 			val points = current.points.toMutableList()
-			if (replacement == null) points.removeAt(index) else points[index] = original.copy(text = replacement)
+			if (original == null) points.add(MeetingPoint(requireNotNull(replacement), null))
+			else if (replacement == null) points.removeAt(index) else points[index] = original.copy(text = replacement)
 			notes.save(MeetingTool.Decisions, current.copy(points = points))
+		}
+		revision++
+	}
+
+	internal fun discardResult(file: File, transcript: String, tool: MeetingTool?, option: String) = request {
+		withContext(Dispatchers.IO) {
+			val notes = MeetingNotes(file, transcript)
+			if (tool == null) notes.discardDraft() else notes.discard(tool, option)
+		}
+		revision++
+	}
+
+	internal fun summarizeArchive(dir: File, option: String) = request {
+		val complete = textClient()
+		withContext(Dispatchers.IO) {
+			val source = File(dir, "text.txt").readText()
+			val result = complete(source, "Summarize this transcript in its original language. $option")
+			kotlinx.coroutines.currentCoroutineContext().ensureActive()
+			writeSidecar(File(dir, "summary-" + System.currentTimeMillis() + ".txt"), result)
 		}
 		revision++
 	}
@@ -239,10 +323,11 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		error = 0
 	}
 
-	private fun endpoint(): URI? = runCatching { URI(base.trim().trimEnd('/')) }.getOrNull()?.takeIf {
+	private fun endpoint(address: String = base): URI? = runCatching { URI(address.trim().trimEnd('/')) }.getOrNull()?.takeIf {
 		it.scheme.equals("https", ignoreCase = true) && it.host != null && it.userInfo == null &&
 			it.query == null && it.fragment == null
 	}
+	internal fun canSave() = (valid() || (separateText && canAnalyze())) && (!separateText || canAnalyze())
 	fun valid(): Boolean = endpoint() != null && model.isNotBlank() && key.isNotBlank()
 
 	private fun request(block: suspend () -> Unit) {
@@ -356,13 +441,12 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 
 	internal fun textCompletion(text: String, instruction: String) = textClient()(text, instruction)
 
-	private fun textClient(): (String, String) -> String {
-		val server = requireNotNull(endpoint())
-		val modelId = chatModel.trim().also { require(it.isNotEmpty()) }
-		val secret = key.trim().also { require(it.isNotEmpty()) }
-		val gemini = protocol == SpeechProtocol.Gemini
+	private fun textClient(address: String = textDestination, credential: String = textSecret, selected: String = chatModel, gemini: Boolean = nativeText): (String, String) -> String {
+		val server = requireNotNull(endpoint(address))
+		val modelId = selected.trim().also { require(it.isNotEmpty()) }
+		val secret = credential.trim().also { require(it.isNotEmpty()) }
 		val reasoning = effectiveEffort(modelId)
-		val customEndpoint = custom
+		val customEndpoint = address.trimEnd('/') != OPEN_ROUTER
 		return { text, instruction ->
 			val messages = org.json.JSONArray()
 			if (gemini) {

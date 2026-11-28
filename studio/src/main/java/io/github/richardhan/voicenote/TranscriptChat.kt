@@ -99,7 +99,7 @@ internal fun TranscriptChat(file: File, transcript: String, speech: SpeechConnec
 				}
 			}
 			OutlinedTextField(question, { question = it.take(4000) }, label = { Text(stringResource(R.string.question)) })
-			Text(stringResource(R.string.chat_disclosure, speech.base), style = MaterialTheme.typography.bodySmall)
+			Text(stringResource(R.string.chat_disclosure, speech.textDestination), style = MaterialTheme.typography.bodySmall)
 			if (!speech.canAnalyze()) Text(stringResource(R.string.meeting_needs_connection))
 			if (turns.length() > 0) TextButton(enabled = !speech.busy, onClick = { clear = true }) { Text(stringResource(R.string.meeting_clear_chat)) }
 			if (speech.busy) LinearProgressIndicator()
@@ -119,7 +119,7 @@ internal fun TranscriptChat(file: File, transcript: String, speech: SpeechConnec
 		val estimate = inputEstimateUsd(tokens, speech.chatPrice())
 		AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.send_question)) }, text = {
 			Column {
-				Text(stringResource(R.string.chat_disclosure, speech.base))
+				Text(stringResource(R.string.chat_disclosure, speech.textDestination))
 				Text(stringResource(R.string.meeting_chat_size, speech.chatModel, payload.length))
 				Text(stringResource(R.string.meeting_estimate_tokens, tokens))
 				estimate?.let { Text(stringResource(R.string.meeting_estimate_price, it)) }

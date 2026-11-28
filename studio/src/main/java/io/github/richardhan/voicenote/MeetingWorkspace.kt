@@ -90,11 +90,16 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 	var mask by rememberSaveable { mutableStateOf(false) }
 	var confirm by rememberSaveable { mutableStateOf(false) }
 	val language = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].toLanguageTag()
-	val styles = listOf(R.string.meeting_brief, R.string.meeting_minutes, R.string.meeting_bullets)
+	val styles = listOf(R.string.meeting_brief, R.string.meeting_minutes, R.string.meeting_bullets, R.string.ai_decision_format, R.string.ai_open_questions, R.string.custom)
+	var custom by rememberSaveable { mutableStateOf(speech.defaultSummary) }
+	val summary by produceState("", notes, speech.revision, library.transcriptRevision) { value = withContext(Dispatchers.IO) {
+		notes.read(MeetingTool.Summary)?.points?.joinToString("\n") { it.text } ?: summaryFile(file, transcript).takeIf(File::isFile)?.readText().orEmpty()
+	} }
+	val contextMenu = tool == MeetingTool.Outline
 	val levels = listOf(R.string.meeting_light, R.string.meeting_medium)
 	val option = when (tool) {
 		MeetingTool.Translation -> translation
-		MeetingTool.Summary -> stringResource(styles[style])
+		MeetingTool.Summary -> if (style == styles.lastIndex) custom else stringResource(styles[style])
 		MeetingTool.Cleanup -> stringResource(levels[level])
 		else -> ""
 	}
@@ -115,11 +120,22 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 				selected = i == if (summary) style else level, onClick = { if (summary) style = i else level = i },
 				label = { Text(stringResource(label)) })
 		}
+		if (tool == MeetingTool.Summary && style == styles.lastIndex) OutlinedTextField(custom, { custom = it }, label = { Text(stringResource(R.string.ai_custom_summary)) })
+		if (contextMenu && result == null) {
+			Text(stringResource(if (summary.isBlank()) R.string.ai_need_summary else R.string.ai_local_outline))
+			for (point in summary.lineSequence().map(String::trim).filter(String::isNotBlank)) Text("• " + point.trimStart('-', '•', ' '))
+		}
+		if (tool == MeetingTool.Decisions) {
+			var decision by rememberSaveable { mutableStateOf("") }
+			OutlinedTextField(decision, { decision = it }, label = { Text(stringResource(R.string.ai_manual_decision)) })
+			TextButton(enabled = decision.isNotBlank() && !speech.busy, onClick = { speech.reviseDecision(file, transcript, null, decision.trim()); decision = "" }) { Text(stringResource(R.string.done)) }
+		}
 		if (!speech.canAnalyze()) { Text(stringResource(R.string.meeting_needs_connection)); ConnectionPanel(speech) }
-		Button(onClick = { confirm = true }, enabled = speech.canAnalyze() && !speech.busy && passages.isNotEmpty()) { Text(stringResource(R.string.meeting_generate)) }
+		Button(onClick = { confirm = true }, enabled = speech.canAnalyze() && !speech.busy && passages.isNotEmpty() && (!contextMenu || summary.isNotBlank())) { Text(stringResource(R.string.meeting_generate)) }
 		if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(tool.label)) }, text = {
 			Column {
-				Text(stringResource(R.string.meeting_disclose, speech.base, speech.chatModel))
+				Text(stringResource(if (contextMenu) R.string.ai_outline_disclose else R.string.meeting_disclose, speech.textDestination, speech.chatModel))
+				if (tool == MeetingTool.Summary && speech.summaryNotes) Text(stringResource(R.string.ai_use_agenda))
 				Text(stringResource(R.string.receipt_requests, meetingBatches(tool, passages).size))
 				FilterChip(selected = mask, onClick = { mask = !mask }, label = { Text(stringResource(R.string.mask_contacts)) })
 			}
@@ -129,6 +145,8 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 		if (speech.error != 0) Text(if (speech.error == R.string.http_error) stringResource(speech.error, speech.httpStatus) else stringResource(speech.error))
 		result?.let { output ->
 			if (output.points.isNotEmpty() && passages.isNotEmpty()) ExportMeetingResult(file, tool, output, passages)
+			if (tool == MeetingTool.Summary) SummaryVersions(notes, speech.revision)
+			if (tool == MeetingTool.Cleanup || tool == MeetingTool.Translation) DiscardAction { speech.discardResult(file, transcript, tool, option) }
 			if (output.option.isNotEmpty()) Text(output.option, style = MaterialTheme.typography.labelLarge)
 			if (output.points.isEmpty()) Text(stringResource(R.string.meeting_no_items))
 			val groups = if (tool == MeetingTool.Outline) output.points.groupBy { it.group } else mapOf("" to output.points)
@@ -226,6 +244,7 @@ private fun FollowUpDraft(file: File, transcript: String, notes: MeetingNotes, t
 	var confirm by rememberSaveable { mutableStateOf(false) }
 	AlertDialog(onDismissRequest = { open = false }, title = { Text(stringResource(R.string.prompt_follow_up)) }, text = {
 		Column(Modifier.verticalScroll(rememberScrollState())) {
+			if (saved != null) DiscardAction { speech.discardResult(file, transcript, null, ""); open = false }
 			if (saved != null && saved?.second != digest) Text(stringResource(R.string.meeting_draft_stale))
 			OutlinedTextField(draft, { draft = it }, minLines = 3)
 			OutlinedTextField(instructions, { instructions = it }, label = { Text(stringResource(R.string.meeting_format)) })
@@ -239,7 +258,7 @@ private fun FollowUpDraft(file: File, transcript: String, notes: MeetingNotes, t
 		}
 	}, confirmButton = { TextButton(enabled = draft.isNotBlank() && !speech.busy, onClick = { speech.editDraft(file, transcript, draft, saved?.second ?: digest); open = false }) { Text(stringResource(R.string.done)) } },
 		dismissButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.cancel)) } })
-	if (confirm) AlertDialog(onDismissRequest = { confirm = false }, text = { Text(stringResource(R.string.meeting_draft_disclose, speech.base, speech.chatModel, tasks.size)) },
+	if (confirm) AlertDialog(onDismissRequest = { confirm = false }, text = { Text(stringResource(R.string.meeting_draft_disclose, speech.textDestination, speech.chatModel, tasks.size)) },
 		confirmButton = { TextButton(onClick = { confirm = false; speech.followUp(file, transcript, material, instructions) }) { Text(stringResource(R.string.meeting_generate)) } },
 		dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } })
 }

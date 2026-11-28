@@ -24,6 +24,8 @@ internal fun SpeechConnection.profileId(): String {
 	val fields = mutableListOf<Any>(base, model, chatModel, protocol.name, vocabulary, segmentSeconds, concurrentRequests, skipSilence, key)
 	// Existing saved consents remain valid when the new options are left at their defaults.
 	if (effort.isNotEmpty() || speakerLabels) { fields += effort; fields += speakerLabels }
+	if (correctLive || summaryNotes || retrySegments || defaultSummary.isNotBlank()) fields.addAll(listOf(correctLive, summaryNotes, retrySegments, defaultSummary))
+	if (separateText) fields.addAll(listOf(textBase, textKey, textGemini))
 	return transcriptDigest(fields.joinToString("\u0000")).toHexString()
 }
 
@@ -59,10 +61,12 @@ class AutoTranscriptWorker(context: Context, params: WorkerParameters) : Corouti
 				check(prefs.edit().putString("transcribed/$name", plan).commit())
 			}
 			val text = readTranscript(file)
-			val promptText = if (prefs.getBoolean("mask", false)) maskIdentifiers(text) else text
+			val notes = if (speech.summaryNotes) withContext(Dispatchers.Main) { library.catalog.value(file, "notes") } else ""
+			val material = if (notes.isBlank()) text else "Transcript:\n$text\nAgenda (context only):\n$notes"
+			val promptText = if (prefs.getBoolean("mask", false)) maskIdentifiers(material) else material
 			if (allowed() && prefs.getBoolean("summary", false) && speech.chatModel.isNotBlank()) {
 				val target = summaryFile(file, text)
-				if (!target.isFile) writeSidecar(target, speech.textCompletion(promptText, "Write a factual summary and action items in the transcript's language."))
+				if (!target.isFile) writeSidecar(target, speech.textCompletion(promptText, "Summarize only the recorded facts in the language of the transcript. Format: " + speech.defaultSummary))
 			}
 			if (allowed() && prefs.getBoolean("title", false) && speech.chatModel.isNotBlank() && withContext(Dispatchers.Main) { library.catalog.value(file, "title").isEmpty() }) {
 				val title = speech.textCompletion(promptText, "Return one short descriptive title in the language of this recording.").lineSequence().first().take(120)
@@ -106,7 +110,8 @@ internal fun AutoPanel(speech: SpeechConnection) {
 		Column {
 			Text(stringResource(R.string.auto_disclosure, speech.base, speech.model))
 			FilterChip(selected = wifi, onClick = { wifi = !wifi }, label = { Text(stringResource(R.string.wifi_only)) })
-			if (speech.chatModel.isNotBlank()) {
+			if (speech.canAnalyze()) {
+				Text(speech.textDestination)
 				FilterChip(selected = summary, onClick = { summary = !summary }, label = { Text(stringResource(R.string.auto_summary, speech.chatModel)) })
 				FilterChip(selected = mask, onClick = { mask = !mask }, label = { Text(stringResource(R.string.mask_contacts)) })
 				FilterChip(selected = title, onClick = { title = !title }, label = { Text(stringResource(R.string.auto_title, speech.chatModel)) })

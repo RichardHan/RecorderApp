@@ -94,16 +94,29 @@ internal class MeetingNotes(private val recording: File, transcript: String) {
 	private fun resultKey(tool: MeetingTool, option: String) = if (tool == MeetingTool.Translation)
 		tool.name + "-" + transcriptDigest(option).toHexString() else tool.name
 
+	fun summaries(): List<File> {
+		val prefix = recording.name + "." + digest + ".Summary."
+		return recording.parentFile?.listFiles().orEmpty().filter { it.name.startsWith(prefix) && it.name.endsWith(".meeting") }.sortedByDescending { it.name }
+	}
+	fun discard(tool: MeetingTool, option: String) { val f = target(resultKey(tool, option)); check(!f.exists() || f.delete()) }
+	fun discardDraft() { check(!draftFile.exists() || draftFile.delete()) }
+
 	fun save(tool: MeetingTool, result: MeetingOutput) {
 		val rows = JSONArray()
 		for (point in result.points) rows.put(JSONObject().put("text", point.text).put("source", point.source)
 			.put("group", point.group).put("quote", point.quote))
-		writeSidecar(target(resultKey(tool, result.option)), JSONObject().put("option", result.option).put("points", rows).toString())
+		val target = target(resultKey(tool, result.option))
+		if (tool == MeetingTool.Summary && target.exists()) writeSidecar(target("Summary." + System.currentTimeMillis() + "-" + java.util.UUID.randomUUID()), target.readText())
+		writeSidecar(target, JSONObject().put("option", result.option).put("points", rows).toString())
 	}
 
 	fun read(tool: MeetingTool, option: String = ""): MeetingOutput? {
 		val file = target(resultKey(tool, option))
 		if (!file.isFile) return null
+		return readOutput(file)
+	}
+
+	fun readOutput(file: File): MeetingOutput {
 		val doc = JSONObject(file.readText())
 		val rows = doc.getJSONArray("points")
 		return MeetingOutput((0 until rows.length()).map { i ->

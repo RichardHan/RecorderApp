@@ -142,13 +142,16 @@ class LocalServiceTest {
 		val rows = """[{"text":"Result one","source":1,"quote":"agreed","group":"Topic"},{"text":"Result two","source":2,"quote":"draft","group":"Topic"}]"""
 		fun response(body: String) = JSONObject().put("choices", org.json.JSONArray().put(JSONObject().put("message", JSONObject().put("content", body)))).toString()
 		for (tool in MeetingTool.entries) {
-			val answer = if (tool == MeetingTool.Title) """[{"text":"Review","source":1,"quote":"agreed"}]""" else rows
+			val answer = if (tool == MeetingTool.Title) """[{"text":"Review","source":1,"quote":"agreed"}]""" else if (tool == MeetingTool.Outline) rows.replace("agreed", "Result one").replace("draft", "Result two") else rows
 			reply(200, response(answer))
 			complete { speech.generateMeetingNotes(audio, text, tool, "English", "English", false) }
 			assertEquals(tool.name, 0, speech.error)
 			val body = nextRequest().body.readUtf8()
 			assertTrue(body.contains("notes-mock"))
-			assertTrue(body.contains("[2] Send the draft."))
+			if (tool == MeetingTool.Outline) {
+				assertTrue(body.contains("[2] Result two"))
+				assertFalse(body.contains("Send the draft."))
+			} else assertTrue(body.contains("[2] Send the draft."))
 			assertFalse(body.contains("synthetic audio bytes"))
 			val result = requireNotNull(notes.read(tool, "English"))
 			assertEquals(0, result.points.first().source)

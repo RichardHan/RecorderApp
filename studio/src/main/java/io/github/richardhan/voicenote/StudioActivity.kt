@@ -45,7 +45,7 @@ class StudioActivity : ComponentActivity() {
 		setContent {
 			StudioTheme { appearance, dark, choose ->
 				var approveSharing by rememberSaveable { mutableStateOf(false) }
-				var liveCloud by rememberSaveable { mutableStateOf(false) }
+				var liveCloud by rememberSaveable(speech.defaultCloud) { mutableStateOf(speech.defaultCloud) }
 				var localOnly by rememberSaveable { mutableStateOf(false) }
 				var approvedCloud by rememberSaveable { mutableStateOf<String?>(null) }
 				val canLiveCloud = speech.protocol != SpeechProtocol.Multipart && speech.hasSavedConnection && speech.savedProfile == speech.profileId()
@@ -74,6 +74,7 @@ class StudioActivity : ComponentActivity() {
 				if (approveSharing) AlertDialog(onDismissRequest = { approveSharing = false }, text = {
 					Column {
 						if (useCloud) Text(stringResource(R.string.live_cloud_confirm, speech.base, speech.model))
+						if (useCloud && speech.correctLive) Text(stringResource(R.string.ai_correction_destination, speech.textDestination))
 						if (slackPrefs().getBoolean("live", false)) Text(stringResource(R.string.slack_session))
 					}
 				},

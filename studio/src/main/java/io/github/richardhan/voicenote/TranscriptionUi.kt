@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import java.io.File
@@ -42,7 +43,9 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 				}
 				if (speech.custom) OutlinedTextField(speech.base, speech::changeBase, singleLine = true,
 					label = { Text(stringResource(R.string.base)) })
-				OutlinedTextField(speech.key, { speech.key = it }, singleLine = true, visualTransformation = PasswordVisualTransformation(),
+				var reveal by remember { mutableStateOf(false) }
+				FilterChip(selected = reveal, onClick = { reveal = !reveal }, label = { Text(stringResource(R.string.ai_show_key)) })
+				OutlinedTextField(speech.key, { speech.key = it }, singleLine = true, visualTransformation = if (reveal) VisualTransformation.None else PasswordVisualTransformation(),
 					label = { Text(stringResource(R.string.key)) })
 				OutlinedTextField(speech.model, { speech.model = it }, singleLine = true, label = { Text(stringResource(R.string.model_id)) })
 				if (speech.protocol != SpeechProtocol.Multipart) {
@@ -57,6 +60,12 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 					for (id in listOf("gemini-4-hydrogen", "gemini-3.8-flash", "gemini-3.5-transcribe")) {
 						TextButton(onClick = { speech.model = id }) { Text(id) }
 					}
+				}
+				FilterChip(selected = speech.separateText, onClick = { speech.separateText = !speech.separateText }, label = { Text(stringResource(R.string.ai_separate)) })
+				if (speech.separateText) {
+					OutlinedTextField(speech.textBase, speech::setTextAddress, singleLine = true, label = { Text(stringResource(R.string.ai_text_endpoint)) })
+					OutlinedTextField(speech.textKey, { speech.textKey = it }, singleLine = true, visualTransformation = if (reveal) VisualTransformation.None else PasswordVisualTransformation(), label = { Text(stringResource(R.string.ai_text_key)) })
+					FilterChip(selected = speech.textGemini, onClick = { speech.textGemini = !speech.textGemini }, label = { Text("Gemini") })
 				}
 				OutlinedTextField(speech.chatModel, { speech.chatModel = it }, singleLine = true, label = { Text(stringResource(R.string.chat_model)) })
 				FlowRow {
@@ -82,7 +91,19 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 				}, isError = inputRate.isNotBlank() && reportedCostUsd(inputRate) == null,
 					label = { Text(stringResource(R.string.meeting_model_price)) }, singleLine = true)
 
-				TextButton(enabled = !speech.busy && speech.valid(), onClick = { speech.saveConnection() }) { Text(stringResource(R.string.save_connection)) }
+				TextButton(enabled = !speech.busy && speech.canSave(), onClick = { speech.saveConnection() }) { Text(stringResource(R.string.save_connection)) }
+				var probe by remember { mutableStateOf<Boolean?>(null) }
+				for (summary in listOf(false, true)) TextButton(enabled = !speech.busy && speech.hasSavedConnection && speech.savedProfile == speech.profileId() && (if (summary) speech.canAnalyze() else speech.valid()), onClick = { probe = summary }) {
+					Text(stringResource(if (summary) R.string.ai_test_summary else R.string.ai_test_transcribe))
+				}
+				probe?.let { summary ->
+					AlertDialog(onDismissRequest = { probe = null }, text = { Text(stringResource(R.string.ai_probe_notice, if (summary) speech.textDestination else speech.base, if (summary) speech.chatModel else speech.model)) },
+						confirmButton = { TextButton(onClick = { probe = null; speech.probe(summary) }) { Text(stringResource(R.string.ai_test)) } },
+						dismissButton = { TextButton(onClick = { probe = null }) { Text(stringResource(R.string.cancel)) } })
+				}
+				if (speech.probeResult.isNotEmpty()) Text(speech.probeResult)
+				if (speech.busy) TextButton(onClick = speech::cancel) { Text(stringResource(R.string.cancel)) }
+				AdvancedAiSettings(speech)
 				AutoPanel(speech)
 				if (speech.hasSavedConnection) TextButton(enabled = !speech.busy, onClick = { speech.forgetConnection() }) { Text(stringResource(R.string.forget_connection)) }
 				if (!speech.custom) {
@@ -143,7 +164,7 @@ internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConn
 		SelectionContainer { Text(saved.text) }
 		TranscriptDocuments(file, saved.text)
 		SlackShare(file, saved.text)
-		TranscriptHistory(file, saved.text, speech.revision)
+		TranscriptHistory(file, saved.text, speech.revision, speech)
 		TranscriptTools(file, saved.text, speech)
 		TranscriptTimeline(file, speech.revision)
 		TranscriptChat(file, saved.text, speech)

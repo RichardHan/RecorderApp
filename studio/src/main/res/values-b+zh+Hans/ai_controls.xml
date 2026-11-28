@@ -1,0 +1,36 @@
+<resources>
+	<string name="ai_show_key">显示已存密钥</string>
+	<string name="ai_separate">单独设置摘要与问答服务</string>
+	<string name="ai_text_endpoint">文本服务网址</string>
+	<string name="ai_text_key">文本服务密钥</string>
+	<string name="ai_test_summary">测试摘要连接</string>
+	<string name="ai_test_transcribe">用文本测试转录服务</string>
+	<string name="ai_probe_notice">要将一条测试文本发送到 %1$s 使用 %2$s 吗？可能产生费用。</string>
+	<string name="ai_test">测试一次</string>
+	<string name="ai_ready">允许录音中切换 AI（16 kHz WAV）</string>
+	<string name="ai_correction_destination">将实时文本发送到 %1$s 校正</string>
+	<string name="ai_advanced">录音 AI 偏好</string>
+	<string name="ai_live_interval">实时云端转录间隔</string>
+	<string name="ai_overlap">音频重叠秒数</string>
+	<string name="ai_first">首次要点延迟</string>
+	<string name="ai_cloud_default">开始录音时提示实时云端</string>
+	<string name="ai_warn">标记异常长的转录段落</string>
+	<string name="ai_retry_segments">暂时失败的分段最多重试三次（可能额外收费）</string>
+	<string name="ai_use_agenda">摘要请求附上会议笔记</string>
+	<string name="ai_custom_summary">自定义摘要格式</string>
+	<string name="ai_left">左侧版本</string>
+	<string name="ai_right">右侧版本</string>
+	<string name="ai_summary_version">摘要所选历史版本</string>
+	<string name="ai_summary_history">摘要版本记录</string>
+	<string name="ai_discard_result">删除这份已存结果？</string>
+	<string name="ai_outline_disclose">要将已存摘要发送到 %1$s，使用 %2$s 整理大纲吗？可能产生费用。</string>
+	<string name="ai_local_outline">根据已存摘要生成的本地大纲</string>
+	<string name="ai_need_summary">请先生成摘要，再整理大纲。</string>
+	<string name="ai_decision_format">决议与待办</string>
+	<string name="ai_open_questions">要点与未决问题</string>
+	<string name="ai_manual_decision">手动新增决议</string>
+	<string name="ai_slack_start">录音开始通知</string>
+	<string name="ai_slack_recap">发送最终摘要或实时要点回顾</string>
+	<string name="ai_slack_interval">每 %1$d 分钟发送新要点</string>
+	<string name="ai_slack_test">发送一条测试消息到已设置的频道？</string>
+</resources>

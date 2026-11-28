@@ -21,7 +21,12 @@ internal class LiveCapture(private val temp: File) {
 		private set
 	private var source: AudioRecord? = null
 	private var writer: Thread? = null
-	private val reader = RandomAccessFile(temp, "r")
+	internal data class Input(val startByte: Long, val service: SpeechConnection?)
+	@Volatile private var localInput: Input? = null
+	@Volatile private var cloudInput: Input? = null
+	fun switchLocal(on: Boolean) { localInput = if (on) Input(written, null) else null }
+	fun switchCloud(service: SpeechConnection?) { cloudInput = service?.let { Input(written, it) } }
+	fun reader() = RandomAccessFile(temp, "r")
 	val published = CompletableDeferred<Boolean>()
 
 	@SuppressLint("MissingPermission")
@@ -80,41 +85,82 @@ internal class LiveCapture(private val temp: File) {
 	fun abort() {
 		published.complete(false)
 		runCatching { stop() }
-		reader.close()
 	}
 
-	suspend fun recognize(models: OfflineSpeechModels, cloud: SpeechConnection?, target: File, onText: suspend (String) -> Unit) {
-		reader.use { input ->
-			val recognizer = if (cloud == null) models.recognizer() else null
+	suspend fun recognize(input: RandomAccessFile, models: OfflineSpeechModels, cloud: Boolean, target: File,
+		onText: suspend (String) -> Unit, onFailure: suspend () -> Unit) {
+		input.use {
+			var decoder: SpeechDecoder? = null
+			var active: Input? = null
+			var offset = 0L
+			val lines = mutableListOf<String>()
+			val segments = JSONArray()
+			val startedAt = android.os.SystemClock.elapsedRealtime()
+			var label = ""
+			var requests = 0
+			fun mode() = if (cloud) cloudInput else localInput
 			try {
-				val segments = JSONArray()
-				val lines = mutableListOf<String>()
-				val startTime = android.os.SystemClock.elapsedRealtime()
-				val chunk = 8 * 32000
-				var offset = 0L
 				while (true) {
 					currentCoroutineContext().ensureActive()
-					val remaining = written - offset
 					val finished = !running && writer?.isAlive != true
+					val enabled = mode()
+					if (enabled == null) {
+						active = null
+						decoder?.close(); decoder = null
+						if (finished) break
+						delay(160); continue
+					}
+					if (active !== enabled) { active = enabled; offset = enabled.startByte }
+					val service = enabled.service
+					val chunk = (service?.liveSeconds ?: 8) * 32000L
+					val remaining = written - offset
 					if (finished && remaining == 0L) break
-					if (remaining < chunk && !finished) { delay(200); continue }
-					val bytes = ByteArray(minOf(remaining, chunk.toLong()).toInt())
-					input.seek(44 + offset)
+					if (remaining < chunk && !finished) { delay(160); continue }
+					val overlap = minOf(offset - enabled.startByte, (service?.overlapSeconds ?: 0) * 32000L)
+					val count = minOf(remaining, chunk)
+					val bytes = ByteArray((count + overlap).toInt())
+					input.seek(44 + offset - overlap)
 					input.readFully(bytes)
 					val shorts = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
 					val samples = FloatArray(bytes.size / 2) { shorts.get() / 32768f }
-					val text = if (cloud == null) requireNotNull(recognizer).words(samples) else cloud.liveWords(samples, lines.lastOrNull().orEmpty())
 					val start = offset / 32000.0
-					offset += bytes.size
-					if (text.isNotBlank()) {
+					offset += count
+					try {
+						if (mode() !== enabled) continue
+						val text = if (service == null) {
+							val recognizer = decoder ?: models.recognizer().also { decoder = it }
+							label = models.selected.label
+							recognizer.words(samples)
+						} else {
+							label = service.model
+							requests++
+							val previous = lines.lastOrNull().orEmpty()
+							val raw = service.liveWords(samples, previous)
+							if (overlap == 0L) raw else trimOverlap(previous, raw)
+						}
+						if (mode() !== enabled || text.isBlank()) continue
 						lines.add(text)
 						segments.put(JSONObject().put("start", start).put("end", offset / 32000.0).put("text", text))
 						onText(text)
-					}
+						if (service != null && service.correctLive && service.canAnalyze() && mode() === enabled) {
+							val corrected = service.textCompletion(text, "Correct transcription punctuation and obvious spelling only. Keep all languages and the same words where uncertain.")
+							if (mode() === enabled && corrected.isNotBlank()) {
+								lines[lines.lastIndex] = corrected
+								segments.getJSONObject(segments.length() - 1).put("text", corrected)
+							}
+						}
+					} catch (e: CancellationException) { throw e }
+					catch (_: Exception) { onFailure() }
 				}
 				if (published.await() && !failed && lines.isNotEmpty()) saveTranscription(target, lines.joinToString("\n"),
-					TranscriptionReceipt(cloud?.model ?: (models.selected.label + " · live"), android.os.SystemClock.elapsedRealtime() - startTime, if (cloud == null) "0" else null), segments)
-			} finally { recognizer?.close() }
+					TranscriptionReceipt("$label · live", android.os.SystemClock.elapsedRealtime() - startedAt, if (cloud) null else "0", requests = requests), segments)
+			} finally { decoder?.close() }
 		}
 	}
+}
+
+internal fun trimOverlap(previous: String, next: String): String {
+	val max = minOf(previous.length, next.length, 400)
+	for (n in max downTo 3) if (previous.endsWith(next.take(n), ignoreCase = true)) return next.drop(n).trimStart()
+	return next
 }
