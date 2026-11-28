@@ -54,7 +54,7 @@ internal fun exportTranscripts(out: OutputStream, recordings: List<File>) {
 }
 
 @Composable
-internal fun LibraryReview(library: RecordingLibrary, speech: SpeechConnection, revision: Int) {
+internal fun LibraryReview(library: RecordingLibrary, speech: SpeechConnection, revision: Int, candidates: List<File>? = null) {
 	val context = LocalContext.current
 	val scope = rememberCoroutineScope()
 	var open by rememberSaveable { mutableStateOf(false) }
@@ -63,7 +63,7 @@ internal fun LibraryReview(library: RecordingLibrary, speech: SpeechConnection, 
 	var failed by remember { mutableStateOf(false) }
 	val archive = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
 		if (uri != null) {
-			val files = library.files.filter { it.name in selection }
+			val files = (candidates ?: library.files).filter { it in library.files && it.name in selection }
 			scope.launch {
 				try { withContext(Dispatchers.IO) { exportTranscripts(requireNotNull(context.contentResolver.openOutputStream(uri, "wt")), files) } }
 				catch (e: CancellationException) { throw e }
@@ -71,9 +71,10 @@ internal fun LibraryReview(library: RecordingLibrary, speech: SpeechConnection, 
 			}
 		}
 	}
-	TextButton(onClick = { open = true; combined = "" }) { Text(stringResource(R.string.library_review)) }
+	TextButton(onClick = { open = true; combined = "" }) { Text(stringResource(if (candidates == null) R.string.library_review else R.string.ask_selected)) }
 	if (!open) return
-	val files = library.files
+	var days by rememberSaveable { mutableIntStateOf(0) }
+	val files = (candidates ?: library.files).filter { it in library.files && (days == 0 || it.lastModified() >= System.currentTimeMillis() - days * 86400000L) }
 	val receipts by produceState(emptyMap<File, SavedTranscript>(), files, revision) {
 		value = withContext(Dispatchers.IO) { files.mapNotNull { file ->
 			val saved = loadSavedTranscript(file)
@@ -96,7 +97,12 @@ internal fun LibraryReview(library: RecordingLibrary, speech: SpeechConnection, 
 	val battery = context.getSystemService(BatteryManager::class.java)?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
 	AlertDialog(onDismissRequest = { open = false }, title = { Text(stringResource(R.string.library_review)) }, text = {
 		Column(Modifier.verticalScroll(rememberScrollState())) {
+			FlowRow { for (n in listOf(0,7,30)) FilterChip(selected = days == n, onClick = { days = n; combined = ""; selection = arrayListOf() }, label = { Text(if (n == 0) stringResource(R.string.ai_all_dates) else stringResource(R.string.ai_days, n)) }) }
 			Text(stats)
+			val recap = reviews.entries.joinToString("\n\n") { (file, data) ->
+				listOf(library.catalog.title(file), data.first, data.second.joinToString("\n") { "☐ " + it.text }).filter(String::isNotBlank).joinToString("\n")
+			}
+			TextButton(enabled = recap.isNotBlank(), onClick = { context.getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(android.content.ClipData.newPlainText("", recap)) }) { Text(stringResource(R.string.ai_copy_review)) }
 			if (known.isNotEmpty()) Text(stringResource(R.string.reported_total, known.sumOf { it }.toPlainString(), known.size))
 			if (battery != null && battery in 0..100) Text(stringResource(R.string.device_stats, context.filesDir.usableSpace / 1048576, battery))
 			TextButton(enabled = receipts.isNotEmpty(), onClick = { selection = ArrayList(receipts.keys.map { it.name }); archive.launch("studio-transcripts.zip") }) { Text(stringResource(R.string.ai_export_all)) }
@@ -120,9 +126,13 @@ internal fun LibraryReview(library: RecordingLibrary, speech: SpeechConnection, 
 					val sources = selected.keys.associateWith { library.catalog.title(it) }
 					scope.launch {
 						combined = withContext(Dispatchers.IO) {
-							sources.entries.joinToString("\n\n") { (file, name) ->
-								transcriptPassages(readTranscript(file)).joinToString("\n") { "$name · $it" }
-							}
+							val quota = 30000 / sources.size.coerceAtLeast(1)
+							sources.entries.mapIndexed { index, (file, name) ->
+								val words = readTranscript(file)
+								val prefix = "#${index + 1} $name"
+								val material = words.take(quota)
+								transcriptPassages(material).joinToString("\n") { "$prefix · $it" } + if (words.length > quota) "\n[…]" else ""
+							}.joinToString("\n\n")
 						}
 					}
 				}) { Text(stringResource(R.string.ask_selected)) }
@@ -134,4 +144,20 @@ internal fun LibraryReview(library: RecordingLibrary, speech: SpeechConnection, 
 			if (failed) Text(stringResource(R.string.document_error))
 		}
 	}, confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.done)) } })
+}
+
+@Composable
+internal fun AiRecordingStatus(file: File, revision: Int) {
+	val flags by produceState(Triple(false, false, 0), file, revision) {
+		value = withContext(Dispatchers.IO) {
+			val text = readTranscript(file)
+			val notes = MeetingNotes(file, text)
+			Triple(text.isNotBlank(), notes.read(MeetingTool.Summary) != null || summaryFile(file,text).exists(), notes.tasks().count { !it.done })
+		}
+	}
+	val labels = mutableListOf<String>()
+	if (flags.first) labels.add(stringResource(R.string.transcript))
+	if (flags.second) labels.add(stringResource(R.string.meeting_summary))
+	if (flags.third > 0) labels.add(stringResource(R.string.meeting_actions) + " · " + flags.third)
+	if (labels.isNotEmpty()) Text(labels.joinToString(" / "), style = MaterialTheme.typography.labelMedium)
 }

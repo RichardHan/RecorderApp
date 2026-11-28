@@ -65,6 +65,7 @@ internal fun UsagePanel() {
 	val months = usage.months()
 	var month by remember { mutableStateOf(months.firstOrNull() ?: YearMonth.now().toString()) }
 	var choose by remember { mutableStateOf(false) }
+	val library = (context.applicationContext as StudioApplication).library
 	val row = if (month == "30") usage.last30() else usage.row(month)
 	AlertDialog(onDismissRequest = { open = false }, title = { Text(stringResource(R.string.meeting_usage)) }, text = {
 		Column {
@@ -79,6 +80,18 @@ internal fun UsagePanel() {
 			if (row.has("estimated")) Text(stringResource(R.string.ai_estimated_usage, row.getString("estimated"), row.getInt("priced")))
 			row.optJSONObject("models")?.let { models -> for (id in models.keys()) Text("$id · " + models.getInt(id)) }
 			if (row.has("cost")) Text(stringResource(R.string.meeting_known_cost, row.getString("cost")))
+			val periodFiles = library.files.filter { file ->
+				val day = java.time.Instant.ofEpochMilli(file.lastModified()).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+				if (month == "30") !day.isBefore(java.time.LocalDate.now().minusDays(29)) else YearMonth.from(day).toString() == month
+			}
+			val drain = periodFiles.mapNotNull { file ->
+				if (library.catalog.value(file, "charged") != "false") return@mapNotNull null
+				val start = library.catalog.value(file, "startBattery").toIntOrNull() ?: return@mapNotNull null
+				val end = library.catalog.value(file, "battery").toIntOrNull() ?: return@mapNotNull null
+				(start - end).coerceAtLeast(0)
+			}
+			if (drain.isNotEmpty()) Text(stringResource(R.string.ai_battery, drain.sum(), drain.size))
+			Text(stringResource(R.string.ai_storage, context.filesDir.usableSpace / 1048576, context.filesDir.totalSpace / 1048576))
 			Text(stringResource(R.string.meeting_usage_coverage, row.optInt("withTokens"), row.optInt("withCost")))
 		}
 	}, confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.done)) } })

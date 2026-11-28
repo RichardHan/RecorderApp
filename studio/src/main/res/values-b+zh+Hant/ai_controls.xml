@@ -43,4 +43,17 @@
 	<string name="ai_io_tokens">Token · 輸入 %1$s · 輸出 %2$s</string>
 	<string name="ai_estimated_usage">已設定單價的 %2$d 筆請求估算 USD %1$s</string>
 	<string name="ai_output_rate">每百萬輸出 token 美元單價（選填）</string>
+	<string name="ai_days">最近 %1$d 天</string>
+	<string name="ai_all_dates">全部日期</string>
+	<string name="ai_copy_review">複製錄音回顧</string>
+	<string name="ai_highlight_prompt">即時重點提示詞</string>
+	<string name="ai_restore_prompt">還原預設提示詞</string>
+	<string name="ai_cloud_first">首次重點須等候雲端逐字稿</string>
+	<string name="ai_reuse">沿用轉錄金鑰</string>
+	<string name="ai_reuse_notice">要將轉錄金鑰用於 %1$s 的文字請求嗎？</string>
+	<string name="ai_battery">錄音估計耗電 · %2$d 段共 %1$d%%</string>
+	<string name="ai_storage">可用空間 · %1$d／%2$d MiB</string>
+	<string name="ai_notify">自動處理完成時通知</string>
+	<string name="ai_title_needs_summary">先儲存摘要，即可建議標題。</string>
+	<string name="ai_summary_title">使用這個摘要標題</string>
 </resources>

@@ -43,4 +43,17 @@
 	<string name="ai_io_tokens">トークン · 入力 %1$s · 出力 %2$s</string>
 	<string name="ai_estimated_usage">単価あり %2$d 件の概算 USD %1$s</string>
 	<string name="ai_output_rate">出力 100 万トークンあたりの USD（任意）</string>
+	<string name="ai_days">直近 %1$d 日</string>
+	<string name="ai_all_dates">全期間</string>
+	<string name="ai_copy_review">録音レビューをコピー</string>
+	<string name="ai_highlight_prompt">ライブ要点の指示</string>
+	<string name="ai_restore_prompt">既定の指示に戻す</string>
+	<string name="ai_cloud_first">最初の要点はクラウド文字起こし後に生成</string>
+	<string name="ai_reuse">文字起こしキーを再利用</string>
+	<string name="ai_reuse_notice">文字起こしキーを %1$s のテキスト依頼に使いますか？</string>
+	<string name="ai_battery">録音 %2$d 件の推定消費電力 · %1$d%%</string>
+	<string name="ai_storage">空き容量 · %1$d／%2$d MiB</string>
+	<string name="ai_notify">自動処理の完了を通知</string>
+	<string name="ai_title_needs_summary">先に要約を保存するとタイトルを提案できます。</string>
+	<string name="ai_summary_title">この要約のタイトルを使う</string>
 </resources>

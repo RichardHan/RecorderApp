@@ -88,6 +88,13 @@ internal fun meetingDocument(tool: MeetingTool, result: MeetingOutput, passages:
 	}
 }.trimEnd()
 
+internal val MeetingTool.usesSavedSummary: Boolean
+	get() = this == MeetingTool.Outline || this == MeetingTool.Title
+
+internal fun summaryTitle(text: String): String = text.lineSequence()
+	.map { it.trim().trimStart('#', '-', '*', '•', ' ').trim() }
+	.firstOrNull { it.any(Char::isLetterOrDigit) }.orEmpty().take(120)
+
 internal class MeetingNotes(private val recording: File, transcript: String) {
 	private val digest = transcriptDigest(transcript).toHexString()
 	private fun target(key: String) = File(recording.parentFile, "${recording.name}.$digest.$key.meeting")
@@ -96,7 +103,7 @@ internal class MeetingNotes(private val recording: File, transcript: String) {
 
 	fun summaries(): List<File> {
 		val prefix = recording.name + "." + digest + ".Summary."
-		return recording.parentFile?.listFiles().orEmpty().filter { it.name.startsWith(prefix) && it.name.endsWith(".meeting") }.sortedByDescending { it.name }
+		return recording.parentFile?.listFiles().orEmpty().filter { it != target(MeetingTool.Summary.name) && it.name.startsWith(prefix) && it.name.endsWith(".meeting") }.sortedByDescending { it.name }
 	}
 	fun discard(tool: MeetingTool, option: String) { val f = target(resultKey(tool, option)); check(!f.exists() || f.delete()) }
 	fun discardDraft() { check(!draftFile.exists() || draftFile.delete()) }

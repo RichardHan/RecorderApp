@@ -142,13 +142,13 @@ class LocalServiceTest {
 		val rows = """[{"text":"Result one","source":1,"quote":"agreed","group":"Topic"},{"text":"Result two","source":2,"quote":"draft","group":"Topic"}]"""
 		fun response(body: String) = JSONObject().put("choices", org.json.JSONArray().put(JSONObject().put("message", JSONObject().put("content", body)))).toString()
 		for (tool in MeetingTool.entries) {
-			val answer = if (tool == MeetingTool.Title) """[{"text":"Review","source":1,"quote":"agreed"}]""" else if (tool == MeetingTool.Outline) rows.replace("agreed", "Result one").replace("draft", "Result two") else rows
+			val answer = if (tool == MeetingTool.Title) """[{"text":"Review","source":1,"quote":"Result one"}]""" else if (tool == MeetingTool.Outline) rows.replace("agreed", "Result one").replace("draft", "Result two") else rows
 			reply(200, response(answer))
 			complete { speech.generateMeetingNotes(audio, text, tool, "English", "English", false) }
 			assertEquals(tool.name, 0, speech.error)
 			val body = nextRequest().body.readUtf8()
 			assertTrue(body.contains("notes-mock"))
-			if (tool == MeetingTool.Outline) {
+			if (tool.usesSavedSummary) {
 				assertTrue(body.contains("[2] Result two"))
 				assertFalse(body.contains("Send the draft."))
 			} else assertTrue(body.contains("[2] Send the draft."))
@@ -289,6 +289,37 @@ class LocalServiceTest {
 		assertEquals("One\nSecond", readTranscript(audio))
 		assertEquals(2.0, readTiming(audio)[1].start, 0.0)
 	}
+	@Test fun liveCloudStartsAtConsentAndRevocationStopsFurtherUploads() = runBlocking {
+		val inst = InstrumentationRegistry.getInstrumentation()
+		inst.uiAutomation.grantRuntimePermission(app.packageName, android.Manifest.permission.RECORD_AUDIO)
+		val activity = inst.startActivitySync(android.content.Intent(app, StudioActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+		val pcm = File.createTempFile("consent-", ".wav", app.cacheDir)
+		val live = LiveCapture(pcm)
+		try {
+			val client = SpeechConnection(app, open).apply { protocol = SpeechProtocol.Chat; key = "synthetic"; model = "speech"; liveSeconds = 15 }
+			live.start()
+			withTimeout(6000) { while (pcm.length() < 12000) delay(50) }
+			live.switchCloud(client)
+			val first = pcm.length()
+			live.switchCloud(null)
+			withTimeout(6000) { while (pcm.length() < first + 12000) delay(50) }
+			live.switchCloud(client)
+			val granted = pcm.length()
+			withTimeout(6000) { while (pcm.length() < granted + 10000) delay(50) }
+			live.stop()
+			live.published.complete(true)
+			reply(200, """{"choices":[{"message":{"content":"Approved audio"}}]}""")
+			live.recognize(live.reader(), app.offline, true, audio, {}, { fail("Recognition failed") })
+			val parts = JSONObject(nextRequest().body.readUtf8()).getJSONArray("messages").getJSONObject(0).getJSONArray("content")
+			val bytes = android.util.Base64.decode(parts.getJSONObject(1).getJSONObject("input_audio").getString("data"), android.util.Base64.DEFAULT)
+			assertTrue(bytes.size < pcm.length() - first)
+			assertEquals("Approved audio", readTranscript(audio))
+			live.switchCloud(null)
+			live.recognize(live.reader(), app.offline, true, audio, {}, { fail("Disabled recognition") })
+			assertEquals(1, server.requestCount)
+		} finally { live.abort(); pcm.delete(); inst.runOnMainSync { activity.finish() } }
+	}
+
 	@Test fun geminiRetrySendsOnlyUnfinishedAudioAndUsesTheConfiguredKey() = runBlocking {
 		val wave = File(audio.parentFile, audio.name + ".wav")
 		try {

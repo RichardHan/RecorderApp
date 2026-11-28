@@ -68,12 +68,13 @@ class AutoTranscriptWorker(context: Context, params: WorkerParameters) : Corouti
 				val target = summaryFile(file, text)
 				if (!target.isFile) writeSidecar(target, speech.textCompletion(promptText, "Summarize only the recorded facts in the language of the transcript. Format: " + speech.defaultSummary))
 			}
-			if (allowed() && prefs.getBoolean("title", false) && speech.chatModel.isNotBlank() && withContext(Dispatchers.Main) { library.catalog.value(file, "title").isEmpty() }) {
-				val title = speech.textCompletion(promptText, "Return one short descriptive title in the language of this recording.").lineSequence().first().take(120)
+			val savedSummary = summaryFile(file, text).takeIf(File::isFile)?.readText().orEmpty()
+			if (savedSummary.isNotBlank() && allowed() && prefs.getBoolean("title", false) && speech.chatModel.isNotBlank() && withContext(Dispatchers.Main) { library.catalog.value(file, "title").isEmpty() }) {
+				val title = speech.textCompletion(if (prefs.getBoolean("mask", false)) maskIdentifiers(savedSummary) else savedSummary, "Return one short descriptive title in the language of this recording.").lineSequence().first().take(120)
 				withContext(Dispatchers.Main) { if (library.catalog.value(file, "title").isEmpty()) library.catalog.update(file, "title" to title) }
 			}
 			withContext(Dispatchers.Main) { library.catalog.update(file, "auto" to "done") }
-			if (Build.VERSION.SDK_INT < 33 || app.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+			if (prefs.getBoolean("notify", true) && (Build.VERSION.SDK_INT < 33 || app.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)) {
 				val manager = app.getSystemService(NotificationManager::class.java)
 				manager.createNotificationChannel(NotificationChannel("transcripts", app.getString(R.string.transcript), NotificationManager.IMPORTANCE_DEFAULT))
 				val openStudio = PendingIntent.getActivity(app, 0, Intent(app, StudioActivity::class.java).setAction(OPEN_LIBRARY), PendingIntent.FLAG_IMMUTABLE)
@@ -97,6 +98,7 @@ internal fun AutoPanel(speech: SpeechConnection) {
 	var confirm by remember { mutableStateOf(false) }
 	var wifi by remember { mutableStateOf(prefs.getBoolean("wifi", false)) }
 	var summary by remember { mutableStateOf(prefs.getBoolean("summary", false)) }
+	var notify by remember { mutableStateOf(prefs.getBoolean("notify", true)) }
 	var mask by remember { mutableStateOf(prefs.getBoolean("mask", false)) }
 	var title by remember { mutableStateOf(prefs.getBoolean("title", false)) }
 	TextButton(enabled = enabled || (speech.valid() && speech.hasSavedConnection && speech.savedProfile == speech.profileId()), onClick = {
@@ -109,17 +111,18 @@ internal fun AutoPanel(speech: SpeechConnection) {
 	if (confirm) AlertDialog(onDismissRequest = { confirm = false }, text = {
 		Column {
 			Text(stringResource(R.string.auto_disclosure, speech.base, speech.model))
+			FilterChip(selected = notify, onClick = { notify = !notify }, label = { Text(stringResource(R.string.ai_notify)) })
 			FilterChip(selected = wifi, onClick = { wifi = !wifi }, label = { Text(stringResource(R.string.wifi_only)) })
 			if (speech.canAnalyze()) {
 				Text(speech.textDestination)
-				FilterChip(selected = summary, onClick = { summary = !summary }, label = { Text(stringResource(R.string.auto_summary, speech.chatModel)) })
+				FilterChip(selected = summary, onClick = { summary = !summary; if (!summary) title = false }, label = { Text(stringResource(R.string.auto_summary, speech.chatModel)) })
 				FilterChip(selected = mask, onClick = { mask = !mask }, label = { Text(stringResource(R.string.mask_contacts)) })
-				FilterChip(selected = title, onClick = { title = !title }, label = { Text(stringResource(R.string.auto_title, speech.chatModel)) })
+				FilterChip(enabled = summary, selected = title && summary, onClick = { title = !title }, label = { Text(stringResource(R.string.auto_title, speech.chatModel)) })
 			}
 		}
 	}, confirmButton = { TextButton(onClick = {
 		prefs.edit().putString("consent", UUID.randomUUID().toString()).putString("profile", speech.profileId())
-			.putBoolean("mask", mask).putBoolean("wifi", wifi).putBoolean("summary", summary && speech.chatModel.isNotBlank()).putBoolean("title", title && speech.chatModel.isNotBlank()).apply()
+			.putBoolean("notify", notify).putBoolean("mask", mask).putBoolean("wifi", wifi).putBoolean("summary", summary && speech.chatModel.isNotBlank()).putBoolean("title", summary && title && speech.chatModel.isNotBlank()).apply()
 		enabled = true; confirm = false
 	}) { Text(stringResource(R.string.auto_on)) } }, dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } })
 }

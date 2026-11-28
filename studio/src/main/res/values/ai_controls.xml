@@ -43,4 +43,17 @@
 	<string name="ai_io_tokens">Tokens · input %1$s · output %2$s</string>
 	<string name="ai_estimated_usage">Estimated USD %1$s across %2$d priced requests</string>
 	<string name="ai_output_rate">Output USD per million tokens (optional)</string>
+	<string name="ai_days">Last %1$d days</string>
+	<string name="ai_all_dates">All dates</string>
+	<string name="ai_copy_review">Copy recording review</string>
+	<string name="ai_highlight_prompt">Live highlight instructions</string>
+	<string name="ai_restore_prompt">Restore default instructions</string>
+	<string name="ai_cloud_first">Wait for a cloud transcript before the first highlight</string>
+	<string name="ai_reuse">Reuse transcription key</string>
+	<string name="ai_reuse_notice">Use your transcription key at %1$s for text requests?</string>
+	<string name="ai_battery">Estimated recording drain · %1$d%% across %2$d recordings</string>
+	<string name="ai_storage">Free storage · %1$d of %2$d MiB</string>
+	<string name="ai_notify">Notify when automatic processing finishes</string>
+	<string name="ai_title_needs_summary">Save a summary first to suggest a title.</string>
+	<string name="ai_summary_title">Use this title from the summary</string>
 </resources>

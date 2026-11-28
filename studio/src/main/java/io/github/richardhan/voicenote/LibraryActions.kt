@@ -94,6 +94,7 @@ internal fun RecordingActions(file: File, library: RecordingLibrary) {
 	AlertDialog(onDismissRequest = { open = false }, title = { Text(catalog.title(file)) }, text = {
 		Column(Modifier.verticalScroll(rememberScrollState())) {
 			val free = catalog.value(file, "freeMiB").toLongOrNull()
+			catalog.value(file, "network").takeIf(String::isNotBlank)?.let { Text(it) }
 			val battery = catalog.value(file, "battery").toIntOrNull()
 			if (free != null && battery != null) Text(stringResource(R.string.device_stats, free, battery))
 			catalog.value(file, "location").takeIf { it.isNotBlank() }?.let { Text(it) }

@@ -164,3 +164,11 @@ internal fun trimOverlap(previous: String, next: String): String {
 	for (n in max downTo 3) if (previous.endsWith(next.take(n), ignoreCase = true)) return next.drop(n).trimStart()
 	return next
 }
+
+internal fun repeatedSpeech(text: String): Boolean {
+	val tokens = Regex("""[\p{IsHan}]|[\p{L}\p{N}]+""").findAll(text.lowercase()).map { it.value }.toList()
+	if (tokens.size < 12) return false
+	return (1..minOf(16, tokens.size / 4)).any { period ->
+		(period until tokens.size).count { tokens[it] == tokens[it - period] } >= (tokens.size - period) * 0.9
+	}
+}

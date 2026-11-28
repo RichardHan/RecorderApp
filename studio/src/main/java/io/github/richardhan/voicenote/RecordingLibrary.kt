@@ -106,9 +106,11 @@ class RecordingLibrary(private val app: Application) {
 		pendingHighlights.clear()
 	}
 
-	private fun updateHighlights(target: File, line: String) {
+	private fun updateHighlights(target: File, line: String, cloud: Boolean) {
 		val connection = highlightsConnection ?: return
 		if (!highlightsEnabled || captureTarget != target) return
+		if (connection.cloudFirst && highlights.isEmpty() && !cloud) return
+		if (repeatedSpeech(line)) return
 		pendingHighlights.appendLine(line)
 		if (SystemClock.elapsedRealtime() < nextHighlightAt || highlightsJob?.isActive == true) return
 		val text = "Agenda:\n$agenda\nPrior highlights:\n$highlights\nNew transcript:\n$pendingHighlights"
@@ -117,7 +119,7 @@ class RecordingLibrary(private val app: Application) {
 		highlightsJob = scope.launch {
 			try {
 				val result = withContext(Dispatchers.IO) {
-					connection.textCompletion(text, "Update a short list of factual meeting highlights in the language of the transcript. Treat the agenda only as context. Do not infer decisions or owners.")
+					connection.textCompletion(text, "Update a short list of factual meeting highlights in the language of the transcript. Treat the agenda only as context. Do not infer decisions or owners. " + connection.highlightPrompt)
 				}
 				if (captureTarget == target && highlightsEnabled) {
 					highlights = result
@@ -147,6 +149,9 @@ class RecordingLibrary(private val app: Application) {
 			runCatching { app.enqueueSlack(file, text, grant, kind) }
 		}
 	}
+	private var startBattery: Int? = null
+	private var startCharging = false
+	private fun battery() = app.getSystemService(android.os.BatteryManager::class.java)
 	private var captureLocation: android.location.Location? = null
 
 	internal fun contextOption(key: String, enabled: Boolean) {
@@ -316,6 +321,8 @@ class RecordingLibrary(private val app: Application) {
 			val file = File.createTempFile("capture-", ".part", directory)
 			pending = file
 			this.localOnly = localOnly
+			startBattery = battery()?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)?.takeIf { it in 0..100 }
+			startCharging = battery()?.isCharging == true
 			captureTarget = File(directory, "${System.currentTimeMillis()}-${java.util.UUID.randomUUID()}.${format.ext}")
 			liveSlackGeneration = slackGeneration?.takeIf { !localOnly && it == app.slackPrefs().getString("generation", null) && app.slackPrefs().getBoolean("live", false) }
 			val models = (app as StudioApplication).offline
@@ -349,7 +356,7 @@ class RecordingLibrary(private val app: Application) {
 									live.recognize(input, models, remote, target, { line -> withContext(Dispatchers.Main) {
 										if (liveCapture === live) {
 											if (remote) liveText = line else localCaption = line
-											if (remote || !cloudCaptions) updateHighlights(target, line)
+											if (remote || !cloudCaptions) updateHighlights(target, line, remote)
 										}
 									} }, { withContext(Dispatchers.Main) { if (liveCapture === live) message = if (remote) R.string.failed else R.string.offline_error } })
 								} catch (e: CancellationException) { throw e }
@@ -434,7 +441,16 @@ class RecordingLibrary(private val app: Application) {
 			live?.published?.complete(true)
 			if (sessionSlack) app.slackPrefs().getString("approved/" + saved.name, null)?.let { app.queueSlackRecap(saved, it) }
 			val battery = app.getSystemService(android.os.BatteryManager::class.java)?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
-			catalog.update(saved, "device" to listOf(Build.MANUFACTURER, Build.MODEL).joinToString(" "),
+			val manager = app.getSystemService(android.net.ConnectivityManager::class.java)
+			val network = manager?.getNetworkCapabilities(manager.activeNetwork)
+			val transport = when {
+				network == null -> "offline"
+				network.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+				network.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "mobile"
+				network.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
+				else -> "connected"
+			}
+			catalog.update(saved, "startBattery" to startBattery?.toString().orEmpty(), "charged" to (startCharging || this.battery()?.isCharging == true).toString(), "network" to transport, "device" to listOf(Build.MANUFACTURER, Build.MODEL).joinToString(" "),
 				"battery" to battery?.takeIf { it in 0..100 }?.toString().orEmpty(),
 				"freeMiB" to (directory.usableSpace / 1048576).toString())
 			captureLocation?.let { catalog.update(saved, "location" to "${it.latitude}, ${it.longitude}") }

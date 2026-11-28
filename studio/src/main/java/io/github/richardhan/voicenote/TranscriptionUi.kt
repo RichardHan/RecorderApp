@@ -58,13 +58,18 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 				OutlinedTextField(speech.vocabulary, { speech.vocabulary = it }, label = { Text(stringResource(R.string.vocabulary)) })
 				if (speech.protocol == SpeechProtocol.Chat) FlowRow {
 					for (id in listOf("gemini-4-hydrogen", "gemini-3.8-flash", "gemini-3.5-transcribe")) {
-						TextButton(onClick = { speech.model = id }) { Text(id) }
+						TextButton(onClick = { speech.model = id; speech.speakerLabels = id == "gemini-3.5-transcribe" }) { Text(id) }
 					}
 				}
 				FilterChip(selected = speech.separateText, onClick = { speech.separateText = !speech.separateText }, label = { Text(stringResource(R.string.ai_separate)) })
 				if (speech.separateText) {
 					OutlinedTextField(speech.textBase, speech::setTextAddress, singleLine = true, label = { Text(stringResource(R.string.ai_text_endpoint)) })
 					OutlinedTextField(speech.textKey, { speech.textKey = it }, singleLine = true, visualTransformation = if (reveal) VisualTransformation.None else PasswordVisualTransformation(), label = { Text(stringResource(R.string.ai_text_key)) })
+					var reuse by remember { mutableStateOf(false) }
+					TextButton(enabled = speech.canReuseKey(), onClick = { reuse = true }) { Text(stringResource(R.string.ai_reuse)) }
+					if (reuse) AlertDialog(onDismissRequest = { reuse = false }, text = { Text(stringResource(R.string.ai_reuse_notice, speech.textBase)) },
+						confirmButton = { TextButton(onClick = { reuse = false; speech.reuseKey() }) { Text(stringResource(R.string.ai_reuse)) } },
+						dismissButton = { TextButton(onClick = { reuse = false }) { Text(stringResource(R.string.cancel)) } })
 					FilterChip(selected = speech.textGemini, onClick = { speech.textGemini = !speech.textGemini }, label = { Text("Gemini") })
 				}
 				OutlinedTextField(speech.chatModel, { speech.chatModel = it }, singleLine = true, label = { Text(stringResource(R.string.chat_model)) })

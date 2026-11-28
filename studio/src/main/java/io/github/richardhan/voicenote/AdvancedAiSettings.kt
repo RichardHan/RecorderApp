@@ -24,6 +24,9 @@ internal fun AdvancedAiSettings(speech: SpeechConnection) {
 	SecondsField(R.string.ai_overlap, speech.overlapSeconds, 0..5) { speech.overlapSeconds = it }
 	SecondsField(R.string.meeting_live_highlights, speech.highlightSeconds, 15..600) { speech.highlightSeconds = it }
 	SecondsField(R.string.ai_first, speech.firstHighlightSeconds, 0..600) { speech.firstHighlightSeconds = it }
+	OutlinedTextField(speech.highlightPrompt, { speech.highlightPrompt = it }, label = { Text(stringResource(R.string.ai_highlight_prompt)) })
+	if (speech.highlightPrompt.isNotEmpty()) TextButton(onClick = { speech.highlightPrompt = "" }) { Text(stringResource(R.string.ai_restore_prompt)) }
+	FilterChip(selected = speech.cloudFirst, onClick = { speech.cloudFirst = !speech.cloudFirst }, label = { Text(stringResource(R.string.ai_cloud_first)) })
 	FilterChip(selected = speech.defaultCloud, onClick = { speech.defaultCloud = !speech.defaultCloud }, label = { Text(stringResource(R.string.ai_cloud_default)) })
 	FilterChip(selected = speech.correctLive, onClick = { speech.correctLive = !speech.correctLive }, label = { Text(stringResource(R.string.ai_correction_destination, speech.textDestination)) })
 	FilterChip(selected = speech.compressAudio, onClick = { speech.compressAudio = !speech.compressAudio }, label = { Text(stringResource(R.string.ai_compress)) })

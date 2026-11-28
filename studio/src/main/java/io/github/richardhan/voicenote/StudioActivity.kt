@@ -278,6 +278,7 @@ private fun Studio(
 						}
 						TextButton(onClick = { aiRecording = file.name; aiOpen = true }) { Text(stringResource(R.string.meeting_workspace)) }
 						if (library.playingFile == file) PlaybackControls(library)
+						AiRecordingStatus(file, revision)
 						RecordingActions(file, library)
 						if (file.extension in audioTypes) PhotoActions(library, file, addPhoto)
 						TrimAction(file, library)
@@ -288,8 +289,9 @@ private fun Studio(
 				}
 				hits == null -> item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
 				hits.isEmpty() -> item { Text(stringResource(R.string.no_matches)) }
-				else -> items(hits, key = { it.recording.name }) { hit ->
-					SearchResult(hit) { selectedName = hit.recording.name }
+				else -> {
+					item { LibraryReview(library, speech, revision, hits.map { it.recording }) }
+					items(hits, key = { it.recording.name }) { hit -> SearchResult(hit) { selectedName = hit.recording.name } }
 				}
 			}
 		}

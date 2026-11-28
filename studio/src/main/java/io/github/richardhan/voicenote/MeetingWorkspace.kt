@@ -98,7 +98,7 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 	val summary by produceState("", notes, speech.revision, library.transcriptRevision) { value = withContext(Dispatchers.IO) {
 		notes.read(MeetingTool.Summary)?.points?.joinToString("\n") { it.text } ?: summaryFile(file, transcript).takeIf(File::isFile)?.readText().orEmpty()
 	} }
-	val contextMenu = tool == MeetingTool.Outline
+	val contextMenu = tool.usesSavedSummary
 	val levels = listOf(R.string.meeting_light, R.string.meeting_medium)
 	val option = when (tool) {
 		MeetingTool.Translation -> translation
@@ -124,9 +124,17 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 				label = { Text(stringResource(label)) })
 		}
 		if (tool == MeetingTool.Summary && style == styles.lastIndex) OutlinedTextField(custom, { custom = it }, label = { Text(stringResource(R.string.ai_custom_summary)) })
-		if (contextMenu && result == null) {
+		if (tool == MeetingTool.Outline && result == null) {
 			Text(stringResource(if (summary.isBlank()) R.string.ai_need_summary else R.string.ai_local_outline))
 			for (point in summary.lineSequence().map(String::trim).filter(String::isNotBlank)) Text("• " + point.trimStart('-', '•', ' '))
+		}
+		if (tool == MeetingTool.Title) {
+			val localTitle = summaryTitle(summary)
+			if (localTitle.isEmpty()) Text(stringResource(R.string.ai_title_needs_summary))
+			else {
+				Text(localTitle)
+				TextButton(onClick = { library.catalog.update(file, "title" to localTitle) }) { Text(stringResource(R.string.ai_summary_title)) }
+			}
 		}
 		if (tool == MeetingTool.Decisions) {
 			var decision by rememberSaveable { mutableStateOf("") }
@@ -139,7 +147,7 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 			Column {
 				Text(stringResource(if (contextMenu) R.string.ai_outline_disclose else R.string.meeting_disclose, speech.textDestination, speech.chatModel))
 				if (tool == MeetingTool.Summary && speech.summaryNotes) Text(stringResource(R.string.ai_use_agenda))
-				Text(stringResource(R.string.receipt_requests, meetingBatches(tool, passages).size))
+				Text(stringResource(R.string.receipt_requests, if (contextMenu) 1 else meetingBatches(tool, passages).size))
 				FilterChip(selected = mask, onClick = { mask = !mask }, label = { Text(stringResource(R.string.mask_contacts)) })
 			}
 		}, confirmButton = { TextButton(onClick = { confirm = false; speech.generateMeetingNotes(file, transcript, tool, option, language, mask) }) { Text(stringResource(R.string.meeting_generate)) } },

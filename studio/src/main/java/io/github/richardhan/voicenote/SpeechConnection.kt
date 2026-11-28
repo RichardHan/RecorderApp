@@ -61,6 +61,13 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	internal val textDestination get() = if (separateText) textBase else base
 	private val textSecret get() = if (separateText) textKey else key
 	private val nativeText get() = if (separateText) textGemini else protocol == SpeechProtocol.Gemini
+	internal fun canReuseKey(): Boolean {
+		val audio = endpoint() ?: return false
+		val text = endpoint(textBase) ?: return false
+		fun port(uri: URI) = if (uri.port == -1) 443 else uri.port
+		return key.isNotBlank() && audio.host.equals(text.host, true) && port(audio) == port(text)
+	}
+	internal fun reuseKey() { require(canReuseKey()); textKey = key }
 	internal fun setTextAddress(address: String) {
 		if (address != textBase) { textBase = address; textKey = "" }
 	}
@@ -104,6 +111,8 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	internal var liveSeconds by mutableIntStateOf(60)
 	internal var overlapSeconds by mutableIntStateOf(3)
 	internal var highlightSeconds by mutableIntStateOf(60)
+	internal var highlightPrompt by mutableStateOf("")
+	internal var cloudFirst by mutableStateOf(false)
 	internal var firstHighlightSeconds by mutableIntStateOf(0)
 	internal var correctLive by mutableStateOf(false)
 	internal var warnLength by mutableStateOf(true)
@@ -142,6 +151,8 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 				liveSeconds = it.optInt("liveSeconds", 60).coerceIn(15,600)
 				overlapSeconds = it.optInt("overlap", 3).coerceIn(0,5)
 				highlightSeconds = it.optInt("highlights", 60).coerceIn(15,600)
+				highlightPrompt = it.optString("highlightPrompt")
+				cloudFirst = it.optBoolean("cloudFirst")
 				firstHighlightSeconds = it.optInt("first", 0).coerceIn(0,600)
 				correctLive = it.optBoolean("correctLive")
 				warnLength = it.optBoolean("warnLength", true)
@@ -161,7 +172,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 			.put("separateText", separateText).put("textBase", textBase).put("textKey", textKey).put("textGemini", textGemini)
 			.put("effort", effort).put("speakerLabels", speakerLabels)
 			.put("seconds", segmentSeconds).put("concurrent", concurrentRequests).put("skipSilence", skipSilence)
-		data.put("liveSeconds", liveSeconds).put("overlap", overlapSeconds).put("highlights", highlightSeconds).put("first", firstHighlightSeconds)
+		data.put("highlightPrompt", highlightPrompt).put("cloudFirst",cloudFirst).put("liveSeconds", liveSeconds).put("overlap", overlapSeconds).put("highlights", highlightSeconds).put("first", firstHighlightSeconds)
 			.put("mp3", compressAudio).put("correctLive", correctLive).put("warnLength", warnLength).put("retrySegments", retrySegments)
 			.put("defaultSummary", defaultSummary).put("summaryNotes", summaryNotes).put("defaultCloud", defaultCloud)
 		withContext(Dispatchers.IO) { vault.save(data) }
@@ -254,9 +265,9 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		val complete = textClient()
 		withContext(Dispatchers.IO) {
 			val notes = MeetingNotes(file, transcript)
-			val summaryPoints = if (tool == MeetingTool.Outline) notes.read(MeetingTool.Summary)?.points else null
-			val plainSummary = if (tool == MeetingTool.Outline && summaryPoints.isNullOrEmpty()) summaryFile(file, transcript).takeIf(File::isFile)?.readText().orEmpty() else ""
-			val evidence = if (tool != MeetingTool.Outline) meetingPassages(file, transcript)
+			val summaryPoints = if (tool.usesSavedSummary) notes.read(MeetingTool.Summary)?.points else null
+			val plainSummary = if (tool.usesSavedSummary && summaryPoints.isNullOrEmpty()) summaryFile(file, transcript).takeIf(File::isFile)?.readText().orEmpty() else ""
+			val evidence = if (!tool.usesSavedSummary) meetingPassages(file, transcript)
 				else (summaryPoints?.map { MeetingPassage(it.text, null) }?.takeIf { it.isNotEmpty() } ?: transcriptPassages(plainSummary).map { MeetingPassage(it, null) })
 			require(evidence.isNotEmpty())
 			val agenda = if (summaryNotes && tool == MeetingTool.Summary) withContext(Dispatchers.Main) { (getApplication<Application>() as StudioApplication).library.catalog.value(file, "notes") } else ""
@@ -270,7 +281,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 				val answer = complete(context, meetingInstruction(tool, option, language))
 				points += parseMeetingOutput(tool, answer, batch, option).points.map { point ->
 					val index = point.source?.plus(offset)
-					if (tool == MeetingTool.Outline) {
+					if (tool.usesSavedSummary) {
 						val cited = index?.let { summaryPoints?.getOrNull(it) }
 						point.copy(source = cited?.source, quote = cited?.quote.orEmpty())
 					} else point.copy(source = index)
