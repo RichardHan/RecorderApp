@@ -29,7 +29,7 @@ internal fun TranscriptTools(file: File, text: String, speech: SpeechConnection)
 	var draft by remember(text) { mutableStateOf(text) }
 	var keyword by remember(file) { mutableStateOf("") }
 	val keywords by produceState(emptyList<String>(), text) { value = withContext(Dispatchers.Default) { transcriptKeywords(text) } }
-	val fillers by produceState(emptyList<Pair<String, Int>>(), text) { value = withContext(Dispatchers.Default) { transcriptFillers(text) } }
+	val analysis by produceState(0 to emptyList<Pair<String, Int>>(), text) { value = withContext(Dispatchers.Default) { words.findAll(text).count() to transcriptFillers(text) } }
 	val paceSegments by produceState(emptyList<Pair<TimedText, Int>>(), file, text) {
 		value = withContext(Dispatchers.IO) {
 			readTiming(file).filter { it.end - it.start >= 20 }.mapNotNull { line ->
@@ -50,7 +50,11 @@ internal fun TranscriptTools(file: File, text: String, speech: SpeechConnection)
 	AlertDialog(onDismissRequest = { open = false }, title = { Text(stringResource(R.string.text_tools)) }, text = {
 		Column(Modifier.verticalScroll(rememberScrollState())) {
 			FlowRow { for (word in keywords) TextButton(onClick = { keyword = word }) { Text(word) } }
-			for ((word, count) in fillers) Text(stringResource(R.string.meeting_filler, word, count))
+			val (wordCount, fillers) = analysis
+			if (wordCount > 0) {
+				Text(stringResource(R.string.meeting_word_count, wordCount))
+				for ((word, count) in fillers) Text(stringResource(R.string.meeting_filler, word, count, 1000.0 * count / wordCount))
+			}
 			for ((line, rate) in paceSegments) TextButton(enabled = library.started == 0L, onClick = { context.playRecording(file, (line.start * 1000).toLong()) }) {
 				Text(formatClipTime((line.start * 1000).toInt()) + " · " + stringResource(R.string.speech_pace, rate))
 			}

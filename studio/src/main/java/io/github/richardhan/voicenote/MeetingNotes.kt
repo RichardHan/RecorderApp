@@ -30,6 +30,24 @@ internal fun meetingPassages(file: File, transcript: String): List<MeetingPassag
 	return transcriptPassages(transcript).map { MeetingPassage(it, null) }
 }
 
+internal fun meetingBatches(tool: MeetingTool, passages: List<MeetingPassage>): List<List<MeetingPassage>> {
+	if (tool != MeetingTool.Translation && tool != MeetingTool.Cleanup) return listOf(passages)
+	val batches = mutableListOf<List<MeetingPassage>>()
+	var batch = mutableListOf<MeetingPassage>()
+	var length = 0
+	for (passage in passages) {
+		if (batch.isNotEmpty() && length + passage.text.length > 4000) {
+			batches += batch
+			batch = mutableListOf()
+			length = 0
+		}
+		batch.add(passage)
+		length += passage.text.length
+	}
+	if (batch.isNotEmpty()) batches += batch
+	return batches
+}
+
 internal fun meetingInstruction(tool: MeetingTool, option: String, language: String) =
 	"""Use the numbered passages as quoted evidence. ${tool.instruction}
 		Reply in ${if (tool == MeetingTool.Translation) option else language}. Style: $option.
@@ -54,6 +72,21 @@ internal fun parseMeetingOutput(tool: MeetingTool, raw: String, passages: List<M
 	}
 	return MeetingOutput(points, option)
 }
+
+internal fun meetingDocument(tool: MeetingTool, result: MeetingOutput, passages: List<MeetingPassage>): String = buildString {
+	var previousGroup = ""
+	for (point in result.points) {
+		if (point.group.isNotBlank() && point.group != previousGroup) {
+			appendLine("## " + point.group)
+			previousGroup = point.group
+		}
+		val passage = point.source?.let(passages::getOrNull)
+		passage?.ms?.let { appendLine(formatClipTime(it.toInt())) }
+		if (tool == MeetingTool.Translation && passage != null) appendLine(passage.text)
+		appendLine(point.text)
+		appendLine()
+	}
+}.trimEnd()
 
 internal class MeetingNotes(private val recording: File, transcript: String) {
 	private val digest = transcriptDigest(transcript).toHexString()

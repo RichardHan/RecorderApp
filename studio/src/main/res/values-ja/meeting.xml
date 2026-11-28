@@ -29,7 +29,7 @@
 	<string name="meeting_copy">コピー</string>
 	<string name="meeting_share">下書きを共有</string>
 	<string name="meeting_edit">編集</string>
-	<string name="meeting_filler">フィラー · %1$s × %2$d</string>
+	<string name="meeting_filler">フィラー · %1$s × %2$d · 千語あたり %3$.1f 回</string>
 	<string name="meeting_usage">月別 AI 使用量</string>
 	<string name="meeting_usage_coverage">更新後の成功したリクエストを集計します。トークンの報告は %1$d 件、料金の報告は %2$d 件です。</string>
 	<string name="meeting_agenda">議題と会議メモ</string>
@@ -40,4 +40,14 @@
 	<string name="meeting_draft_stale">元の要約またはタスクが変更されました。</string>
 	<string name="meeting_format">形式の希望</string>
 	<string name="meeting_draft_disclose">要約、タスク %3$d 件、形式の希望を %1$s の %2$s に送信しますか？料金が発生する場合があり、成功時に下書きを置き換えます。</string>
+	<string name="meeting_clear_chat">会話を消去</string>
+	<string name="meeting_clear_confirm">この文字起こしの保存済みの会話を消去しますか？</string>
+	<string name="meeting_chat_size">%1$s · 文脈と最近の会話を含めて約 %2$d 文字。</string>
+	<string name="meeting_chat_cut">全 %2$d 文字のうち、先頭の %1$d 文字を使用します。</string>
+	<string name="meeting_reasoning">推論の強度</string>
+	<string name="meeting_off">オフ</string>
+	<string name="meeting_speaker_labels">録音後の文字起こしで話者の交代を記す</string>
+	<string name="meeting_effective_effort">録音後の文字起こし：%1$s · テキストモデル：%2$s</string>
+	<string name="meeting_export">結果を Markdown で書き出す</string>
+	<string name="meeting_word_count">文字起こしの語数 · %1$d</string>
 </resources>

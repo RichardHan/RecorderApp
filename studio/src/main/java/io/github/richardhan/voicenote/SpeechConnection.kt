@@ -53,6 +53,22 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	}
 
 	var chatModel by mutableStateOf("")
+	internal var effort by mutableStateOf("")
+	internal var speakerLabels by mutableStateOf(false)
+	internal fun effectiveEffort(id: String, transcription: Boolean = false): String? {
+		if (protocol == SpeechProtocol.Gemini || effort !in setOf("low", "medium", "high") || id.isBlank()) return null
+		val name = id.lowercase()
+		if ("transcribe" in name || "flash-lite" in name) return null
+		if (transcription && (protocol != SpeechProtocol.Chat || speakerLabels || name.endsWith("gemini-4-argon"))) return null
+		return effort
+	}
+	private fun applyEffort(body: JSONObject, value: String?, customEndpoint: Boolean = custom): JSONObject {
+		if (value != null) {
+			if (customEndpoint) body.put("reasoning_effort", value)
+			else body.put("reasoning", JSONObject().put("effort", value))
+		}
+		return body
+	}
 	internal var protocol by mutableStateOf(SpeechProtocol.Multipart)
 	var vocabulary by mutableStateOf("")
 	var segmentSeconds by mutableIntStateOf(20)
@@ -74,6 +90,8 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 				key = it.getString("key")
 				model = it.getString("model")
 				chatModel = it.optString("chatModel")
+				effort = it.optString("effort")
+				speakerLabels = it.optBoolean("speakerLabels")
 				protocol = SpeechProtocol.entries.firstOrNull { mode -> mode.name == it.optString("protocol") } ?: SpeechProtocol.Multipart
 				vocabulary = it.optString("vocabulary")
 				segmentSeconds = it.optInt("seconds", 20).coerceIn(10, 300)
@@ -87,6 +105,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	fun saveConnection() = request {
 		require(valid())
 		val data = JSONObject().put("custom", custom).put("base", base).put("key", key).put("model", model).put("chatModel", chatModel).put("protocol", protocol.name).put("vocabulary", vocabulary)
+			.put("effort", effort).put("speakerLabels", speakerLabels)
 			.put("seconds", segmentSeconds).put("concurrent", concurrentRequests).put("skipSilence", skipSilence)
 		withContext(Dispatchers.IO) { vault.save(data) }
 		hasSavedConnection = true
@@ -99,7 +118,15 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		savedProfile = ""
 	}
 
-	internal fun ask(file: File, transcript: String, question: String) {
+	internal fun clearChat(file: File, transcript: String) = request {
+		withContext(Dispatchers.IO) {
+			val target = chatFile(file, transcript)
+			check(!target.exists() || target.delete())
+		}
+		revision++
+	}
+
+	internal fun ask(file: File, transcript: String, question: String, mask: Boolean = false, summary: String = "") {
 		val server = endpoint()
 		if (server == null || key.isBlank() || chatModel.isBlank()) { error = R.string.invalid; return }
 		val modelId = chatModel.trim()
@@ -108,7 +135,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 			withContext(Dispatchers.IO) {
 				val target = chatFile(file, transcript)
 				val history = readMessages(target)
-				val payload = chatPayload(modelId, transcript, history, question)
+				val payload = chatPayload(modelId, transcript, history, question, mask, summary)
 				val gemini = protocol == SpeechProtocol.Gemini
 				val response = if (gemini) {
 					val messages = payload.getJSONArray("messages")
@@ -122,10 +149,11 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 					val body = JSONObject().put("contents", content).put("systemInstruction",
 						JSONObject().put("parts", org.json.JSONArray().put(JSONObject().put("text", messages.getJSONObject(0).getString("content")))))
 					jsonRequest("$server/models/${android.net.Uri.encode(modelId)}:generateContent", token, body, true)
-				} else jsonRequest("$server/chat/completions", token, payload)
+				} else jsonRequest("$server/chat/completions", token, applyEffort(payload, effectiveEffort(modelId)))
 				val answer = generatedText(if (gemini) SpeechProtocol.Gemini else SpeechProtocol.Chat, response)
 				require(answer.isNotBlank())
-				history.put(JSONObject().put("question", question).put("answer", answer).put("model", modelId))
+				kotlinx.coroutines.currentCoroutineContext().ensureActive()
+				history.put(JSONObject().put("question", question).put("answer", answer).put("model", modelId).put("sourceLength", chatExcerpt(transcript).length))
 				writeSidecar(target, history.toString())
 			}
 			revision++
@@ -136,11 +164,21 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 
 	internal fun generateMeetingNotes(file: File, transcript: String, tool: MeetingTool, option: String, language: String, mask: Boolean) = request {
 		require(canAnalyze())
+		val complete = textClient()
 		withContext(Dispatchers.IO) {
 			val passages = meetingPassages(file, transcript).map { if (mask) it.copy(text = maskIdentifiers(it.text)) else it }
-			val input = passages.mapIndexed { i, p -> "[${i + 1}] ${p.text}" }.joinToString("\n")
-			val answer = textCompletion(input, meetingInstruction(tool, option, language))
-			val result = parseMeetingOutput(tool, answer, passages, option)
+			val points = mutableListOf<MeetingPoint>()
+			var offset = 0
+			for (batch in meetingBatches(tool, passages)) {
+				kotlinx.coroutines.currentCoroutineContext().ensureActive()
+				val input = batch.mapIndexed { i, passage -> "[${i + 1}] ${passage.text}" }.joinToString("\n")
+				val answer = complete(input, meetingInstruction(tool, option, language))
+				points += parseMeetingOutput(tool, answer, batch, option).points.map { point ->
+					point.copy(source = point.source?.plus(offset))
+				}
+				offset += batch.size
+			}
+			val result = MeetingOutput(points, option)
 			kotlinx.coroutines.currentCoroutineContext().ensureActive()
 			check(file.exists() && readTranscript(file) == transcript)
 			MeetingNotes(file, transcript).save(tool, result)
@@ -263,7 +301,11 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		if (mode != SpeechProtocol.Multipart) {
 			val gemini = mode == SpeechProtocol.Gemini
 			val target = if (gemini) "$server/models/${android.net.Uri.encode(chosen)}:generateContent" else "$server/chat/completions"
-			segmentedTranscript(file, server.toString(), chosen, mode, spelling, segmentSeconds, concurrentRequests, skipSilence) { json -> jsonRequest(target, token, json, gemini) }
+			val reasoning = effectiveEffort(chosen, transcription = true)
+			val hint = if (speakerLabels) spelling + "\nLabel audible speaker changes with neutral speaker numbers. Never guess personal names." else spelling
+			segmentedTranscript(file, server.toString(), chosen, mode, hint, segmentSeconds, concurrentRequests, skipSilence, reasoning) { json ->
+				jsonRequest(target, token, applyEffort(json, reasoning), gemini)
+			}
 			return
 		}
 		val url = "$server/audio/transcriptions"
@@ -305,16 +347,29 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		return generatedText(protocol, jsonRequest(url, key.trim(), audioPayload(protocol, model.trim(), samples, hint), gemini))
 	}
 
-	internal fun textCompletion(text: String, instruction: String): String {
+	internal fun textCompletion(text: String, instruction: String) = textClient()(text, instruction)
+
+	private fun textClient(): (String, String) -> String {
 		val server = requireNotNull(endpoint())
-		require(chatModel.isNotBlank())
-		val prompt = instruction + "\n\n" + text
-		return if (protocol == SpeechProtocol.Gemini) {
-			val body = JSONObject().put("contents", org.json.JSONArray().put(JSONObject().put("parts", org.json.JSONArray().put(JSONObject().put("text", prompt)))))
-			generatedText(protocol, jsonRequest("$server/models/${android.net.Uri.encode(chatModel)}:generateContent", key.trim(), body, true))
-		} else {
-			val body = JSONObject().put("model", chatModel).put("messages", org.json.JSONArray().put(JSONObject().put("role", "user").put("content", prompt)))
-			generatedText(SpeechProtocol.Chat, jsonRequest("$server/chat/completions", key.trim(), body))
+		val modelId = chatModel.trim().also { require(it.isNotEmpty()) }
+		val secret = key.trim().also { require(it.isNotEmpty()) }
+		val gemini = protocol == SpeechProtocol.Gemini
+		val reasoning = effectiveEffort(modelId)
+		val customEndpoint = custom
+		return { text, instruction ->
+			val messages = org.json.JSONArray()
+			if (gemini) {
+				val parts = org.json.JSONArray().put(JSONObject().put("text", text))
+				messages.put(JSONObject().put("role", "user").put("parts", parts))
+				val system = JSONObject().put("parts", org.json.JSONArray().put(JSONObject().put("text", instruction)))
+				val body = JSONObject().put("contents", messages).put("systemInstruction", system)
+				generatedText(SpeechProtocol.Gemini, jsonRequest("$server/models/${android.net.Uri.encode(modelId)}:generateContent", secret, body, true))
+			} else {
+				messages.put(JSONObject().put("role", "system").put("content", instruction))
+				messages.put(JSONObject().put("role", "user").put("content", text))
+				val body = JSONObject().put("model", modelId).put("messages", messages)
+				generatedText(SpeechProtocol.Chat, jsonRequest("$server/chat/completions", secret, applyEffort(body, reasoning, customEndpoint)))
+			}
 		}
 	}
 

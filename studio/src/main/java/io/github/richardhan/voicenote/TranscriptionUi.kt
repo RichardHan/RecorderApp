@@ -59,6 +59,22 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 					}
 				}
 				OutlinedTextField(speech.chatModel, { speech.chatModel = it }, singleLine = true, label = { Text(stringResource(R.string.chat_model)) })
+				FlowRow {
+					for (id in if (speech.custom) listOf("gemini-4-hydrogen", "gemini-3.8-flash") else listOf("google/gemini-2.5-flash")) {
+						TextButton(onClick = { speech.chatModel = id }) { Text(id) }
+					}
+				}
+				if (speech.protocol != SpeechProtocol.Multipart) FilterChip(selected = speech.speakerLabels, onClick = { speech.speakerLabels = !speech.speakerLabels }, label = { Text(stringResource(R.string.meeting_speaker_labels)) })
+				if (speech.protocol != SpeechProtocol.Gemini) {
+					Text(stringResource(R.string.meeting_reasoning))
+					FlowRow {
+						for (level in listOf("", "low", "medium", "high")) FilterChip(selected = speech.effort == level,
+							onClick = { speech.effort = level }, label = { Text(level.ifEmpty { stringResource(R.string.meeting_off) }) })
+					}
+
+					val off = stringResource(R.string.meeting_off)
+					Text(stringResource(R.string.meeting_effective_effort, speech.effectiveEffort(speech.model, true) ?: off, speech.effectiveEffort(speech.chatModel) ?: off))
+				}
 				TextButton(enabled = !speech.busy && speech.valid(), onClick = { speech.saveConnection() }) { Text(stringResource(R.string.save_connection)) }
 				AutoPanel(speech)
 				if (speech.hasSavedConnection) TextButton(enabled = !speech.busy, onClick = { speech.forgetConnection() }) { Text(stringResource(R.string.forget_connection)) }

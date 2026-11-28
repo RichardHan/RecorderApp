@@ -29,7 +29,7 @@
 	<string name="meeting_copy">Copy</string>
 	<string name="meeting_share">Share draft</string>
 	<string name="meeting_edit">Edit</string>
-	<string name="meeting_filler">Filler · %1$s × %2$d</string>
+	<string name="meeting_filler">Filler · %1$s × %2$d · %3$.1f per 1,000</string>
 	<string name="meeting_usage">Monthly AI usage</string>
 	<string name="meeting_usage_coverage">Successful requests since this update. Tokens reported on %1$d requests and cost on %2$d.</string>
 	<string name="meeting_agenda">Meeting agenda and notes</string>
@@ -40,4 +40,14 @@
 	<string name="meeting_draft_stale">The source summary or checklist has changed.</string>
 	<string name="meeting_format">Format preference</string>
 	<string name="meeting_draft_disclose">Send the summary, %3$d tasks and format preference to %1$s with %2$s? This can incur charges and replaces the saved draft on success.</string>
+	<string name="meeting_clear_chat">Clear chat</string>
+	<string name="meeting_clear_confirm">Clear the saved conversation for this transcript?</string>
+	<string name="meeting_chat_size">%1$s · approximately %2$d characters including context and recent turns.</string>
+	<string name="meeting_chat_cut">This request uses the first %1$d of %2$d transcript characters.</string>
+	<string name="meeting_reasoning">Reasoning effort</string>
+	<string name="meeting_off">Off</string>
+	<string name="meeting_speaker_labels">Label speaker changes during cloud transcription</string>
+	<string name="meeting_effective_effort">Post-recording transcription: %1$s · Text model: %2$s</string>
+	<string name="meeting_export">Export result as Markdown</string>
+	<string name="meeting_word_count">Transcript word count · %1$d</string>
 </resources>

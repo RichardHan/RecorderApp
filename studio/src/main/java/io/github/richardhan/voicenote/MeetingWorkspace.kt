@@ -4,6 +4,10 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -61,6 +65,8 @@ internal fun MeetingWorkspace(library: RecordingLibrary, speech: SpeechConnectio
 				}
 				if (transcript.isBlank()) {
 					Text(stringResource(R.string.meeting_need_transcript))
+					if (!offline.installed) OfflineModelPanel(offline, speech.busy)
+					if (!speech.valid()) ConnectionPanel(speech)
 					TranscriptionRow(file, library.catalog.title(file), speech, local, offline)
 				} else key(file, transcript) {
 					MeetingEditor(file, transcript, speech, library)
@@ -109,11 +115,12 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 				selected = i == if (summary) style else level, onClick = { if (summary) style = i else level = i },
 				label = { Text(stringResource(label)) })
 		}
-		if (!speech.canAnalyze()) Text(stringResource(R.string.meeting_needs_connection))
+		if (!speech.canAnalyze()) { Text(stringResource(R.string.meeting_needs_connection)); ConnectionPanel(speech) }
 		Button(onClick = { confirm = true }, enabled = speech.canAnalyze() && !speech.busy && passages.isNotEmpty()) { Text(stringResource(R.string.meeting_generate)) }
 		if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(tool.label)) }, text = {
 			Column {
 				Text(stringResource(R.string.meeting_disclose, speech.base, speech.chatModel))
+				Text(stringResource(R.string.receipt_requests, meetingBatches(tool, passages).size))
 				FilterChip(selected = mask, onClick = { mask = !mask }, label = { Text(stringResource(R.string.mask_contacts)) })
 			}
 		}, confirmButton = { TextButton(onClick = { confirm = false; speech.generateMeetingNotes(file, transcript, tool, option, language, mask) }) { Text(stringResource(R.string.meeting_generate)) } },
@@ -121,6 +128,7 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 		if (speech.busy) { LinearProgressIndicator(); TextButton(onClick = speech::cancel) { Text(stringResource(R.string.cancel)) } }
 		if (speech.error != 0) Text(if (speech.error == R.string.http_error) stringResource(speech.error, speech.httpStatus) else stringResource(speech.error))
 		result?.let { output ->
+			if (output.points.isNotEmpty() && passages.isNotEmpty()) ExportMeetingResult(file, tool, output, passages)
 			if (output.option.isNotEmpty()) Text(output.option, style = MaterialTheme.typography.labelLarge)
 			if (output.points.isEmpty()) Text(stringResource(R.string.meeting_no_items))
 			val groups = if (tool == MeetingTool.Outline) output.points.groupBy { it.group } else mapOf("" to output.points)
@@ -176,6 +184,27 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 		}
 	}
 	FollowUpDraft(file, transcript, notes, tasks, speech)
+}
+
+@Composable
+private fun ExportMeetingResult(file: File, tool: MeetingTool, output: MeetingOutput, passages: List<MeetingPassage>) {
+	val context = LocalContext.current
+	val scope = rememberCoroutineScope()
+	var failed by remember { mutableStateOf(false) }
+	val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri ->
+		if (uri != null) scope.launch {
+			try {
+				withContext(Dispatchers.IO) {
+					requireNotNull(context.contentResolver.openOutputStream(uri, "wt")).bufferedWriter().use {
+						it.write(meetingDocument(tool, output, passages))
+					}
+				}
+			} catch (e: CancellationException) { throw e }
+			catch (_: Exception) { failed = true }
+		}
+	}
+	TextButton(onClick = { failed = false; save.launch(file.nameWithoutExtension + "-" + tool.name + ".md") }) { Text(stringResource(R.string.meeting_export)) }
+	if (failed) Text(stringResource(R.string.document_error))
 }
 
 @Composable

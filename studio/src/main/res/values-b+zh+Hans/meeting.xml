@@ -29,7 +29,7 @@
 	<string name="meeting_copy">复制</string>
 	<string name="meeting_share">分享草稿</string>
 	<string name="meeting_edit">编辑</string>
-	<string name="meeting_filler">赘词 · %1$s × %2$d</string>
+	<string name="meeting_filler">赘词 · %1$s × %2$d · 每千字词 %3$.1f 次</string>
 	<string name="meeting_usage">每月 AI 用量</string>
 	<string name="meeting_usage_coverage">统计本版本起的成功请求。%1$d 笔报告了 token，%2$d 笔报告了费用。</string>
 	<string name="meeting_agenda">会前议程与会中笔记</string>
@@ -40,4 +40,14 @@
 	<string name="meeting_draft_stale">来源摘要或待办清单已变更。</string>
 	<string name="meeting_format">草稿格式偏好</string>
 	<string name="meeting_draft_disclose">要将摘要、%3$d 项待办和格式偏好发送到 %1$s，以 %2$s 生成草稿吗？可能产生费用，成功后将替换已存草稿。</string>
+	<string name="meeting_clear_chat">清除对话</string>
+	<string name="meeting_clear_confirm">清除这份文字稿已存的对话吗？</string>
+	<string name="meeting_chat_size">%1$s · 含上下文及近期对话，请求约 %2$d 字符。</string>
+	<string name="meeting_chat_cut">本次只使用文字稿前 %1$d 个字符，全文共 %2$d 个。</string>
+	<string name="meeting_reasoning">推理强度</string>
+	<string name="meeting_off">关闭</string>
+	<string name="meeting_speaker_labels">录后云端转录标记发言者变化</string>
+	<string name="meeting_effective_effort">录后转录：%1$s · 文本模型：%2$s</string>
+	<string name="meeting_export">导出 Markdown 结果</string>
+	<string name="meeting_word_count">文字稿字词数 · %1$d</string>
 </resources>

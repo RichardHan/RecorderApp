@@ -20,7 +20,12 @@ import java.io.File
 import java.util.UUID
 
 private fun Context.autoPrefs() = getSharedPreferences("auto_transcription", Context.MODE_PRIVATE)
-internal fun SpeechConnection.profileId(): String = transcriptDigest(listOf(base, model, chatModel, protocol.name, vocabulary, segmentSeconds, concurrentRequests, skipSilence, key).joinToString("\u0000")).toHexString()
+internal fun SpeechConnection.profileId(): String {
+	val fields = mutableListOf<Any>(base, model, chatModel, protocol.name, vocabulary, segmentSeconds, concurrentRequests, skipSilence, key)
+	// Existing saved consents remain valid when the new options are left at their defaults.
+	if (effort.isNotEmpty() || speakerLabels) { fields += effort; fields += speakerLabels }
+	return transcriptDigest(fields.joinToString("\u0000")).toHexString()
+}
 
 internal fun Context.queueTranscription(file: File) {
 	val prefs = autoPrefs()
@@ -54,12 +59,13 @@ class AutoTranscriptWorker(context: Context, params: WorkerParameters) : Corouti
 				check(prefs.edit().putString("transcribed/$name", plan).commit())
 			}
 			val text = readTranscript(file)
+			val promptText = if (prefs.getBoolean("mask", false)) maskIdentifiers(text) else text
 			if (allowed() && prefs.getBoolean("summary", false) && speech.chatModel.isNotBlank()) {
 				val target = summaryFile(file, text)
-				if (!target.isFile) writeSidecar(target, speech.textCompletion(text, "Write a factual summary and action items in the transcript's language."))
+				if (!target.isFile) writeSidecar(target, speech.textCompletion(promptText, "Write a factual summary and action items in the transcript's language."))
 			}
 			if (allowed() && prefs.getBoolean("title", false) && speech.chatModel.isNotBlank() && withContext(Dispatchers.Main) { library.catalog.value(file, "title").isEmpty() }) {
-				val title = speech.textCompletion(text, "Return one short descriptive title in the language of this recording.").lineSequence().first().take(120)
+				val title = speech.textCompletion(promptText, "Return one short descriptive title in the language of this recording.").lineSequence().first().take(120)
 				withContext(Dispatchers.Main) { if (library.catalog.value(file, "title").isEmpty()) library.catalog.update(file, "title" to title) }
 			}
 			withContext(Dispatchers.Main) { library.catalog.update(file, "auto" to "done") }
@@ -87,6 +93,7 @@ internal fun AutoPanel(speech: SpeechConnection) {
 	var confirm by remember { mutableStateOf(false) }
 	var wifi by remember { mutableStateOf(prefs.getBoolean("wifi", false)) }
 	var summary by remember { mutableStateOf(prefs.getBoolean("summary", false)) }
+	var mask by remember { mutableStateOf(prefs.getBoolean("mask", false)) }
 	var title by remember { mutableStateOf(prefs.getBoolean("title", false)) }
 	TextButton(enabled = enabled || (speech.valid() && speech.hasSavedConnection && speech.savedProfile == speech.profileId()), onClick = {
 		if (enabled) {
@@ -101,12 +108,13 @@ internal fun AutoPanel(speech: SpeechConnection) {
 			FilterChip(selected = wifi, onClick = { wifi = !wifi }, label = { Text(stringResource(R.string.wifi_only)) })
 			if (speech.chatModel.isNotBlank()) {
 				FilterChip(selected = summary, onClick = { summary = !summary }, label = { Text(stringResource(R.string.auto_summary, speech.chatModel)) })
+				FilterChip(selected = mask, onClick = { mask = !mask }, label = { Text(stringResource(R.string.mask_contacts)) })
 				FilterChip(selected = title, onClick = { title = !title }, label = { Text(stringResource(R.string.auto_title, speech.chatModel)) })
 			}
 		}
 	}, confirmButton = { TextButton(onClick = {
 		prefs.edit().putString("consent", UUID.randomUUID().toString()).putString("profile", speech.profileId())
-			.putBoolean("wifi", wifi).putBoolean("summary", summary && speech.chatModel.isNotBlank()).putBoolean("title", title && speech.chatModel.isNotBlank()).apply()
+			.putBoolean("mask", mask).putBoolean("wifi", wifi).putBoolean("summary", summary && speech.chatModel.isNotBlank()).putBoolean("title", title && speech.chatModel.isNotBlank()).apply()
 		enabled = true; confirm = false
 	}) { Text(stringResource(R.string.auto_on)) } }, dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } })
 }

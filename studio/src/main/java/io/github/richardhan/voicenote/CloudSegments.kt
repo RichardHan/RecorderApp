@@ -50,9 +50,9 @@ internal fun generatedText(protocol: SpeechProtocol, body: JSONObject): String {
 }
 
 internal suspend fun segmentedTranscript(file: File, endpoint: String, model: String, protocol: SpeechProtocol, vocabulary: String,
-	seconds: Int, concurrent: Int, skipSilence: Boolean, request: (JSONObject) -> JSONObject) = supervisorScope {
+	seconds: Int, concurrent: Int, skipSilence: Boolean, effort: String?, request: (JSONObject) -> JSONObject) = supervisorScope {
 	require(seconds in 10..300 && concurrent in 1..6)
-	val identity = listOf(endpoint, model, protocol.name, vocabulary, seconds, skipSilence, file.length(), file.lastModified()).joinToString("\u0000")
+	val identity = (listOf(endpoint, model, protocol.name, vocabulary, seconds, skipSilence, file.length(), file.lastModified()) + listOfNotNull(effort)).joinToString("\u0000")
 	val checkpoint = File(file.parentFile, file.name + "." + transcriptDigest(identity).toHexString() + ".checkpoint")
 	val completed = if (checkpoint.exists()) JSONArray(checkpoint.readText()) else JSONArray()
 	// Each in-flight request holds PCM, a WAV copy and base64 JSON until the HTTP write completes.

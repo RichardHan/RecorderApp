@@ -154,6 +154,9 @@ class LocalServiceTest {
 			assertEquals(0, result.points.first().source)
 			assertNull(MeetingNotes(audio, "Different transcript").read(tool, "English"))
 		}
+		val translation = meetingDocument(MeetingTool.Translation, notes.read(MeetingTool.Translation, "English")!!, passages)
+		assertTrue(translation.contains("Plan agreed.\nResult one"))
+		assertTrue(translation.contains("Send the draft.\nResult two"))
 		assertNull(notes.read(MeetingTool.Translation, "日本語"))
 		reply(200, response("""[{"text":"Partial translation","source":5,"quote":"invented"}]"""))
 		complete { speech.generateMeetingNotes(audio, text, MeetingTool.Translation, "English", "English", false) }
@@ -191,6 +194,24 @@ class LocalServiceTest {
 			complete { speech.generateMeetingNotes(fixture, source, MeetingTool.Translation, "繁體中文", "English", false) }
 			assertEquals(0, speech.error)
 		}
+	}
+
+	@Test fun chatMasksHistoryAndBoundsContextAndRespectsModelEffort() {
+		val email = "person@example.org"
+		val past = org.json.JSONArray().put(JSONObject().put("question", email).put("answer", email))
+		val input = chatPayload("sample", email + "x".repeat(33000) + "SECRET_TAIL", past, email, true, email)
+		assertFalse(input.toString().contains(email))
+		assertFalse(input.toString().contains("SECRET_TAIL"))
+		val speech = SpeechConnection(app, open)
+		speech.effort = "low"
+		speech.protocol = SpeechProtocol.Chat
+		assertEquals("low", speech.effectiveEffort("gemini-4-hydrogen", true))
+		speech.speakerLabels = true
+		assertNull(speech.effectiveEffort("gemini-4-hydrogen", true))
+		assertEquals("low", speech.effectiveEffort("gemini-4-hydrogen"))
+		assertNull(speech.effectiveEffort("gemini-3.5-transcribe"))
+		speech.protocol = SpeechProtocol.Gemini
+		assertNull(speech.effectiveEffort("gemini-4-hydrogen"))
 	}
 
 	@Test fun monthlyUsageCountsOnlyReportedCostsAndTokens() {
