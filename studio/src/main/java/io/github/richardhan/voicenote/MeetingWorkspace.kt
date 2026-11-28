@@ -73,6 +73,9 @@ internal fun MeetingWorkspace(library: RecordingLibrary, speech: SpeechConnectio
 					TranscriptChat(file, transcript, speech)
 					SummaryAction(local, file, transcript)
 					TranscriptTools(file, transcript, speech)
+					var details by rememberSaveable { mutableStateOf(false) }
+					TextButton(onClick = { details = !details }) { Text(stringResource(R.string.ai_transcript_versions)) }
+					if (details) TranscriptionRow(file, library.catalog.title(file), speech, local, offline)
 				}
 			}
 		}
@@ -186,6 +189,10 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 		}
 	}
 	if (tool == MeetingTool.Actions) {
+		val remaining = tasks.filterNot { it.done }.joinToString("\n") { "☐ " + it.text }
+		if (remaining.isNotBlank()) TextButton(onClick = {
+			context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("", remaining))
+		}) { Text(stringResource(R.string.ai_copy_open)) }
 		var draft by rememberSaveable { mutableStateOf("") }
 		OutlinedTextField(draft, { draft = it }, label = { Text(stringResource(R.string.meeting_new_task)) })
 		TextButton(enabled = draft.isNotBlank() && !speech.busy, onClick = {

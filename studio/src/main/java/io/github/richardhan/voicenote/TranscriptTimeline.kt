@@ -22,7 +22,7 @@ internal fun nearestSegmentIndex(segments: List<TimedText>, ms: Long): Int? {
 }
 
 @Composable
-internal fun TranscriptTimeline(file: File, revision: Int) {
+internal fun TranscriptTimeline(file: File, revision: Int, speech: SpeechConnection) {
 	val context = LocalContext.current
 	val library = (context.applicationContext as StudioApplication).library
 	var open by remember { mutableStateOf(false) }
@@ -39,7 +39,15 @@ internal fun TranscriptTimeline(file: File, revision: Int) {
 		LazyColumn { itemsIndexed(segments) { index, line ->
 			val ms = (line.start * 1000).toLong()
 			TextButton(enabled = library.started == 0L, onClick = { context.playRecording(file, ms) }) { Text(formatClipTime(ms.toInt())) }
-			Text(line.text)
+			var edit by remember(line) { mutableStateOf(false) }
+			if (edit) {
+				var draft by remember(line) { mutableStateOf(line.text) }
+				OutlinedTextField(draft, { draft = it })
+				TextButton(enabled = !speech.busy && draft.isNotBlank(), onClick = { speech.editTimed(file, segments, index, draft); edit = false }) { Text(stringResource(R.string.done)) }
+			} else {
+				Text(line.text)
+				TextButton(onClick = { edit = true }) { Text(stringResource(R.string.meeting_edit)) }
+			}
 			FlowRow { for (picture in grouped[index].orEmpty()) {
 				val thumb by produceState<android.graphics.Bitmap?>(null, picture) { value = withContext(Dispatchers.IO) {
 					BitmapFactory.decodeFile(picture.path, BitmapFactory.Options().apply { inSampleSize = 8 })

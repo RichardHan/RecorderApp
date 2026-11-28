@@ -89,6 +89,7 @@ internal fun TranscriptChat(file: File, transcript: String, speech: SpeechConnec
 					val segment = currentTiming.singleOrNull { passage in it.text }
 					if (segment != null && file.extension in audioTypes) TextButton(enabled = library.started == 0L, onClick = { context.playRecording(file, (segment.start * 1000).toLong()) }) { Text(formatClipTime((segment.start * 1000).toInt())) }
 				}
+				DiscardAction { speech.removeQuestion(file, transcript, i, turn.toString()) }
 				HorizontalDivider()
 			}
 			OutlinedTextField(speech.chatModel, { speech.chatModel = it }, label = { Text(stringResource(R.string.chat_model)) }, singleLine = true)

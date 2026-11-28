@@ -84,12 +84,14 @@ internal fun ConnectionPanel(speech: SpeechConnection) {
 					val off = stringResource(R.string.meeting_off)
 					Text(stringResource(R.string.meeting_effective_effort, speech.effectiveEffort(speech.model, true) ?: off, speech.effectiveEffort(speech.chatModel) ?: off))
 				}
-				var inputRate by remember(speech.base, speech.chatModel) { mutableStateOf(speech.chatPrice()) }
-				if (speech.chatModel.isNotBlank()) OutlinedTextField(inputRate, {
-					inputRate = it
-					if (it.isBlank() || reportedCostUsd(it) != null) speech.setChatPrice(it)
-				}, isError = inputRate.isNotBlank() && reportedCostUsd(inputRate) == null,
-					label = { Text(stringResource(R.string.meeting_model_price)) }, singleLine = true)
+				for (output in listOf(false, true)) {
+					var rate by remember(speech.textDestination, speech.chatModel, output) { mutableStateOf(speech.chatPrice(output)) }
+					if (speech.chatModel.isNotBlank()) OutlinedTextField(rate, {
+						rate = it
+						if (it.isBlank() || reportedCostUsd(it) != null) speech.setChatPrice(it, output)
+					}, isError = rate.isNotBlank() && reportedCostUsd(rate) == null,
+						label = { Text(stringResource(if (output) R.string.ai_output_rate else R.string.meeting_model_price)) }, singleLine = true)
+				}
 
 				TextButton(enabled = !speech.busy && speech.canSave(), onClick = { speech.saveConnection() }) { Text(stringResource(R.string.save_connection)) }
 				var probe by remember { mutableStateOf<Boolean?>(null) }
@@ -154,9 +156,14 @@ internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConn
 		}
 		saved.receipt?.let { receipt ->
 			Text(stringResource(R.string.receipt_model, receipt.model), style = MaterialTheme.typography.labelLarge)
+			if (receipt.unusual.isNotBlank()) Text(stringResource(R.string.ai_unusual, receipt.unusual))
+			if (receipt.settings.isNotBlank()) Text(receipt.settings)
 			receipt.provider?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 			receipt.requests?.let { Text(stringResource(R.string.receipt_requests, it), style = MaterialTheme.typography.bodySmall) }
 			receipt.totalTokens?.let { Text(stringResource(R.string.receipt_tokens, it), style = MaterialTheme.typography.bodySmall) }
+			val timing by produceState(emptyList<TimedText>(), file, saved.text) { value = withContext(Dispatchers.IO) { readTiming(file) } }
+			val audioHours = timing.maxOfOrNull { it.end }?.div(3600.0)
+			if (audioHours != null && audioHours > 0 && receipt.costUsd != null) Text(stringResource(R.string.ai_hour_cost, receipt.costUsd.toDouble() / audioHours))
 			val fee = receipt.costUsd?.let { stringResource(R.string.receipt_fee, it) } ?: stringResource(R.string.receipt_no_fee)
 			Text(stringResource(R.string.receipt_time, receipt.elapsedMs / 1000.0) + " · " + fee,
 				style = MaterialTheme.typography.bodySmall)
@@ -166,7 +173,7 @@ internal fun TranscriptionRow(file: File, recordedAt: String, speech: SpeechConn
 		SlackShare(file, saved.text)
 		TranscriptHistory(file, saved.text, speech.revision, speech)
 		TranscriptTools(file, saved.text, speech)
-		TranscriptTimeline(file, speech.revision)
+		TranscriptTimeline(file, speech.revision, speech)
 		TranscriptChat(file, saved.text, speech)
 		key(saved.text) { SummaryAction(local, file, saved.text) }
 	}

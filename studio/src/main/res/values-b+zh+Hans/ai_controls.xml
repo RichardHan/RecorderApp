@@ -33,4 +33,14 @@
 	<string name="ai_slack_recap">发送最终摘要或实时要点回顾</string>
 	<string name="ai_slack_interval">每 %1$d 分钟发送新要点</string>
 	<string name="ai_slack_test">发送一条测试消息到已设置的频道？</string>
+	<string name="ai_compress">上传前压缩为 MP3（64 kbps）</string>
+	<string name="ai_unusual">请核对异常长的段落：%1$s</string>
+	<string name="ai_hour_cost">每小时音频报告费用 · USD %1$.4f</string>
+	<string name="ai_export_all">导出全部文字稿与摘要（ZIP）</string>
+	<string name="ai_copy_open">复制未完成待办</string>
+	<string name="ai_transcript_versions">转录、编辑与版本</string>
+	<string name="ai_last30">最近 30 天</string>
+	<string name="ai_io_tokens">Token · 输入 %1$s · 输出 %2$s</string>
+	<string name="ai_estimated_usage">已设置单价的 %2$d 条请求估算 USD %1$s</string>
+	<string name="ai_output_rate">每百万输出 token 美元单价（选填）</string>
 </resources>

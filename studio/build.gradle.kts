@@ -25,6 +25,7 @@ android {
 	packaging { jniLibs { useLegacyPackaging = compressNative } }
 }
 dependencies {
+	implementation("de.sciss:jump3r:1.0.5")
 	implementation("com.google.android.gms:play-services-auth:22.0.0")
 	implementation("androidx.work:work-runtime:2.12.0")
 	androidTestImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")

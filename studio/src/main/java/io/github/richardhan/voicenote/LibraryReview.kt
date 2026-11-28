@@ -20,13 +20,15 @@ import java.util.zip.ZipOutputStream
 
 internal fun exportTranscripts(out: OutputStream, recordings: List<File>) {
 	ZipOutputStream(out.buffered()).use { zip ->
-		for (file in recordings) {
+		val index = StringBuilder()
+		for (file in recordings.distinct()) {
 			val text = transcriptFile(file)
 			if (!text.exists()) continue
 			zip.putNextEntry(ZipEntry(file.name + ".txt"))
 			text.inputStream().use { it.copyTo(zip) }
 			zip.closeEntry()
 			val transcript = text.readText()
+			index.appendLine(file.name)
 			val notes = MeetingNotes(file, transcript)
 			fun document(suffix: String, body: String) {
 				if (body.isBlank()) return
@@ -39,8 +41,15 @@ internal fun exportTranscripts(out: OutputStream, recordings: List<File>) {
 			for (tool in listOf(MeetingTool.Decisions, MeetingTool.Chapters, MeetingTool.Outline, MeetingTool.Cleanup)) {
 				notes.read(tool)?.let { document(tool.name.lowercase(), it.points.joinToString("\n") { point -> point.text }) }
 			}
+			for (lang in listOf("English", "繁體中文", "简体中文", "日本語")) {
+				notes.read(MeetingTool.Translation, lang)?.let { document("translation-$lang", meetingDocument(MeetingTool.Translation, it, meetingPassages(file, transcript))) }
+			}
+			notes.draft()?.let { document("follow-up", it.first) }
 			document("tasks", notes.tasks().joinToString("\n") { (if (it.done) "[x] " else "[ ] ") + it.text })
 		}
+		zip.putNextEntry(ZipEntry("index.txt"))
+		zip.write(index.toString().toByteArray(Charsets.UTF_8))
+		zip.closeEntry()
 	}
 }
 
@@ -90,6 +99,7 @@ internal fun LibraryReview(library: RecordingLibrary, speech: SpeechConnection, 
 			Text(stats)
 			if (known.isNotEmpty()) Text(stringResource(R.string.reported_total, known.sumOf { it }.toPlainString(), known.size))
 			if (battery != null && battery in 0..100) Text(stringResource(R.string.device_stats, context.filesDir.usableSpace / 1048576, battery))
+			TextButton(enabled = receipts.isNotEmpty(), onClick = { selection = ArrayList(receipts.keys.map { it.name }); archive.launch("studio-transcripts.zip") }) { Text(stringResource(R.string.ai_export_all)) }
 			for ((file, saved) in receipts) {
 				val checked = file.name in selection
 				FilterChip(selected = checked, onClick = {

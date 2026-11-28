@@ -12,7 +12,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal data class TranscriptionReceipt(val model: String, val elapsedMs: Long, val costUsd: String?,
-	val totalTokens: Long? = null, val requests: Int? = null, val provider: String? = null)
+	val totalTokens: Long? = null, val requests: Int? = null, val provider: String? = null, val unusual: String = "", val settings: String = "")
 internal data class SavedTranscript(val text: String, val receipt: TranscriptionReceipt? = null)
 
 internal fun reportedCostUsd(value: String?): String? {
@@ -56,6 +56,8 @@ internal fun saveTranscription(file: File, text: String, receipt: TranscriptionR
 				receipt.costUsd?.let { setProperty("costUsd", it) }
 				receipt.totalTokens?.let { setProperty("tokens", it.toString()) }
 				receipt.requests?.let { setProperty("requests", it.toString()) }
+				setProperty("unusual",receipt.unusual)
+				setProperty("settings",receipt.settings)
 				receipt.provider?.let { setProperty("provider", it) }
 			}
 			temp.bufferedWriter().use { values.store(it, null) }
@@ -85,5 +87,5 @@ internal fun loadSavedTranscript(file: File): SavedTranscript {
 	val elapsed = values.getProperty("elapsedMs")?.toLongOrNull()
 	if (model == null || elapsed == null || elapsed < 0 || values.getProperty("digest") != Base64.getEncoder().encodeToString(transcriptDigest(text))) return SavedTranscript(text)
 	return SavedTranscript(text, TranscriptionReceipt(model, elapsed, reportedCostUsd(values.getProperty("costUsd")),
-		values.getProperty("tokens")?.toLongOrNull(), values.getProperty("requests")?.toIntOrNull(), values.getProperty("provider")))
+		values.getProperty("tokens")?.toLongOrNull(), values.getProperty("requests")?.toIntOrNull(), values.getProperty("provider"), values.getProperty("unusual", ""), values.getProperty("settings", "")))
 }

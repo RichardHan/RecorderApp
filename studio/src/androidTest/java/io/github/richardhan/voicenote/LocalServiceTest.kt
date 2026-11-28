@@ -233,6 +233,62 @@ class LocalServiceTest {
 		} finally { app.getSharedPreferences("studio_ai_usage", 0).edit().remove(month).apply() }
 	}
 
+	@Test fun separateSummaryCredentialStaysOnTheChosenProtocolAndHost() {
+		val targets = mutableListOf<URL>()
+		val speech = SpeechConnection(app) { url -> targets.add(url); open(url) }
+		speech.key = "audio-credential"
+		speech.separateText = true
+		speech.setTextAddress("https://summary.invalid/v1beta")
+		speech.textKey = "text-credential"
+		speech.textGemini = true
+		speech.chatModel = "summary-model"
+		reply(200, """{"candidates":[{"content":{"parts":[{"text":"OK"}]}}]}""")
+		assertEquals("OK", speech.textCompletion("sample", "probe"))
+		assertEquals("summary.invalid", targets.single().host)
+		val request = nextRequest()
+		assertEquals("text-credential", request.getHeader("x-goog-api-key"))
+		assertNull(request.getHeader("Authorization"))
+		assertFalse(request.body.readUtf8().contains("audio-credential"))
+		speech.setTextAddress("https://other.invalid")
+		assertFalse(speech.canAnalyze())
+	}
+
+	@Test fun mp3SegmentRetriesTransientFailureAndPreservesFilteredTime() = runBlocking {
+		val pcm = FloatArray(32000) { kotlin.math.sin(it / 10.0).toFloat() * 0.4f }
+		val mp3 = File.createTempFile("encoded-", ".mp3", app.cacheDir)
+		try {
+			mp3.writeBytes(cloudMp3(pcm))
+			assertTrue(mp3.length() in 1000L until pcm.size * 2L)
+			val decoder = android.media.MediaExtractor()
+			try {
+				decoder.setDataSource(mp3.path)
+				assertEquals("audio/mpeg", decoder.getTrackFormat(0).getString(android.media.MediaFormat.KEY_MIME))
+			} finally { decoder.release() }
+			var count = 0
+			val result = transcribeSegment(pcm, 42.0, "mock", SpeechProtocol.Chat, "", true, true) { payload ->
+				val audio = payload.getJSONArray("messages").getJSONObject(0).getJSONArray("content").getJSONObject(1).getJSONObject("input_audio")
+				assertEquals("mp3", audio.getString("format"))
+				count++
+				if (count == 1) throw HttpFailure(503)
+				JSONObject("""{"choices":[{"finish_reason":"content_filter"}]}""")
+			}
+			assertEquals(2, result.getInt("requests"))
+			assertEquals(42.0, result.getJSONArray("parts").getJSONObject(0).getDouble("start"), 0.0)
+			assertTrue(result.getString("text").contains("filtered"))
+		} finally { mp3.delete() }
+	}
+
+	@Test fun liveOverlapAndTimedCorrectionsPreserveAudioReferences() = runBlocking {
+		assertEquals("again", trimOverlap("hello world", "world again"))
+		val segments = org.json.JSONArray("""[{"start":0,"end":1,"text":"One"},{"start":2,"end":3,"text":"Two"}]""")
+		saveTranscription(audio, "One\nTwo", null, segments)
+		val speech = SpeechConnection(app, open)
+		withContext(Dispatchers.Main) { speech.editTimed(audio, readTiming(audio), 1, "Second") }
+		withTimeout(12000) { while (withContext(Dispatchers.Main) { speech.busy }) delay(25) }
+		assertEquals(0, speech.error)
+		assertEquals("One\nSecond", readTranscript(audio))
+		assertEquals(2.0, readTiming(audio)[1].start, 0.0)
+	}
 	@Test fun geminiRetrySendsOnlyUnfinishedAudioAndUsesTheConfiguredKey() = runBlocking {
 		val wave = File(audio.parentFile, audio.name + ".wav")
 		try {

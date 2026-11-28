@@ -19,7 +19,7 @@ import javax.net.ssl.HttpsURLConnection
 private const val OPEN_ROUTER = "https://openrouter.ai/api/v1"
 private data class SpeechResponse(val body: JSONObject, val gatewayCost: String?)
 private fun JSONObject.costUsd() = reportedCostUsd(optJSONObject("usage")?.optString("cost"))
-private class HttpFailure(val code: Int) : Exception()
+internal class HttpFailure(val code: Int) : Exception()
 
 class SpeechConnection internal constructor(app: Application, private val open: HttpsOpen) : AndroidViewModel(app) {
 	constructor(app: Application) : this(app, ::openHttps)
@@ -74,11 +74,11 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		probeResult = answer.take(160)
 	}
 	private val prices = app.getSharedPreferences("studio_model_prices", 0)
-	private fun priceKey() = transcriptDigest(textDestination.trimEnd('/') + "\u0000" + chatModel.trim()).toHexString()
-	internal fun chatPrice(): String = prices.getString(priceKey(), "").orEmpty()
-	internal fun setChatPrice(value: String) {
+	private fun priceKey(address: String = textDestination, id: String = chatModel) = transcriptDigest(address.trimEnd('/') + "\u0000" + id.trim()).toHexString()
+	internal fun chatPrice(output: Boolean = false): String = prices.getString(priceKey() + if (output) "/out" else "", "").orEmpty()
+	internal fun setChatPrice(value: String, output: Boolean = false) {
 		require(value.isBlank() || reportedCostUsd(value) != null)
-		prices.edit().putString(priceKey(), value.trim()).apply()
+		prices.edit().putString(priceKey() + if (output) "/out" else "", value.trim()).apply()
 	}
 	internal var effort by mutableStateOf("")
 	internal var speakerLabels by mutableStateOf(false)
@@ -107,6 +107,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	internal var firstHighlightSeconds by mutableIntStateOf(0)
 	internal var correctLive by mutableStateOf(false)
 	internal var warnLength by mutableStateOf(true)
+	internal var compressAudio by mutableStateOf(false)
 	internal var retrySegments by mutableStateOf(false)
 	internal var defaultSummary by mutableStateOf("")
 	internal var summaryNotes by mutableStateOf(false)
@@ -144,6 +145,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 				firstHighlightSeconds = it.optInt("first", 0).coerceIn(0,600)
 				correctLive = it.optBoolean("correctLive")
 				warnLength = it.optBoolean("warnLength", true)
+				compressAudio = it.optBoolean("mp3")
 				retrySegments = it.optBoolean("retrySegments")
 				defaultSummary = it.optString("defaultSummary")
 				summaryNotes = it.optBoolean("summaryNotes")
@@ -160,7 +162,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 			.put("effort", effort).put("speakerLabels", speakerLabels)
 			.put("seconds", segmentSeconds).put("concurrent", concurrentRequests).put("skipSilence", skipSilence)
 		data.put("liveSeconds", liveSeconds).put("overlap", overlapSeconds).put("highlights", highlightSeconds).put("first", firstHighlightSeconds)
-			.put("correctLive", correctLive).put("warnLength", warnLength).put("retrySegments", retrySegments)
+			.put("mp3", compressAudio).put("correctLive", correctLive).put("warnLength", warnLength).put("retrySegments", retrySegments)
 			.put("defaultSummary", defaultSummary).put("summaryNotes", summaryNotes).put("defaultCloud", defaultCloud)
 		withContext(Dispatchers.IO) { vault.save(data) }
 		hasSavedConnection = true
@@ -173,6 +175,32 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		probeResult = ""
 		hasSavedConnection = false
 		savedProfile = ""
+	}
+
+	internal fun editTimed(file: File, expected: List<TimedText>, index: Int, replacement: String) = request {
+		withContext(Dispatchers.IO) {
+			check(expected == readTiming(file) && index in expected.indices)
+			val source = readTranscript(file)
+			val current = expected.joinToString("\n") { it.text }
+			check(current.filterNot(Char::isWhitespace) == source.filterNot(Char::isWhitespace))
+			val updated = expected.toMutableList()
+			updated[index] = updated[index].copy(text = replacement.trim().also { require(it.isNotEmpty()) })
+			val rows = org.json.JSONArray()
+			for (line in updated) rows.put(JSONObject().put("start",line.start).put("end",line.end).put("text",line.text))
+			saveTranscription(file, updated.joinToString("\n") { it.text }, loadSavedTranscript(file).receipt, rows)
+		}
+		revision++
+	}
+
+	internal fun removeQuestion(file: File, transcript: String, index: Int, expected: String) = request {
+		withContext(Dispatchers.IO) {
+			val target = chatFile(file, transcript)
+			val history = readMessages(target)
+			check(history.getJSONObject(index).toString() == expected)
+			history.remove(index)
+			writeSidecar(target, history.toString())
+		}
+		revision++
 	}
 
 	internal fun clearChat(file: File, transcript: String) = request {
@@ -363,7 +391,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 				val input = org.json.JSONArray().put(JSONObject().put("role", "user").put("content", content))
 				val payload = JSONObject().put("model", chosen).put("input", input).toString().toByteArray()
 				val started = SystemClock.elapsedRealtime()
-				val response = exchange("$OPEN_ROUTER/responses", token) { conn ->
+				val response = exchange("$OPEN_ROUTER/responses", token, chosen, OPEN_ROUTER) { conn ->
 					conn.requestMethod = "POST"
 					conn.doOutput = true
 					conn.setRequestProperty("Content-Type", "application/json")
@@ -395,7 +423,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 			val target = if (gemini) "$server/models/${android.net.Uri.encode(chosen)}:generateContent" else "$server/chat/completions"
 			val reasoning = effectiveEffort(chosen, transcription = true)
 			val hint = if (speakerLabels) spelling + "\nLabel audible speaker changes with neutral speaker numbers. Never guess personal names." else spelling
-			segmentedTranscript(file, server.toString(), chosen, mode, hint, segmentSeconds, concurrentRequests, skipSilence, reasoning) { json ->
+			segmentedTranscript(file, server.toString(), chosen, mode, hint, segmentSeconds, concurrentRequests, skipSilence, reasoning, compressAudio, retrySegments, warnLength) { json ->
 				jsonRequest(target, token, applyEffort(json, reasoning), gemini)
 			}
 			return
@@ -403,7 +431,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		val url = "$server/audio/transcriptions"
 		val useGatewayCost = custom
 		val started = SystemClock.elapsedRealtime()
-		val reply = exchange(url, token) { connection ->
+		val reply = exchange(url, token, chosen, server.toString()) { connection ->
 			val boundary = UUID.randomUUID().toString()
 			val format = if (timestamps) "--$boundary\r\nContent-Disposition: form-data; name=\"response_format\"\r\n\r\nverbose_json\r\n" else ""
 			val header = format + "--$boundary\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\n$chosen\r\n" +
@@ -465,7 +493,9 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	}
 
 	private fun jsonRequest(url: String, token: String, body: JSONObject, gemini: Boolean = false): JSONObject =
-		exchange(url, if (gemini) "" else token) { conn ->
+		exchange(url, if (gemini) "" else token,
+			if (gemini) android.net.Uri.decode(url.substringAfterLast("/models/").substringBefore(":generateContent")) else body.optString("model"),
+			if (gemini) url.substringBeforeLast("/models/") else url.removeSuffix("/chat/completions")) { conn ->
 			if (gemini) conn.setRequestProperty("x-goog-api-key", token)
 			conn.requestMethod = "POST"
 			conn.doOutput = true
@@ -474,7 +504,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		}.body
 
 
-	private fun exchange(url: String, token: String, send: (HttpsURLConnection) -> Unit = {}): SpeechResponse {
+	private fun exchange(url: String, token: String, billingModel: String = "", address: String = "", send: (HttpsURLConnection) -> Unit = {}): SpeechResponse {
 		val connection = open(URI(url).toURL())
 		try {
 			connection.instanceFollowRedirects = false
@@ -485,7 +515,10 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 			if (connection.responseCode !in 200..299) throw HttpFailure(connection.responseCode)
 			val body = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
 			val fee = connection.getHeaderField("x-litellm-response-cost")
-			if (connection.requestMethod == "POST") MonthlyUsage(getApplication()).record(body, fee)
+			if (connection.requestMethod == "POST") {
+				val rate = priceKey(address, billingModel)
+				MonthlyUsage(getApplication()).record(body, fee, model = billingModel, inputRate = prices.getString(rate,"").orEmpty(), outputRate = prices.getString("$rate/out","").orEmpty())
+			}
 			return SpeechResponse(body, fee)
 		} finally { connection.disconnect() }
 	}

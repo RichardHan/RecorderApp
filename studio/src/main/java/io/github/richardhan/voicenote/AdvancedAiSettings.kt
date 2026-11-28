@@ -26,6 +26,7 @@ internal fun AdvancedAiSettings(speech: SpeechConnection) {
 	SecondsField(R.string.ai_first, speech.firstHighlightSeconds, 0..600) { speech.firstHighlightSeconds = it }
 	FilterChip(selected = speech.defaultCloud, onClick = { speech.defaultCloud = !speech.defaultCloud }, label = { Text(stringResource(R.string.ai_cloud_default)) })
 	FilterChip(selected = speech.correctLive, onClick = { speech.correctLive = !speech.correctLive }, label = { Text(stringResource(R.string.ai_correction_destination, speech.textDestination)) })
+	FilterChip(selected = speech.compressAudio, onClick = { speech.compressAudio = !speech.compressAudio }, label = { Text(stringResource(R.string.ai_compress)) })
 	FilterChip(selected = speech.warnLength, onClick = { speech.warnLength = !speech.warnLength }, label = { Text(stringResource(R.string.ai_warn)) })
 	FilterChip(selected = speech.retrySegments, onClick = { speech.retrySegments = !speech.retrySegments }, label = { Text(stringResource(R.string.ai_retry_segments)) })
 	FilterChip(selected = speech.summaryNotes, onClick = { speech.summaryNotes = !speech.summaryNotes }, label = { Text(stringResource(R.string.ai_use_agenda)) })

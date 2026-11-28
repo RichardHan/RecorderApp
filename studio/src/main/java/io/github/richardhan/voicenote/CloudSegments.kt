@@ -23,18 +23,18 @@ internal fun pcmWave(samples: FloatArray): ByteArray {
 	return data.array()
 }
 
-internal fun audioPayload(protocol: SpeechProtocol, model: String, samples: FloatArray, vocabulary: String): JSONObject {
-	val data = Base64.encodeToString(pcmWave(samples), Base64.NO_WRAP)
+internal fun audioPayload(protocol: SpeechProtocol, model: String, samples: FloatArray, vocabulary: String, mp3: Boolean = false): JSONObject {
+	val data = Base64.encodeToString(if (mp3) cloudMp3(samples) else pcmWave(samples), Base64.NO_WRAP)
 	val prompt = "Transcribe this audio in its original language. Return only the spoken words." +
 		if (vocabulary.isBlank()) "" else "\nPreferred names and spellings:\n$vocabulary"
 	return when (protocol) {
 		SpeechProtocol.Chat -> {
 			val parts = JSONArray().put(JSONObject().put("type", "text").put("text", prompt))
-				.put(JSONObject().put("type", "input_audio").put("input_audio", JSONObject().put("format", "wav").put("data", data)))
+				.put(JSONObject().put("type", "input_audio").put("input_audio", JSONObject().put("format", if (mp3) "mp3" else "wav").put("data", data)))
 			JSONObject().put("model", model).put("stream", false).put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", parts)))
 		}
 		SpeechProtocol.Gemini -> {
-			val parts = JSONArray().put(JSONObject().put("text", prompt)).put(JSONObject().put("inlineData", JSONObject().put("mimeType", "audio/wav").put("data", data)))
+			val parts = JSONArray().put(JSONObject().put("text", prompt)).put(JSONObject().put("inlineData", JSONObject().put("mimeType", if (mp3) "audio/mpeg" else "audio/wav").put("data", data)))
 			JSONObject().put("contents", JSONArray().put(JSONObject().put("parts", parts)))
 		}
 		else -> error("Multipart uses a file upload")
@@ -50,9 +50,9 @@ internal fun generatedText(protocol: SpeechProtocol, body: JSONObject): String {
 }
 
 internal suspend fun segmentedTranscript(file: File, endpoint: String, model: String, protocol: SpeechProtocol, vocabulary: String,
-	seconds: Int, concurrent: Int, skipSilence: Boolean, effort: String?, request: (JSONObject) -> JSONObject) = supervisorScope {
+	seconds: Int, concurrent: Int, skipSilence: Boolean, effort: String?, mp3: Boolean = false, retry: Boolean = false, warn: Boolean = true, request: (JSONObject) -> JSONObject) = supervisorScope {
 	require(seconds in 10..300 && concurrent in 1..6)
-	val identity = (listOf(endpoint, model, protocol.name, vocabulary, seconds, skipSilence, file.length(), file.lastModified()) + listOfNotNull(effort)).joinToString("\u0000")
+	val identity = (listOf(endpoint, model, protocol.name, vocabulary, seconds, skipSilence, file.length(), file.lastModified()) + listOfNotNull(effort, "mp3".takeIf { mp3 })).joinToString("\u0000")
 	val checkpoint = File(file.parentFile, file.name + "." + transcriptDigest(identity).toHexString() + ".checkpoint")
 	val completed = if (checkpoint.exists()) JSONArray(checkpoint.readText()) else JSONArray()
 	// Each in-flight request holds PCM, a WAV copy and base64 JSON until the HTTP write completes.
@@ -80,11 +80,8 @@ internal suspend fun segmentedTranscript(file: File, endpoint: String, model: St
 				if (skipSilence && samples.all { kotlin.math.abs(it) < 0.001f }) {
 					row.put("text", "[silence]").put("cost", "0").put("tokens", 0).put("requests", 0)
 				} else {
-					val reply = request(audioPayload(protocol, model, samples, vocabulary))
-					val usage = reply.optJSONObject("usage") ?: reply.optJSONObject("usageMetadata")
-					row.put("text", generatedText(protocol, reply))
-						.put("cost", reportedCostUsd(usage?.optString("cost")) ?: JSONObject.NULL)
-						.put("tokens", usage?.optLong("total_tokens", usage.optLong("totalTokenCount", -1)) ?: -1).put("requests", 1)
+					val response = transcribeSegment(samples, start, model, protocol, vocabulary, mp3, retry, request)
+					for (key in response.keys()) row.put(key, response.get(key))
 				}
 				synchronized(completed) {
 					completed.put(part, row)
@@ -106,6 +103,65 @@ internal suspend fun segmentedTranscript(file: File, endpoint: String, model: St
 	val costs = rows.map { reportedCostUsd(it.optString("cost"))?.toBigDecimalOrNull() }
 	val tokens = rows.map { it.optLong("tokens", -1) }.takeIf { values -> values.all { it >= 0 } }?.sum()
 	val totalCost = if (costs.all { it != null }) costs.filterNotNull().sumOf { it }.toPlainString() else null
-	saveTranscription(file, rows.joinToString("\n") { it.getString("text") }, TranscriptionReceipt(model, android.os.SystemClock.elapsedRealtime() - began, totalCost, tokens, rows.sumOf { it.optInt("requests", 1) }, java.net.URI(endpoint).host), completed)
+	val flattened = JSONArray()
+	for (row in rows) {
+		val parts = row.optJSONArray("parts")
+		if (parts == null) flattened.put(row) else for (i in 0 until parts.length()) flattened.put(parts.getJSONObject(i))
+	}
+	val lengths = rows.map { it.getString("text").length }.sorted()
+	val unusual = if (warn && lengths.size >= 3) rows.indices.filter { rows[it].getString("text").length > 2.5 * lengths[lengths.size / 2] }.map { it + 1 } else emptyList()
+	saveTranscription(file, rows.joinToString("\n") { it.getString("text") }, TranscriptionReceipt(model, android.os.SystemClock.elapsedRealtime() - began, totalCost, tokens, rows.sumOf { it.optInt("requests", 1) }, java.net.URI(endpoint).host, unusual.joinToString(", "), "$seconds s × $concurrent · " + (if (mp3) "MP3" else "WAV") + (effort?.let { " · $it" } ?: "")), flattened)
 	check(!checkpoint.exists() || checkpoint.delete())
+}
+
+private fun filtered(body: JSONObject): Boolean {
+	val reason = body.optJSONArray("choices")?.optJSONObject(0)?.optString("finish_reason")
+		?: body.optJSONArray("candidates")?.optJSONObject(0)?.optString("finishReason")
+	return reason in setOf("content_filter", "SAFETY", "BLOCKLIST", "PROHIBITED_CONTENT") ||
+		body.optJSONObject("promptFeedback")?.optString("blockReason").orEmpty().isNotEmpty()
+}
+
+internal suspend fun transcribeSegment(samples: FloatArray, start: Double, model: String, mode: SpeechProtocol, vocabulary: String, mp3: Boolean,
+	retry: Boolean, send: (JSONObject) -> JSONObject): JSONObject {
+	var requests = 0
+	var tokens: Long? = 0L
+	var cost: java.math.BigDecimal? = java.math.BigDecimal.ZERO
+	suspend fun attempt(audio: FloatArray, max: Int): JSONObject {
+		val body = audioPayload(mode, model, audio, vocabulary, mp3)
+		for (n in 1..max) {
+			currentCoroutineContext().ensureActive()
+			requests++
+			try {
+				val reply = send(body)
+				val usage = reply.optJSONObject("usage") ?: reply.optJSONObject("usageMetadata")
+				val count = usage?.optLong("total_tokens", usage.optLong("totalTokenCount", -1)) ?: -1
+				val amount = reportedCostUsd(usage?.optString("cost"))?.toBigDecimalOrNull()
+				tokens = tokens?.takeIf { count >= 0 }?.plus(count)
+				cost = cost?.let { if (amount != null) it + amount else null }
+				return reply
+			} catch (e: Exception) {
+				val transient = e is java.io.IOException || (e is HttpFailure && (e.code == 429 || e.code in 500..599))
+				if (n == max || !transient) throw e
+				tokens = null; cost = null
+				delay(500L shl (n - 1))
+			}
+		}
+		error("Empty attempt budget")
+	}
+	val response = attempt(samples, if (retry) 4 else 1)
+	val result = JSONObject()
+	val text = if (!filtered(response)) generatedText(mode, response) else {
+		val parts = JSONArray()
+		val count = (samples.size / (60 * 16000)).coerceIn(1, 3)
+		for (i in 0 until count) {
+			val from = samples.size * i / count
+			val to = samples.size * (i + 1) / count
+			val reply = if (count == 1) response else attempt(samples.copyOfRange(from, to), 1)
+			val words = if (filtered(reply)) "[${formatClipTime(((start + from / 16000.0) * 1000).toInt())} · filtered]" else generatedText(mode, reply)
+			parts.put(JSONObject().put("start", start + from / 16000.0).put("end", start + to / 16000.0).put("text", words))
+		}
+		result.put("parts", parts)
+		(0 until parts.length()).joinToString("\n") { parts.getJSONObject(it).getString("text") }
+	}
+	return result.put("text", text).put("requests", requests).put("tokens", tokens ?: -1).put("cost", cost?.toPlainString() ?: JSONObject.NULL)
 }

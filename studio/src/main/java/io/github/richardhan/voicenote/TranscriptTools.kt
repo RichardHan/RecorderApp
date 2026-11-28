@@ -12,7 +12,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 private val words = Regex("""[\p{IsHan}\p{IsHiragana}\p{IsKatakana}]|[\p{L}\p{N}]+""")
-private val identifiers = Regex("""[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|(?<!\d)(?:\+?\d[ ().-]?){8,15}(?!\d)""")
+private val identifiers = Regex("""[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|(?<![A-Za-z0-9])[A-Za-z][12]\d{8}(?!\d)|(?<!\d)(?:\+?\d[ ().-]?){8,19}(?!\d)""")
 internal fun cleanTranscript(text: String) = text.lines().map { it.trim().replace(Regex("[\\t ]+"), " ") }
 	.fold(mutableListOf<String>()) { lines, line -> lines.apply { if (line.isNotBlank() || lastOrNull()?.isNotBlank() == true) add(line) } }.joinToString("\n").trim()
 internal fun maskIdentifiers(text: String) = identifiers.replace(text, "[…]")
