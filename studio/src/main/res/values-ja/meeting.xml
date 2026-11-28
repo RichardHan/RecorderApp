@@ -1,0 +1,33 @@
+<resources>
+	<string name="meeting_workspace">AI 会議ツール</string>
+	<string name="meeting_choose">録音を選択</string>
+	<string name="meeting_import">音声を読み込む</string>
+	<string name="meeting_setup">AI 設定</string>
+	<string name="meeting_empty">録音または音声を読み込むと、選んだ録音の文字起こしで次のツールを使えます。</string>
+	<string name="meeting_need_transcript">この録音を文字起こしするか、TXT・SRT・VTT の原稿を読み込んでください。</string>
+	<string name="meeting_summary">要約</string>
+	<string name="meeting_actions">タスク</string>
+	<string name="meeting_decisions">決定事項</string>
+	<string name="meeting_chapters">チャプター</string>
+	<string name="meeting_translation">対訳</string>
+	<string name="meeting_outline">アウトライン</string>
+	<string name="meeting_cleanup">整文</string>
+	<string name="meeting_title">タイトル候補</string>
+	<string name="meeting_brief">短い要約</string>
+	<string name="meeting_minutes">議事録</string>
+	<string name="meeting_bullets">箇条書き</string>
+	<string name="meeting_light">軽い修正</string>
+	<string name="meeting_medium">読みやすく整理</string>
+	<string name="meeting_needs_connection">生成するには「AI 設定」で API キーとテキストモデルを入力してください。保存済みの結果やタスクはオフラインで使えます。</string>
+	<string name="meeting_generate">生成</string>
+	<string name="meeting_disclose">文字起こしを %1$s に送信し、%2$s で処理しますか？利用料がかかる場合があります。</string>
+	<string name="meeting_no_items">該当する項目がありません。</string>
+	<string name="meeting_add">タスクに追加</string>
+	<string name="meeting_apply_title">このタイトルを使う</string>
+	<string name="meeting_new_task">新しいタスク</string>
+	<string name="meeting_remove">削除</string>
+	<string name="meeting_copy">コピー</string>
+	<string name="meeting_share">下書きを共有</string>
+	<string name="meeting_edit">編集</string>
+	<string name="meeting_filler">フィラー · %1$s × %2$d</string>
+</resources>

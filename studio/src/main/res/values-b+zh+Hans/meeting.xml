@@ -1,0 +1,33 @@
+<resources>
+	<string name="meeting_workspace">AI 会议工具</string>
+	<string name="meeting_choose">选择录音</string>
+	<string name="meeting_import">导入音频</string>
+	<string name="meeting_setup">AI 设置</string>
+	<string name="meeting_empty">录音或导入音频后，即可用所选录音的逐字稿使用下列工具。</string>
+	<string name="meeting_need_transcript">请先转录这段录音，或导入它的 TXT、SRT 或 VTT 文字稿。</string>
+	<string name="meeting_summary">摘要</string>
+	<string name="meeting_actions">待办清单</string>
+	<string name="meeting_decisions">决议</string>
+	<string name="meeting_chapters">章节</string>
+	<string name="meeting_translation">双语逐字稿</string>
+	<string name="meeting_outline">层级大纲</string>
+	<string name="meeting_cleanup">书面清稿</string>
+	<string name="meeting_title">建议标题</string>
+	<string name="meeting_brief">简明摘要</string>
+	<string name="meeting_minutes">会议纪要</string>
+	<string name="meeting_bullets">要点列表</string>
+	<string name="meeting_light">轻度修正</string>
+	<string name="meeting_medium">润色语句</string>
+	<string name="meeting_needs_connection">要使用 AI 生成内容，请在“AI 设置”填写密钥和文本模型。已存结果和待办清单可离线使用。</string>
+	<string name="meeting_generate">生成</string>
+	<string name="meeting_disclose">要将文字稿发送到 %1$s，使用 %2$s 处理吗？服务商可能收费。</string>
+	<string name="meeting_no_items">这份文字稿没有相符项目。</string>
+	<string name="meeting_add">加入待办</string>
+	<string name="meeting_apply_title">应用标题</string>
+	<string name="meeting_new_task">新增待办内容</string>
+	<string name="meeting_remove">移除</string>
+	<string name="meeting_copy">复制</string>
+	<string name="meeting_share">分享草稿</string>
+	<string name="meeting_edit">编辑</string>
+	<string name="meeting_filler">赘词 · %1$s × %2$d</string>
+</resources>

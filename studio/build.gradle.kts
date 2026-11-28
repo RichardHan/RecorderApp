@@ -16,8 +16,8 @@ android {
 		ndk.abiFilters += if (arm64Only) listOf("arm64-v8a") else listOf("arm64-v8a", "x86_64")
 		minSdk = 29
 		targetSdk = 37
-		versionCode = 1
-		versionName = "0.1.0"
+		versionCode = 2
+		versionName = "0.2.0"
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 	}
 	testOptions.unitTests.isIncludeAndroidResources = true

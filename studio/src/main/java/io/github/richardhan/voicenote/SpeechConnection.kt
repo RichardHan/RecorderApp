@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -129,6 +130,40 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 			}
 			revision++
 		}
+	}
+
+	internal fun canAnalyze() = endpoint() != null && key.isNotBlank() && chatModel.isNotBlank()
+
+	internal fun generateMeetingNotes(file: File, transcript: String, tool: MeetingTool, option: String, language: String, mask: Boolean) = request {
+		require(canAnalyze())
+		withContext(Dispatchers.IO) {
+			val passages = meetingPassages(file, transcript).map { if (mask) it.copy(text = maskIdentifiers(it.text)) else it }
+			val input = passages.mapIndexed { i, p -> "[${i + 1}] ${p.text}" }.joinToString("\n")
+			val answer = textCompletion(input, meetingInstruction(tool, option, language))
+			val result = parseMeetingOutput(tool, answer, passages, option)
+			kotlinx.coroutines.currentCoroutineContext().ensureActive()
+			check(file.exists() && readTranscript(file) == transcript)
+			MeetingNotes(file, transcript).save(tool, result)
+		}
+		revision++
+	}
+
+	internal fun reviseDecision(file: File, transcript: String, original: MeetingPoint, replacement: String?) = request {
+		withContext(Dispatchers.IO) {
+			val notes = MeetingNotes(file, transcript)
+			val current = requireNotNull(notes.read(MeetingTool.Decisions))
+			val index = current.points.indexOf(original)
+			check(index >= 0)
+			val points = current.points.toMutableList()
+			if (replacement == null) points.removeAt(index) else points[index] = original.copy(text = replacement)
+			notes.save(MeetingTool.Decisions, current.copy(points = points))
+		}
+		revision++
+	}
+
+	internal fun changeMeetingTasks(file: File, transcript: String, change: (List<CheckedTask>) -> List<CheckedTask>) = request {
+		withContext(Dispatchers.IO) { check(file.exists()); MeetingNotes(file, transcript).updateTasks(change) }
+		revision++
 	}
 
 	fun changeBase(value: String) {

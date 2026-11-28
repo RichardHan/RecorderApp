@@ -41,6 +41,7 @@ class LocalServiceTest {
 	}
 	@After fun close() {
 		server.shutdown()
+		audio.parentFile?.listFiles()?.filter { it.name.startsWith(audio.name + ".") && it.extension == "meeting" }?.forEach { it.delete() }
 		audio.delete()
 		transcriptFile(audio).delete()
 		File(audio.parentFile, audio.name + ".usage").delete()
@@ -124,6 +125,58 @@ class LocalServiceTest {
 		assertEquals(401, speech.httpStatus)
 		assertEquals(1, readMessages(chatFile(audio, readTranscript(audio))).length())
 	}
+	@Test fun meetingToolsSendOnlyTextAndKeepValidatedResultsPerRecording() = runBlocking {
+		val text = "Plan agreed.\nSend the draft."
+		val segments = org.json.JSONArray("""[{"start":0,"end":2,"text":"Plan agreed."},{"start":5,"end":8,"text":"Send the draft."}]""")
+		saveTranscription(audio, text, null, segments)
+		val speech = SpeechConnection(app, open)
+		speech.key = "synthetic"
+		speech.chatModel = "notes-mock"
+		val notes = MeetingNotes(audio, text)
+		val passages = meetingPassages(audio, text)
+		assertEquals(listOf(0L, 5000L), passages.map { it.ms })
+		suspend fun complete(action: () -> Unit) {
+			withContext(Dispatchers.Main) { action() }
+			withTimeout(12000) { while (withContext(Dispatchers.Main) { speech.busy }) delay(25) }
+		}
+		val rows = """[{"text":"Result one","source":1,"quote":"agreed","group":"Topic"},{"text":"Result two","source":2,"quote":"draft","group":"Topic"}]"""
+		fun response(body: String) = JSONObject().put("choices", org.json.JSONArray().put(JSONObject().put("message", JSONObject().put("content", body)))).toString()
+		for (tool in MeetingTool.entries) {
+			val answer = if (tool == MeetingTool.Title) """[{"text":"Review","source":1,"quote":"agreed"}]""" else rows
+			reply(200, response(answer))
+			complete { speech.generateMeetingNotes(audio, text, tool, "English", "English", false) }
+			assertEquals(tool.name, 0, speech.error)
+			val body = nextRequest().body.readUtf8()
+			assertTrue(body.contains("notes-mock"))
+			assertTrue(body.contains("[2] Send the draft."))
+			assertFalse(body.contains("synthetic audio bytes"))
+			val result = requireNotNull(notes.read(tool, "English"))
+			assertEquals(0, result.points.first().source)
+			assertNull(MeetingNotes(audio, "Different transcript").read(tool, "English"))
+		}
+		assertNull(notes.read(MeetingTool.Translation, "日本語"))
+		reply(200, response("""[{"text":"Partial translation","source":5,"quote":"invented"}]"""))
+		complete { speech.generateMeetingNotes(audio, text, MeetingTool.Translation, "English", "English", false) }
+		assertTrue(speech.error != 0)
+		assertEquals(2, notes.read(MeetingTool.Translation, "English")!!.points.size)
+		nextRequest()
+		val decision = notes.read(MeetingTool.Decisions)!!.points.first()
+		complete { speech.reviseDecision(audio, text, decision, "Reviewed decision") }
+		assertEquals("Reviewed decision", notes.read(MeetingTool.Decisions)!!.points.first().text)
+		complete { speech.changeMeetingTasks(audio, text) { it + CheckedTask("Send draft", false) } }
+		complete { speech.changeMeetingTasks(audio, text) { list -> list.map { it.copy(done = true) } } }
+		assertEquals(listOf(CheckedTask("Send draft", true)), MeetingNotes(audio, "edited").tasks())
+		assertEquals(text, readTranscript(audio))
+		val zip = java.io.ByteArrayOutputStream()
+		exportTranscripts(zip, listOf(audio))
+		val entries = java.util.zip.ZipInputStream(zip.toByteArray().inputStream()).use { input ->
+			buildMap { while (true) { val entry = input.nextEntry ?: break; put(entry.name, input.readBytes().decodeToString()) } }
+		}
+		assertEquals("[x] Send draft", entries[audio.name + ".tasks.txt"])
+		assertTrue(entries.getValue(audio.name + ".summary.txt").contains("Result one"))
+		assertTrue(parseMeetingOutput(MeetingTool.Summary, """[{"text":"Unknown","source":2,"quote":"absent"}]""", passages, "").points.single().source == null)
+	}
+
 	@Test fun geminiRetrySendsOnlyUnfinishedAudioAndUsesTheConfiguredKey() = runBlocking {
 		val wave = File(audio.parentFile, audio.name + ".wav")
 		try {

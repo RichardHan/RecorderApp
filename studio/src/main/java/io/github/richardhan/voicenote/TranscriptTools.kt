@@ -27,6 +27,18 @@ internal fun TranscriptTools(file: File, text: String, speech: SpeechConnection)
 	TextButton(onClick = { open = true }) { Text(stringResource(R.string.text_tools)) }
 	if (!open) return
 	var draft by remember(text) { mutableStateOf(text) }
+	var keyword by remember(file) { mutableStateOf("") }
+	val keywords by produceState(emptyList<String>(), text) { value = withContext(Dispatchers.Default) { transcriptKeywords(text) } }
+	val fillers by produceState(emptyList<Pair<String, Int>>(), text) { value = withContext(Dispatchers.Default) { transcriptFillers(text) } }
+	val paceSegments by produceState(emptyList<Pair<TimedText, Int>>(), file, text) {
+		value = withContext(Dispatchers.IO) {
+			readTiming(file).filter { it.end - it.start >= 20 }.mapNotNull { line ->
+				pace(line.text, ((line.end - line.start) * 1000).toLong())?.let { line to it }
+			}.sortedBy { it.second }.let { listOfNotNull(it.firstOrNull(), it.lastOrNull()).distinct() }
+		}
+	}
+	val context = androidx.compose.ui.platform.LocalContext.current
+	val library = (context.applicationContext as StudioApplication).library
 	val duration by produceState(0L, file) {
 		value = withContext(Dispatchers.IO) {
 			if (file.extension !in audioTypes) return@withContext 0L
@@ -37,6 +49,11 @@ internal fun TranscriptTools(file: File, text: String, speech: SpeechConnection)
 	}
 	AlertDialog(onDismissRequest = { open = false }, title = { Text(stringResource(R.string.text_tools)) }, text = {
 		Column(Modifier.verticalScroll(rememberScrollState())) {
+			FlowRow { for (word in keywords) TextButton(onClick = { keyword = word }) { Text(word) } }
+			for ((word, count) in fillers) Text(stringResource(R.string.meeting_filler, word, count))
+			for ((line, rate) in paceSegments) TextButton(enabled = library.started == 0L, onClick = { context.playRecording(file, (line.start * 1000).toLong()) }) {
+				Text(formatClipTime((line.start * 1000).toInt()) + " · " + stringResource(R.string.speech_pace, rate))
+			}
 			pace(text, duration)?.let { Text(stringResource(R.string.speech_pace, it)) }
 			TextButton(onClick = { draft = cleanTranscript(draft) }) { Text(stringResource(R.string.clean_text)) }
 			TextButton(onClick = { draft = maskIdentifiers(draft) }) { Text(stringResource(R.string.mask_contacts)) }
@@ -45,4 +62,5 @@ internal fun TranscriptTools(file: File, text: String, speech: SpeechConnection)
 	}, confirmButton = { TextButton(enabled = !speech.busy && draft.isNotBlank() && draft != text, onClick = { speech.edit(file, draft); open = false }) {
 		Text(stringResource(R.string.done))
 	} }, dismissButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.cancel)) } })
+	if (keyword.isNotBlank()) MatchedTranscript(file, keyword, speech.revision) { keyword = "" }
 }

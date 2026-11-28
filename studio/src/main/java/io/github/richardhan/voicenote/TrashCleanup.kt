@@ -12,7 +12,7 @@ internal fun removeRecording(context: Context, file: File) {
 	val sharedStem = directory.listFiles().orEmpty().any { it != file && it.nameWithoutExtension == file.nameWithoutExtension && (it.extension in audioTypes || it.extension == "youtube") }
 	val owned = directory.listFiles().orEmpty().filter { side ->
 		val prefix = file.name + "."
-		(side.name.startsWith(prefix) && side.extension in setOf("usage", "timing", "turns", "history", "chat", "checkpoint")) ||
+		(side.name.startsWith(prefix) && side.extension in setOf("usage", "timing", "turns", "history", "chat", "checkpoint", "meeting")) ||
 			(!sharedStem && (side == transcriptFile(file) || (side.name.startsWith(file.nameWithoutExtension + "-") && side.extension == "summary")))
 	}
 	for (item in owned + File(File(context.noBackupFilesDir, "photos"), file.name)) check(!item.exists() || item.deleteRecursively())

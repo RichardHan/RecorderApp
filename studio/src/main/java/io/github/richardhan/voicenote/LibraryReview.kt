@@ -26,6 +26,20 @@ internal fun exportTranscripts(out: OutputStream, recordings: List<File>) {
 			zip.putNextEntry(ZipEntry(file.name + ".txt"))
 			text.inputStream().use { it.copyTo(zip) }
 			zip.closeEntry()
+			val transcript = text.readText()
+			val notes = MeetingNotes(file, transcript)
+			fun document(suffix: String, body: String) {
+				if (body.isBlank()) return
+				zip.putNextEntry(ZipEntry(file.name + "." + suffix + ".txt"))
+				zip.write(body.toByteArray(Charsets.UTF_8))
+				zip.closeEntry()
+			}
+			val generated = notes.read(MeetingTool.Summary)?.points?.joinToString("\n") { it.text }
+			document("summary", generated ?: summaryFile(file, transcript).takeIf(File::isFile)?.readText().orEmpty())
+			for (tool in listOf(MeetingTool.Decisions, MeetingTool.Chapters, MeetingTool.Outline, MeetingTool.Cleanup)) {
+				notes.read(tool)?.let { document(tool.name.lowercase(), it.points.joinToString("\n") { point -> point.text }) }
+			}
+			document("tasks", notes.tasks().joinToString("\n") { (if (it.done) "[x] " else "[ ] ") + it.text })
 		}
 	}
 }

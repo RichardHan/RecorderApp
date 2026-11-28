@@ -139,6 +139,8 @@ private fun Studio(
 	heading: @Composable () -> Unit,
 	toggle: () -> Unit
 ) {
+	var aiOpen by rememberSaveable { mutableStateOf(false) }
+	var aiRecording by rememberSaveable { mutableStateOf<String?>(null) }
 	var input by rememberSaveable { mutableStateOf("") }
 	val context = androidx.compose.ui.platform.LocalContext.current
 	val addPhoto = rememberPhotoIntake(library)
@@ -148,6 +150,10 @@ private fun Studio(
 	if (guide) AlertDialog(onDismissRequest = ::closeGuide, title = { Text(stringResource(R.string.studio)) },
 		text = { Text(stringResource(R.string.get_started)) },
 		confirmButton = { TextButton(onClick = ::closeGuide) { Text(stringResource(R.string.done)) } })
+	if (aiOpen && destination == null) {
+		MeetingWorkspace(library, speech, offline, local, aiRecording) { aiOpen = false }
+		return
+	}
 	val revision = speech.revision + library.transcriptRevision
 	val query = input.trim()
 	var category by rememberSaveable { mutableStateOf("") }
@@ -183,6 +189,7 @@ private fun Studio(
 			OPEN_LIBRARY -> list.scrollToItem(6 + (if (library.message != 0) 1 else 0) + (if (speech.busy) 1 else 0))
 			else -> return@LaunchedEffect
 		}
+		aiOpen = false
 		onNavigated()
 	}
 	Surface(Modifier.fillMaxSize()) {
@@ -192,7 +199,10 @@ private fun Studio(
 			contentPadding = PaddingValues(20.dp),
 			verticalArrangement = Arrangement.spacedBy(14.dp)
 		) {
-			item { heading() }
+			item {
+				heading()
+				FilledTonalButton(onClick = { aiRecording = null; aiOpen = true }) { Text(stringResource(R.string.meeting_workspace)) }
+			}
 			item {
 				val panel = if (dark) MaterialTheme.colorScheme.surfaceContainer else Color(0xFF30213F)
 				val accent = if (dark) MaterialTheme.colorScheme.primary else Color(0xFFD1F4A1)
@@ -264,6 +274,7 @@ private fun Studio(
 								Text(stringResource(if (library.playingFile == file) R.string.stop_playback else R.string.play))
 							}
 						}
+						TextButton(onClick = { aiRecording = file.name; aiOpen = true }) { Text(stringResource(R.string.meeting_workspace)) }
 						if (library.playingFile == file) PlaybackControls(library)
 						RecordingActions(file, library)
 						if (file.extension in audioTypes) PhotoActions(library, file, addPhoto)
