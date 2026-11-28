@@ -43,6 +43,27 @@ def tap(label, scroll=False):
     adb("shell", "input", "tap", str((left + right) // 2), str((top + bottom) // 2))
 
 
+def enter_text(label, value):
+    tap(label, scroll=True)
+    for _ in range(3):
+        for _ in range(6):
+            field = next((node for node in nodes() if node.get("class") == "android.widget.EditText"
+                          and node.get("focused") == "true"), None)
+            if field is not None:
+                break
+            time.sleep(0.25)
+        else:
+            raise AssertionError(f"Input for {label!r} did not receive focus")
+
+        # Replace the full draft if a delayed Android IME consumed part of a prior attempt.
+        adb("shell", "input", "keycombination", "KEYCODE_CTRL_LEFT", "KEYCODE_A")
+        adb("shell", "input", "keyevent", "KEYCODE_DEL")
+        adb("shell", "input", "text", value.replace(" ", "%s"))
+        if any(node.get("text") == value and node.get("focused") == "true" for node in nodes()):
+            return
+    raise AssertionError(f"The focused input did not contain {value!r}")
+
+
 def screenshot(name):
     (PREVIEW / name).write_bytes(adb("exec-out", "screencap", "-p"))
 
@@ -76,8 +97,7 @@ adb("shell", "am", "force-stop", PACKAGE)
 launch()
 tap("AI meeting tools")
 tap("Action items")
-tap("New task", scroll=True)
-adb("shell", "input", "text", "Review%sthe%sdesign")
+enter_text("New task", "Review the design")
 # Hide the Android input method before tapping the checklist action.
 adb("shell", "input", "keyevent", "KEYCODE_BACK")
 tap("Add to checklist", scroll=True)
@@ -93,8 +113,7 @@ adb("shell", "am", "force-stop", PACKAGE)
 launch()
 tap("AI meeting tools")
 tap("Decisions")
-tap("Add a decision manually", scroll=True)
-adb("shell", "input", "text", "Approve%sthe%spilot")
+enter_text("Add a decision manually", "Approve the pilot")
 adb("shell", "input", "keyevent", "KEYCODE_BACK")
 tap("Done", scroll=True)
 find("Approve the pilot", scroll=True)
