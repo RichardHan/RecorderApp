@@ -210,38 +210,41 @@ private fun Studio(
 			item {
 				val panel = if (dark) MaterialTheme.colorScheme.surfaceContainer else Color(0xFF30213F)
 				val accent = if (dark) MaterialTheme.colorScheme.primary else Color(0xFFD1F4A1)
-				Surface(color = panel, contentColor = Color.White, shape = RoundedCornerShape(24.dp)) {
-					Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-						Text(stringResource(when {
-							paused -> R.string.recording_paused
-							active -> R.string.active
-							else -> R.string.ready
-						}))
-						Text(String.format(Locale.ROOT, "%02d:%02d:%02d", elapsed / 3600, elapsed / 60 % 60, elapsed % 60),
-							style = MaterialTheme.typography.displayMedium, fontFamily = FontFamily.Monospace)
-						LiveWaveform(library, accent)
-						if (!active) { CaptureSettings(library, offline.installed); liveCloudOption?.invoke() }
-						FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-							Button(onClick = toggle, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF201917))) {
-								Text(stringResource(if (active) R.string.stop else R.string.record))
+				// The recording card has a dark surface in both appearance modes.
+				MaterialTheme(colorScheme = studioDarkColors) {
+					Surface(color = panel, contentColor = Color.White, shape = RoundedCornerShape(24.dp)) {
+						Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+							Text(stringResource(when {
+								paused -> R.string.recording_paused
+								active -> R.string.active
+								else -> R.string.ready
+							}))
+							Text(String.format(Locale.ROOT, "%02d:%02d:%02d", elapsed / 3600, elapsed / 60 % 60, elapsed % 60),
+								style = MaterialTheme.typography.displayMedium, fontFamily = FontFamily.Monospace)
+							LiveWaveform(library, accent)
+							if (!active) { CaptureSettings(library, offline.installed); liveCloudOption?.invoke() }
+							FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+								Button(onClick = toggle, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF201917))) {
+									Text(stringResource(if (active) R.string.stop else R.string.record))
+								}
+								if (active) {
+									TextButton(onClick = { discard = true }, colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
+										Text(stringResource(R.string.discard_capture))
+									}
+									TextButton(onClick = library::captureBookmark, colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
+										Text(stringResource(R.string.bookmark) + " (" + library.bookmarkCount + ")")
+									}
+									TextButton(onClick = { context.controlCapture(if (paused) CaptureAction.RESUME else CaptureAction.PAUSE) },
+										colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
+										Text(stringResource(if (paused) R.string.resume_recording else R.string.pause_recording))
+									}
+								}
 							}
-							if (active) {
-								TextButton(onClick = { discard = true }, colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
-									Text(stringResource(R.string.discard_capture))
-								}
-								TextButton(onClick = library::captureBookmark, colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
-									Text(stringResource(R.string.bookmark) + " (" + library.bookmarkCount + ")")
-								}
-								TextButton(onClick = { context.controlCapture(if (paused) CaptureAction.RESUME else CaptureAction.PAUSE) },
-									colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
-									Text(stringResource(if (paused) R.string.resume_recording else R.string.pause_recording))
-								}
-							}
+							if (active && library.liveText.isNotBlank()) Text(library.liveText)
+							LiveMeeting(library, speech)
+							library.captureTarget?.let { PhotoActions(library, it, addPhoto) }
+							Text(stringResource(R.string.foreground), style = MaterialTheme.typography.bodySmall)
 						}
-						if (active && library.liveText.isNotBlank()) Text(library.liveText)
-						LiveMeeting(library, speech)
-						library.captureTarget?.let { PhotoActions(library, it, addPhoto) }
-						Text(stringResource(R.string.foreground), style = MaterialTheme.typography.bodySmall)
 					}
 				}
 			}
