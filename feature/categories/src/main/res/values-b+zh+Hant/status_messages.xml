@@ -1,8 +1,0 @@
-<resources>
-	<string name="feature_categories_message_cannot_delete_category">無法刪除分類</string>
-	<string name="feature_categories_message_cannot_have_empty_values">不得留白</string>
-	<string name="feature_categories_message_cannot_perform_edit">無法編輯</string>
-	<string name="feature_categories_message_cannot_update_category">無法更新分類</string>
-	<string name="feature_categories_message_category_set">已設定分類</string>
-	<string name="feature_categories_message_deleted_categories_successfully">已刪除分類</string>
-</resources>

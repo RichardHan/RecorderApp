@@ -14,7 +14,8 @@ internal class ModelDownload(
 	private val url: URL,
 	private val destination: File,
 	val expectedBytes: Long,
-	private val expectedSha256: String
+	private val expectedDigest: String,
+	private val algorithm: String = "SHA-256"
 ) {
 	private companion object { val writer = Mutex() }
 
@@ -32,7 +33,7 @@ internal class ModelDownload(
 		val offset = partial.length()
 		if (offset < expectedBytes) transfer(offset, progress)
 		check(partial.length() == expectedBytes)
-		val hash = MessageDigest.getInstance("SHA-256")
+		val hash = MessageDigest.getInstance(algorithm)
 		val buffer = ByteArray(65536)
 		partial.inputStream().use { input ->
 			while (true) {
@@ -42,7 +43,7 @@ internal class ModelDownload(
 				hash.update(buffer, 0, n)
 			}
 		}
-		if (hash.digest().joinToString("") { "%02x".format(it) } != expectedSha256) {
+		if (hash.digest().joinToString("") { "%02x".format(it) } != expectedDigest) {
 			clearPartial()
 			error("Model checksum mismatch")
 		}

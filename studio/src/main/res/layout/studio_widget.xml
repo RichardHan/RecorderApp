@@ -1,0 +1,6 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"
+	android:background="#30213F" android:padding="8dp">
+	<Button android:id="@+id/open_recorder" android:text="@string/studio" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+	<Button android:id="@+id/open_library" android:text="@string/library" android:maxLines="1" android:ellipsize="end" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+</LinearLayout>

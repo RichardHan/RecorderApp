@@ -1,5 +1,0 @@
-<resources>
-	<string name="transcript_last_execution">最近一次執行：%1$.1f 秒・已回報費用：%2$s（%3$d/%4$d 個請求）</string>
-	<string name="transcript_cost_unreported">無資料</string>
-	<string name="transcript_cost_per_hour">每小時錄音換算費用：US$%1$s</string>
-</resources>

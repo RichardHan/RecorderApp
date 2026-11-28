@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-  <string name="select_category_screen">ক্যাটাগরি নির্বাচন করুন</string>
-  <string name="categories_create_success">ক্যাটাগরি সফলভাবে তৈরি করা হয়েছে</string>
-  <string name="categories_deleted">ক্যাটাগরিগুলো মুছে ফেলা হয়েছে</string>
-  <string name="categories_updated">রেকর্ডিংগুলো %s ক্যাটাগরিতে সরানো হয়েছে।</string>
-</resources>

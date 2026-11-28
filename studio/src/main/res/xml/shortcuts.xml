@@ -1,0 +1,8 @@
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+	<shortcut android:shortcutId="recorder" android:shortcutShortLabel="@string/studio" android:icon="@drawable/voice_mark">
+		<intent android:action="io.github.richardhan.voicenote.RECORDER" android:targetPackage="io.github.richardhan.voicenote" android:targetClass="io.github.richardhan.voicenote.StudioActivity"/>
+	</shortcut>
+	<shortcut android:shortcutId="library" android:shortcutShortLabel="@string/library" android:icon="@drawable/voice_mark">
+		<intent android:action="io.github.richardhan.voicenote.LIBRARY" android:targetPackage="io.github.richardhan.voicenote" android:targetClass="io.github.richardhan.voicenote.StudioActivity"/>
+	</shortcut>
+</shortcuts>

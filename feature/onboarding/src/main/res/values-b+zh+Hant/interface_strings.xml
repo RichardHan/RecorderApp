@@ -1,9 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-	<string name="feature_onboarding_edit">編輯</string>
-	<string name="feature_onboarding_organize">整理</string>
-	<string name="feature_onboarding_permission_security">權限與安全</string>
-	<string name="feature_onboarding_player">播放</string>
-	<string name="feature_onboarding_probable_logo">應用程式圖示</string>
-	<string name="feature_onboarding_recorder">錄音</string>
-</resources>

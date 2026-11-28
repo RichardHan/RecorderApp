@@ -1,3 +1,0 @@
--keepclasseswithmembernames class com.eva.compression.** {
-    native <methods>;
-}

@@ -1,4 +1,0 @@
-<resources>
-	<string name="feature_categories_select_recordings">選取錄音</string>
-	<string name="feature_categories_cannot_find_a_category_fallback_to_create">找不到分類，請建立新分類</string>
-</resources>

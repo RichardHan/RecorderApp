@@ -9,6 +9,9 @@ concurrency:
   group: pr-apk-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
@@ -23,20 +26,37 @@ jobs:
         run: |
           mkdir -p ~/.gradle
           echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m" >> ~/.gradle/gradle.properties
+      - name: Install Android SDK packages
+        run: '"${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;37.0.0"'
       - name: Fixed debug keystore
+        id: signing
         env:
           DEBUG_KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
         run: |
-          if [ -n "$DEBUG_KEYSTORE_B64" ]; then mkdir -p ~/.android && echo "$DEBUG_KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
-          else echo "::warning::DEBUG_KEYSTORE_B64 not set: APK uses a random debug key (Drive sign-in fails, cannot install over previous build)"; fi
+          if [ -n "$DEBUG_KEYSTORE_B64" ]; then
+            umask 077
+            mkdir -p "$HOME/.android"
+            printf '%s' "$DEBUG_KEYSTORE_B64" | base64 -d > "$HOME/.android/debug.keystore"
+            echo "ANDROID_USER_HOME=$HOME/.android" >> "$GITHUB_ENV"
+            echo "stable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::DEBUG_KEYSTORE_B64 not set: APK uses a random debug key (cannot install over previous build)"
+          fi
       - name: Unit tests + debug APK
-        env:
-          DRIVE_WEB_CLIENT_ID: ${{ secrets.DRIVE_WEB_CLIENT_ID }}
+        run: ./gradlew test assembleDebug -Parm64Only=true -PcompressNative=true --stacktrace
+      - name: Verify stable APK signing certificate
+        if: steps.signing.outputs.stable == 'true'
         run: |
-          [ -n "$DRIVE_WEB_CLIENT_ID" ] || echo "::warning::DRIVE_WEB_CLIENT_ID secret not set: Drive sign-in will fail in this APK"
-          ./gradlew test :app:assembleDebug -Parm64Only=true -PcompressNative=true --stacktrace
+          set -euo pipefail
+          apk=studio/build/outputs/apk/debug/studio-debug.apk
+          cert=$("$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --print-certs "$apk" | sed -n 's/.*certificate SHA-256 digest: //p')
+          expected=7bfd64eeb026604169a8731421a48d2204db51ab925c6863ebb7e39d02184d36
+          [[ "$cert" == "$expected" ]] || { echo "::error::PR APK signature differs from the stable debug certificate"; exit 1; }
+      - name: Remove keystore from runner
+        if: always()
+        run: rm -f ~/.android/debug.keystore
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: unit-test-reports, path: '**/build/reports/tests/', if-no-files-found: ignore }
       - uses: actions/upload-artifact@v4
-        with: { name: app-debug-apk, path: app/build/outputs/apk/debug/*.apk, if-no-files-found: error }
+        with: { name: app-debug-apk, path: studio/build/outputs/apk/debug/*.apk, if-no-files-found: error }

@@ -6,12 +6,6 @@ on:
     pull_request:
         branches: [ main ]
     workflow_dispatch:
-        inputs:
-            test_scope:
-                description: "Instrumented test scope (all modules or photo attachment acceptance)"
-                type: choice
-                options: [all, photos]
-                default: all
 
 permissions:
     contents: read
@@ -62,15 +56,8 @@ jobs:
                     sudo udevadm control --reload-rules
                     sudo udevadm trigger --name-match=kvm
 
-            -   name: Install dependencies for test assets
-                run: |
-                    sudo apt-get update
-                    sudo apt-get install -y ffmpeg jq
-
-            -   name: Build test assets
-                run: |
-                    chmod +x data/visualizer/test_assets_builder.sh
-                    OUTPUT_DIR="data/visualizer/src/androidTest/assets" ./data/visualizer/test_assets_builder.sh
+            -   name: Install Android SDK packages
+                run: '"${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;37.0.0"'
 
             -   name: AVD cache
                 uses: actions/cache@v4
@@ -93,6 +80,17 @@ jobs:
                     disable-animations: false
                     script: echo "Generated AVD snapshot for caching."
 
+            -   name: Fetch public offline speech fixtures
+                working-directory: ${{ runner.temp }}
+                run: |
+                    set -euo pipefail
+                    mkdir -p studio-model-check
+                    cd studio-model-check
+                    curl -fsSL --retry 3 https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip -o english.zip
+                    echo '09ab50ccd62b674cbaa231b825f9c1cb  english.zip' | md5sum -c -
+                    curl -fsSL --retry 3 https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/2365baeacb507f821a0c8120fcee3d484dba7a07/test_wavs/en.wav -o speech.wav
+                    echo 'eb1eb008904465b74c304aad8342e8c7d3c6e61ffe9f66adcaca9cf0f76a93f4  speech.wav' | sha256sum -c -
+
             -   name: Run debug instrumented tests
                 uses: reactivecircus/android-emulator-runner@v2
                 with:
@@ -104,9 +102,17 @@ jobs:
                     disable-animations: true
                     script: |
                         adb devices
-                        # Keep every module's debug tests, without benchmark/profile release builds.
-                        # Serialize projects sharing one emulator and bound concurrent dex workers.
-                        if [ "${{ inputs.test_scope }}" = "photos" ]; then bash scripts/test-photo-attachments.sh; else ./gradlew connectedDebugAndroidTest -PincludeEmulatorAbis=true --no-parallel --max-workers=2 --continue --stacktrace; fi
+                        adb push "$RUNNER_TEMP/studio-model-check" /data/local/tmp/
+                        # Debug instrumented tests of the single app module (:studio); x86_64 libs are kept by default.
+                        ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.modelFixture=true --max-workers=2 --continue --stacktrace
+                        bash .github/scripts/studio-preview.sh
+
+            -   name: Upload Studio emulator preview
+                uses: actions/upload-artifact@v4
+                with:
+                    name: studio-preview-api${{ matrix.api-level }}
+                    path: ${{ runner.temp }}/studio-preview/*.png
+                    if-no-files-found: error
 
             -   name: Module-wise test summary
                 if: always()

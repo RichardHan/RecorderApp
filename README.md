@@ -1,121 +1,57 @@
-# :studio_microphone: RecorderApp
+# OpenRouter Recorder
 
-An Android audio recorder app designed to make capturing, editing, and managing recordings simple and intuitive.
+一支從頭重寫（clean-room）的 Android 錄音 App，原始碼在 [`studio/`](studio/)，Gradle 專案是 `:studio`，
+Application ID 為 `io.github.richardhan.voicenote`。這個 repo 現在只保留這一支 App；原本從上游 fork 下來的
+舊版 `:app`（`com.eva.recorderapp`）及其 `core/`、`data/`、`feature/` 等模組已移除，需要時可在 git 歷史中找到。
 
-## 💁 About
+## 功能
 
-**RecorderApp** is a full-featured audio recorder that supports multiple codecs (**AAC**, **AMR**, and **Opus**) across configurable quality levels. Recordings continue seamlessly in the background so you never miss a moment.
+- 背景錄音支援 AAC、Opus、AMR-NB、AMR-WB 和可調位元率。可從通知暫停、繼續及儲存。可選擇來電暫停，以及加入裝置最近取得的位置。
+- 播放支援媒體通知、定位與速度控制。可為錄音命名、分類、加到最愛、寫筆記、分享，或移到垃圾桶後還原。錄音和播放時皆可加入書籤並匯出 CSV。
+- 可下載 SenseVoice、Qwen3-ASR（0.6B 或 1.7B）、FireRedASR2 AED 或 Vosk 小模型，在裝置上進行即時辨識或重轉音檔。即時辨識會儲存 16 kHz 單聲道 WAV。逐字稿可編輯並匯出 TXT、Markdown；有分段時間的稿件也可匯出 SRT 與 WebVTT。
+- 透過 OpenRouter 或自訂 HTTPS 端點做雲端轉錄，送出前會先確認，並顯示模型、耗時與服務回報費用。
+- 匯入音檔與 YouTube 連結（也可從其他 App 分享 `audio/*` 或連結進來）。
+- 剪輯可保留或刪除區段、預覽、復原與重做。AAC 音軌可直接另存為 M4A，其他格式剪輯後輸出為 16 kHz 單聲道 WAV。
+- 錄音或播放中可拍照、選取照片、加說明並跳回該時間。照片保存在 App 私有目錄。
+- Drive 可授權後手動或自動上傳錄音。Google Cloud 專案需啟用 Drive API，並登記 Studio 的套件名稱及安裝版簽章 SHA-1。Slack 支援手動分享逐字稿，也可設定錄音時的進度通知，每次錄音單獨確認。
+- 雲端轉錄支援 Audio API、Chat Completions 及 Gemini 原生格式。分段模式可重用已完成的結果。使用者可單獨啟用錄音後自動轉錄、摘要及標題。
+- 本機離線摘要（LiteRT-LM，模型下載到 App 私有空間）。
+- 離線全文搜尋已存的逐字稿（中英日，不呼叫任何 API）。
+- 離線發言者時間軸（sherpa-onnx），可命名發言者、篩選並匯出 UTF-8 文字。
+- 介面支援英文、繁體中文、簡體中文、日文，並有深色模式。
 
-Listen to your recordings with the `built-in player` or control playback directly from the media notification. Need to remove unwanted sections? The integrated `audio editor` lets you trim and cut clips with ease. You can also organize recordings with `categories`, mark key moments with `bookmarks`, and preview live on-device speech-to-text `transcription`.
+可從桌面小工具、快速設定和捷徑進入錄音或最近檔案。錄音總覽可多選逐字稿、比較內容、提問及匯出 ZIP。「問這段錄音」支援在確認後傳送逐字稿與最近問答給自選的對話模型，並可查看回答引用的原文段落。使用者可選擇用 Android Keystore 儲存連線。
 
-### :building_construction: Features
+## 從舊版匯入錄音
 
-Here are the key features of the app:
+OpenRouter Recorder 會與舊版 RecorderApp 並存。要搬移錄音，可在舊版分享音檔給 OpenRouter Recorder，再按「匯入」；也可以在新 App 按「選取音檔」，一次選取多個檔案。支援舊版錄製的 M4A、Ogg Opus、AMR 窄頻與寬頻音檔。匯入會複製音訊，原始檔仍在原處。舊版匯出的文字、SRT 或 WebVTT 可在相對應的錄音按「匯入逐字稿」，保留字幕時間。舊版私有的聊天紀錄與帳戶設定仍需在舊版查看。
 
-- :musical_keyboard: **Effortless Recording**: Start, pause, and resume recordings with a single tap.
-- :chart_with_upwards_trend: **Real-Time Visualization**: Watch live amplitude waveforms as you record or play back audio.
-- :speaking_head: **On-Device Transcription**: Preview real-time speech-to-text powered by downloadable Vosk models.
-- :loop: **Background Recording**: Keep recording even when switching apps or locking your device.
-- :bellhop_bell: **Notification Controls**: Control both recording and playback directly from notifications without returning to the app.
-- :file_cabinet: **File Management**: Rename, share, trash, or restore your recordings, and browse recordings from other apps on Android 12 (`API 31`) and above.
-- :package: **Category Management**: Group recordings into custom categories so they are easy to find.
-- :record_button: **Built-in Player**: Listen to recordings in the app or open external `audio/*` files, complete with playback speed controls and media notifications.
-- 👨‍🍳 **Built-in Editor**: Trim and cut sections of your recordings or external audio files with undo/redo support.
-- :bookmark: **Bookmarks**: Add timestamped bookmarks during recording or playback and export them as a CSV file.
-- :eight_spoked_asterisk: **Widgets and Shortcuts**: Quickly start recording or browse recent files using home-screen widgets and app shortcuts.
+## 建置
 
-## 📷 Screenshots
+需求：JDK 17、Android SDK（platform `android-37.0`、build-tools `37.0.0`）。在 repo 根目錄執行：
 
-Here are some screenshots of the app:
+```sh
+./gradlew test lintDebug assembleDebug
+```
 
-<p align="center">
-   <img src="./screenshots/recorder_base_framed.png" width="24%" />
-   <img src="./screenshots/recordings_framed.png" width="24%" />
-   <img src="./screenshots/player_base_framed.png" width="24%" />
-   <img src="./screenshots/app_settings_framed.png" width="24%" />
-   <img src="./screenshots/recordings_search_screen_framed.png" width="24%" />
-   <img src="./screenshots/edit_screen_normal.png" width="21%" />
-   <img src="./screenshots/player_bookmarks_framed.png" width="24%" />
-   <img src="./screenshots/app_widget_preview_framed.png" width="24%" />
-</p>
+Debug APK 輸出在 `studio/build/outputs/apk/debug/studio-debug.apk`。只要 arm64 且壓縮 native 函式庫的側載版：
 
-Browse the [screenshots](./screenshots) directory for more.
+```sh
+./gradlew assembleDebug -Parm64Only=true -PcompressNative=true
+```
 
-## Google Drive auto-upload / Google Drive 自動上傳
+sherpa-onnx AAR 由 Gradle 從官方 GitHub release 下載，SHA-256 固定在 `gradle/verification-metadata.xml`。
 
-This fork adds optional, user-authorized Google Drive upload after a recording is successfully
-saved. **Mobile data is allowed by default**; the Wi-Fi-only setting is off. The application ID
-remains `com.eva.recorderapp` (debug: `com.eva.recorderapp.debug`).
+## CI（`.github/workflows/`）
 
-- **今晚自裝／側載測試（繁中清單）：** [docs/SELF_INSTALL.md](docs/SELF_INSTALL.md)
-- **GCP／OAuth 細節（中英）：** [docs/DRIVE_SETUP.md](docs/DRIVE_SETUP.md)
+| Workflow | 觸發 | 內容 |
+|---|---|---|
+| `android_build_ci.yaml` | push／PR 到 `main` | `lintDebug assembleDebug bundleRelease`，上傳 debug APK 預覽與 lint 報告 |
+| `unit_tests.yml` | push／PR 到 `main` | `./gradlew test` |
+| `instrumented_tests.yml` | push／PR 到 `main`、手動 | API 36 模擬器跑 `connectedDebugAndroidTest` |
+| `pr-apk.yml` | push 到非 `main` 分支 | 單元測試 + arm64 debug APK artifact |
+| `manual_apk_build.yml` | 只能手動 | 固定簽章的 arm64 debug APK，只上傳 artifact（不發佈 release），見 [docs/ci/manual-apk-build.md](docs/ci/manual-apk-build.md) |
 
-## :safety_pin: Permissions
+## 授權
 
-The app requests the following core permissions to record and play audio:
-
-- :microphone: **Record Audio**: Required to capture voice and sound from the microphone.
-- :musical_note: **Music and Audio Access**: Required to save and read audio recordings on the device.
-- :bell: **Notifications**: Used to display recording status and playback controls in the notification shade.
-
-The following permissions are optional and not required for core recording or playback:
-
-- :telephone_receiver: **Phone State**: Used to automatically pause or handle recordings during incoming phone calls.
-- :world_map: **Location**: Used to embed location metadata into supported containers (such as `AAC` and `3GPP`).
-
-## :new: What's new
-
-**RecorderApp 1.5.0** builds on the 1.5.0 beta with improvements across transcription, audio
-visualization, recording, and editing:
-
-- Preview real-time, on-device speech-to-text with downloadable Vosk models and improved download
-  progress and reliability.
-- Added Turkish, German, and Spanish localizations.
-- Improved audio visualizations, including more accurate decoding and cached visualization data.
-- Improved editor validation, recorder service lifecycle handling, and bookmark timing feedback.
-- Added support for opening audio links and `audio/*` content from other apps.
-- Updated build tooling and dependencies, expanded automated tests, and added benchmarking and
-  baseline-profile groundwork.
-
-## :next_track_button: What's next
-
-Add support for lossless recording formats, giving users the option to record without lossy
-compression.
-
-If you have any new ideas or suggestions for enhancements, feel free to open a
-new [Issue](https://github.com/tuuhin/RecorderApp/issues) on GitHub.
-
-## :hammer_and_wrench: Getting Started
-
-Follow these steps to build and run the project locally:
-
-1. **Clone the Repository**
-
-   ```bash
-   git clone https://github.com/tuuhin/RecorderApp.git
-   ```
-
-2. **Open the Project**
-   Open the cloned directory in Android Studio.
-
-3. **Build and Run**
-   Build and run on an Android device or emulator running Android 10 (`API 29`) or higher.
-
-### :woman_cook: Contributing
-
-Contributions from the community are always welcome:
-
-- Fork the repository.
-- Create your feature branch (`git checkout -b feature/YourFeature`).
-- Commit your changes (`git commit -am 'Add some feature'`).
-- Push to the branch (`git push origin feature/YourFeature`).
-- Open a pull request targeting the `dev` branch of the main repository.
-
-### :curly_loop: Feedback and Support
-
-If you encounter a bug, have a feature request, or want to share feedback, please open a new
-[Issue](https://github.com/tuuhin/RecorderApp/issues) on GitHub. Your feedback is always appreciated!
-
-### :end: Conclusion
-
-Thank you for checking out RecorderApp! A lot of time and care went into building this project, and I hope you find it useful.
+見 [LICENCE](LICENCE)；`studio/src/main/assets/licenses/` 內為第三方模型與函式庫的授權聲明。

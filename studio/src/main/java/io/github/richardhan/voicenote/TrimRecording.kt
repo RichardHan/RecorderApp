@@ -36,44 +36,58 @@ internal fun aacTrackDurationUs(file: File): Long? {
 	} finally { extractor.release() }
 }
 
-private fun saveClip(file: File, startMs: Int, endMs: Int) {
-	require(endMs > startMs)
+internal suspend fun saveClip(file: File, spans: List<ClipSpan>): File {
+	require(spans.isNotEmpty())
 	val temp = File.createTempFile("clip-", ".part", file.parentFile)
 	val extractor = MediaExtractor()
 	try {
 		extractor.setDataSource(file.path)
-		val format = requireNotNull(extractor.selectAacTrack())
-		extractor.seekTo(startMs * 1000L, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+		val format = extractor.selectAacTrack()
+		val extension = if (format == null) "wav" else "m4a"
+		val target = File(file.parentFile, "${System.currentTimeMillis()}-clip-${UUID.randomUUID()}.$extension")
+		if (format == null) {
+			writePcmClip(file, temp, spans)
+			check(temp.renameTo(target))
+			return target
+		}
 		val muxer = MediaMuxer(temp.path, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
 		try {
 			val output = muxer.addTrack(format)
 			muxer.start()
 			val data = ByteBuffer.allocateDirect(65536)
 			val info = MediaCodec.BufferInfo()
-			var first = -1L
-			while (extractor.sampleTime in 0 until endMs * 1000L) {
-				val time = extractor.sampleTime
-				if (time >= startMs * 1000L) {
-					require(extractor.sampleSize <= data.capacity())
-					data.clear()
-					val bytes = extractor.readSampleData(data, 0)
-					if (bytes <= 0) break
-					if (first < 0) first = time
-					info.set(0, bytes, time - first, 0)
-					muxer.writeSampleData(output, data, info)
+			var offset = 0L
+			var wrote = false
+			for (span in spans) {
+				extractor.seekTo(span.start * 1000L, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+				val start = span.start * 1000L
+				val end = span.end * 1000L
+				while (extractor.sampleTime in 0 until end) {
+					val time = extractor.sampleTime
+					if (time >= start) {
+						require(extractor.sampleSize <= data.capacity())
+						data.clear()
+						val bytes = extractor.readSampleData(data, 0)
+						if (bytes <= 0) break
+						info.set(0, bytes, offset + time - start, 0)
+						muxer.writeSampleData(output, data, info)
+						wrote = true
+					}
+					if (!extractor.advance()) break
 				}
-				if (!extractor.advance()) break
+				offset += end - start
 			}
-			require(first >= 0)
+			require(wrote)
 			muxer.stop()
 		} finally { muxer.release() }
-		check(temp.renameTo(File(file.parentFile, "${System.currentTimeMillis()}-clip-${UUID.randomUUID()}.m4a")))
+		check(temp.renameTo(target))
+		return target
 	} finally { extractor.release(); temp.delete() }
 }
 
 @Composable
 internal fun TrimAction(file: File, library: RecordingLibrary) {
-	if (file.extension != "m4a") return
+	if (file.extension !in audioTypes) return
 	var open by rememberSaveable { mutableStateOf(false) }
 	TextButton(enabled = library.started == 0L, onClick = {
 		library.stopPlayback()
@@ -89,9 +103,15 @@ internal fun TrimAction(file: File, library: RecordingLibrary) {
 	var saving by remember { mutableStateOf(false) }
 	LaunchedEffect(file) {
 		try {
-			val durationUs = withContext(Dispatchers.IO) { aacTrackDurationUs(file) }
+			val durationUs = withContext(Dispatchers.IO) {
+				val meta = MediaMetadataRetriever()
+				try {
+					meta.setDataSource(file.path)
+					meta.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.times(1000L)
+				} finally { meta.release() }
+			}
 			when {
-				durationUs == null -> error = R.string.clip_requires_aac
+				durationUs == null -> error = R.string.clip_error
 				durationUs !in 1L..Int.MAX_VALUE * 1000L -> error = R.string.clip_error
 				else -> duration = ((durationUs + 999) / 1000).toInt()
 			}
@@ -109,6 +129,19 @@ internal fun TrimAction(file: File, library: RecordingLibrary) {
 	val editable = duration > 0 && !previewing && !saving
 	val sliderStart = (start ?: 0).coerceAtMost(duration)
 	val sliderEnd = (end ?: duration).coerceIn(sliderStart, duration)
+
+	var history by rememberSaveable(duration) { mutableStateOf(arrayListOf("0:$duration")) }
+	var step by rememberSaveable(duration) { mutableIntStateOf(0) }
+	val spans = if (duration == 0) emptyList() else history[step].split(",").map {
+		ClipSpan(it.substringBefore(':').toInt(), it.substringAfter(':').toInt())
+	}
+	fun applySelection(remove: Boolean) {
+		if (start == null || end == null || !valid) return
+		val next = selectClip(spans, ClipSpan(start, end), remove)
+		if (next.isEmpty() || next == spans) return
+		history = ArrayList(history.take(step + 1) + next.joinToString(",") { "${it.start}:${it.end}" })
+		step++
+	}
 
 	if (previewing && start != null && end != null) {
 		AudioRangePreview(file, start.toLong(), end.toLong(),
@@ -143,6 +176,22 @@ internal fun TrimAction(file: File, library: RecordingLibrary) {
 				TextButton(enabled = valid && !saving, onClick = { error = 0; previewing = !previewing }) {
 					Text(stringResource(if (previewing) R.string.stop_preview else R.string.preview_clip))
 				}
+				if (valid) {
+					val selection = ClipSpan(start, end)
+					for (remove in listOf(false, true)) {
+						val next = selectClip(spans, selection, remove)
+						TextButton(enabled = editable && next.isNotEmpty() && next != spans, onClick = { applySelection(remove) }) {
+							Text(stringResource(if (remove) R.string.cut_range else R.string.keep_range))
+						}
+					}
+				}
+				androidx.compose.foundation.layout.Row {
+					TextButton(enabled = editable && step > 0, onClick = { step-- }) { Text(stringResource(R.string.undo)) }
+					TextButton(enabled = editable && step + 1 < history.size, onClick = { step++ }) { Text(stringResource(R.string.redo)) }
+				}
+				if (step > 0) Text(spans.joinToString(" · ") { formatClipTime(it.start) + "–" + formatClipTime(it.end) })
+				if (file.extension != "m4a") Text(stringResource(R.string.clip_pcm_note))
+
 				if (error != 0) Text(stringResource(error), color = MaterialTheme.colorScheme.error)
 			}
 		},
@@ -152,7 +201,8 @@ internal fun TrimAction(file: File, library: RecordingLibrary) {
 				saving = true
 				scope.launch {
 					try {
-						withContext(Dispatchers.IO) { saveClip(file, start, end) }
+						val output = if (step == 0) listOf(ClipSpan(start, end)) else spans
+						withContext(Dispatchers.IO) { saveClip(file, output) }
 						library.refresh()
 						open = false
 					} catch (e: CancellationException) {

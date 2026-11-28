@@ -1,4 +1,0 @@
-<resources>
-	<string name="data_drive_message_missing_google_authorization_result">未收到 Google 授權結果</string>
-	<string name="data_drive_message_recording_is_unavailable">無法取得錄音</string>
-</resources>

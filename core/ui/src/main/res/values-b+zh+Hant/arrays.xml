@@ -1,9 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-	<string-array name="onboarding_page_features">
-		<item>一鍵錄製高品質音訊</item>
-		<item>使用播放控制項輕鬆聆聽錄音</item>
-		<item>精準裁切與剪輯錄音</item>
-		<item>整理錄音，方便隨時查找</item>
-	</string-array>
-</resources>

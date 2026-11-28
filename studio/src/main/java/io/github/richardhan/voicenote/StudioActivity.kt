@@ -25,15 +25,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
-import java.text.DateFormat
-import java.util.Date
 import java.util.Locale
 
 class StudioActivity : ComponentActivity() {
-	private val library: RecordingLibrary by viewModels()
+	private val library get() = (application as StudioApplication).library
 	private val speakers: SpeakerAnalysis by viewModels()
 	private val local: LocalSummary by viewModels()
+	private val offline get() = (application as StudioApplication).offline
 	private val speech: SpeechConnection by viewModels()
+	private var destination by mutableStateOf<String?>(null)
 	private var sharedSources by mutableStateOf(emptyList<Uri>())
 
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,16 +44,61 @@ class StudioActivity : ComponentActivity() {
 		} else if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) receiveShare(intent)
 		setContent {
 			StudioTheme { appearance, dark, choose ->
-				val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-					if (it) library.start() else library.message = R.string.permission
+				var approveSharing by rememberSaveable { mutableStateOf(false) }
+				var liveCloud by rememberSaveable(speech.defaultCloud) { mutableStateOf(speech.defaultCloud) }
+				var localOnly by rememberSaveable { mutableStateOf(false) }
+				var approvedCloud by rememberSaveable { mutableStateOf<String?>(null) }
+				val canLiveCloud = speech.protocol != SpeechProtocol.Multipart && speech.hasSavedConnection && speech.savedProfile == speech.profileId()
+				val useCloud = liveCloud && canLiveCloud
+				var slackSession by rememberSaveable { mutableStateOf<String?>(null) }
+				val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+					if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) controlCapture(CaptureAction.START, slackSession, approvedCloud, localOnly)
+					else library.message = R.string.permission
+					slackSession = null
+				}
+				fun begin(generation: String?, cloud: String? = null, onlyOnDevice: Boolean = false) {
+					localOnly = onlyOnDevice
+					approvedCloud = cloud
+					slackSession = generation
+					val needed = buildList {
+						if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.RECORD_AUDIO)
+						if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
+							!getPreferences(MODE_PRIVATE).getBoolean("askedNotification", false)) {
+							add(Manifest.permission.POST_NOTIFICATIONS)
+							getPreferences(MODE_PRIVATE).edit().putBoolean("askedNotification", true).apply()
+						}
+					}
+					if (needed.isEmpty()) { controlCapture(CaptureAction.START, generation, cloud, onlyOnDevice); slackSession = null }
+					else permission.launch(needed.toTypedArray())
+				}
+				if (approveSharing) AlertDialog(onDismissRequest = { approveSharing = false }, text = {
+					Column {
+						if (useCloud) Text(stringResource(R.string.live_cloud_confirm, speech.base, speech.model))
+						if (useCloud && speech.correctLive) Text(stringResource(R.string.ai_correction_destination, speech.textDestination))
+						if (slackPrefs().getBoolean("live", false)) {
+							Text(stringResource(R.string.slack_session))
+							slackPrefs().getString("channelLabel", null)?.takeIf(String::isNotBlank)?.let { Text(it) }
+						}
+					}
+				},
+					confirmButton = { TextButton(onClick = { approveSharing = false; begin(slackPrefs().getString("generation", null).takeIf { slackPrefs().getBoolean("live", false) }, speech.savedProfile.takeIf { useCloud }) }) { Text(stringResource(R.string.slack_allow)) } },
+					dismissButton = { TextButton(onClick = { approveSharing = false; begin(null, onlyOnDevice = true) }) { Text(stringResource(R.string.record_local)) } })
+				fun startSession() {
+					if (useCloud || (slackPrefs().getBoolean("live", false) && slackPrefs().contains("generation"))) approveSharing = true
+					else begin(null)
+				}
+				val app = application as StudioApplication
+				LaunchedEffect(app.requestWidgetCapture) {
+					if (app.requestWidgetCapture) {
+						app.requestWidgetCapture = false
+						if (library.started == 0L) startSession()
+					}
 				}
 				if (sharedSources.isNotEmpty()) key(sharedSources) { SharedImportDialog(sharedSources, library) { sharedSources = emptyList() } }
-				Studio(library, speech, local, speakers, dark, heading = { StudioHeading(appearance, choose) }) {
-					when {
-						library.started != 0L -> library.finish()
-						checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> library.start()
-						else -> permission.launch(Manifest.permission.RECORD_AUDIO)
-					}
+				Studio(library, speech, local, speakers, offline, dark, if (canLiveCloud) ({
+					FilterChip(selected = liveCloud, onClick = { liveCloud = !liveCloud }, label = { Text(stringResource(R.string.live_cloud)) })
+				}) else null, destination, { destination = null }, heading = { StudioHeading(appearance, choose) }) {
+					if (library.started != 0L) controlCapture(CaptureAction.FINISH) else startSession()
 				}
 			}
 		}
@@ -64,6 +109,14 @@ class StudioActivity : ComponentActivity() {
 	}
 
 	private fun receiveShare(intent: Intent) {
+		if (intent.action == OPEN_RECORDER || intent.action == OPEN_LIBRARY) {
+			destination = intent.action
+			return
+		}
+		if (intent.action == Intent.ACTION_VIEW && intent.data?.scheme == "content") {
+			sharedSources = listOfNotNull(intent.data)
+			return
+		}
 		if (intent.action != Intent.ACTION_SEND && intent.action != Intent.ACTION_SEND_MULTIPLE) return
 		sharedSources = try { intent.sharedImportSources() } catch (_: BadParcelableException) { emptyList() }
 		if (sharedSources.isEmpty()) library.message = R.string.import_error
@@ -74,13 +127,6 @@ class StudioActivity : ComponentActivity() {
 		outState.putStringArrayList("pendingImports", ArrayList(sharedSources.map(Uri::toString)))
 	}
 
-	override fun onStop() {
-		if (!isChangingConfigurations) {
-			library.stopPlayback()
-			library.finish()
-		}
-		super.onStop()
-	}
 }
 
 @Composable
@@ -89,20 +135,49 @@ private fun Studio(
 	speech: SpeechConnection,
 	local: LocalSummary,
 	speakers: SpeakerAnalysis,
+	offline: OfflineSpeechModels,
 	dark: Boolean,
+	liveCloudOption: (@Composable () -> Unit)?,
+	destination: String?,
+	onNavigated: () -> Unit,
 	heading: @Composable () -> Unit,
 	toggle: () -> Unit
 ) {
+	var aiOpen by rememberSaveable { mutableStateOf(false) }
+	var aiRecording by rememberSaveable { mutableStateOf<String?>(null) }
 	var input by rememberSaveable { mutableStateOf("") }
+	val context = androidx.compose.ui.platform.LocalContext.current
+	val addPhoto = rememberPhotoIntake(library)
+	val guides = remember(context) { context.getSharedPreferences("studio_guide", 0) }
+	var guide by rememberSaveable { mutableStateOf(!guides.getBoolean("seen", false)) }
+	fun closeGuide() { guides.edit().putBoolean("seen", true).apply(); guide = false }
+	if (guide) AlertDialog(onDismissRequest = ::closeGuide, title = { Text(stringResource(R.string.studio)) },
+		text = { Text(stringResource(R.string.get_started)) },
+		confirmButton = { TextButton(onClick = ::closeGuide) { Text(stringResource(R.string.done)) } })
+	if (aiOpen && destination == null) {
+		MeetingWorkspace(library, speech, offline, local, aiRecording) { aiOpen = false }
+		return
+	}
+	val revision = speech.revision + library.transcriptRevision
 	val query = input.trim()
-	val hits = transcriptHits(library.files, query, speech.revision)
+	var category by rememberSaveable { mutableStateOf("") }
+	var favorites by rememberSaveable { mutableStateOf(false) }
+	val visibleFiles = library.files.filter {
+		(category.isEmpty() || library.catalog.value(it, "category") == category) &&
+			(!favorites || library.catalog.value(it, "favorite").isNotEmpty())
+	}
+	val hits = transcriptHits(visibleFiles, query, revision)
 	var selectedName by rememberSaveable(query) { mutableStateOf<String?>(null) }
 	selectedName?.let { name ->
 		library.files.firstOrNull { it.name == name }?.let { file ->
-			MatchedTranscript(file, query, speech.revision) { selectedName = null }
+			MatchedTranscript(file, query, revision) { selectedName = null }
 		}
 	}
 	val active = library.started != 0L
+	var discard by remember { mutableStateOf(false) }
+	if (discard && active) AlertDialog(onDismissRequest = { discard = false }, text = { Text(stringResource(R.string.discard_session)) },
+		confirmButton = { TextButton(onClick = { discard = false; context.controlCapture(CaptureAction.DISCARD) }) { Text(stringResource(R.string.discard_capture)) } },
+		dismissButton = { TextButton(onClick = { discard = false }) { Text(stringResource(R.string.cancel)) } })
 	val paused = library.isPaused
 	val elapsed by produceState(0L, library.started, paused) {
 		value = library.recordedDurationMs() / 1000
@@ -111,47 +186,77 @@ private fun Studio(
 			value = library.recordedDurationMs() / 1000
 		}
 	}
+	val list = androidx.compose.foundation.lazy.rememberLazyListState()
+	LaunchedEffect(destination) {
+		when (destination) {
+			OPEN_RECORDER -> list.scrollToItem(0)
+			OPEN_LIBRARY -> list.scrollToItem(6 + (if (library.message != 0) 1 else 0) + (if (speech.busy) 1 else 0))
+			else -> return@LaunchedEffect
+		}
+		aiOpen = false
+		onNavigated()
+	}
 	Surface(Modifier.fillMaxSize()) {
 		LazyColumn(
+			state = list,
 			modifier = Modifier.safeDrawingPadding(),
 			contentPadding = PaddingValues(20.dp),
 			verticalArrangement = Arrangement.spacedBy(14.dp)
 		) {
-			item { heading() }
+			item {
+				heading()
+				FilledTonalButton(onClick = { aiRecording = null; aiOpen = true }) { Text(stringResource(R.string.meeting_workspace)) }
+			}
 			item {
 				val panel = if (dark) MaterialTheme.colorScheme.surfaceContainer else Color(0xFF30213F)
 				val accent = if (dark) MaterialTheme.colorScheme.primary else Color(0xFFD1F4A1)
-				Surface(color = panel, contentColor = Color.White, shape = RoundedCornerShape(24.dp)) {
-					Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-						Text(stringResource(when {
-							paused -> R.string.recording_paused
-							active -> R.string.active
-							else -> R.string.ready
-						}))
-						Text(String.format(Locale.ROOT, "%02d:%02d:%02d", elapsed / 3600, elapsed / 60 % 60, elapsed % 60),
-							style = MaterialTheme.typography.displayMedium, fontFamily = FontFamily.Monospace)
-						LiveWaveform(library, accent)
-						FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-							Button(onClick = toggle, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF201917))) {
-								Text(stringResource(if (active) R.string.stop else R.string.record))
-							}
-							if (active) {
-								TextButton(onClick = { library.setPaused(!paused) },
-									colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
-									Text(stringResource(if (paused) R.string.resume_recording else R.string.pause_recording))
+				// The recording card has a dark surface in both appearance modes.
+				MaterialTheme(colorScheme = studioDarkColors) {
+					Surface(color = panel, contentColor = Color.White, shape = RoundedCornerShape(24.dp)) {
+						Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+							Text(stringResource(when {
+								paused -> R.string.recording_paused
+								active -> R.string.active
+								else -> R.string.ready
+							}))
+							Text(String.format(Locale.ROOT, "%02d:%02d:%02d", elapsed / 3600, elapsed / 60 % 60, elapsed % 60),
+								style = MaterialTheme.typography.displayMedium, fontFamily = FontFamily.Monospace)
+							LiveWaveform(library, accent)
+							if (!active) { CaptureSettings(library, offline.installed); liveCloudOption?.invoke() }
+							FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+								Button(onClick = toggle, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF201917))) {
+									Text(stringResource(if (active) R.string.stop else R.string.record))
+								}
+								if (active) {
+									TextButton(onClick = { discard = true }, colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
+										Text(stringResource(R.string.discard_capture))
+									}
+									TextButton(onClick = library::captureBookmark, colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
+										Text(stringResource(R.string.bookmark) + " (" + library.bookmarkCount + ")")
+									}
+									TextButton(onClick = { context.controlCapture(if (paused) CaptureAction.RESUME else CaptureAction.PAUSE) },
+										colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
+										Text(stringResource(if (paused) R.string.resume_recording else R.string.pause_recording))
+									}
 								}
 							}
+							if (active && library.liveText.isNotBlank()) Text(library.liveText)
+							LiveMeeting(library, speech)
+							library.captureTarget?.let { PhotoActions(library, it, addPhoto) }
+							Text(stringResource(R.string.foreground), style = MaterialTheme.typography.bodySmall)
 						}
-						Text(stringResource(R.string.foreground), style = MaterialTheme.typography.bodySmall)
 					}
 				}
 			}
 			if (library.message != 0) item { Text(stringResource(library.message), color = MaterialTheme.colorScheme.error) }
 			item { ConnectionPanel(speech) }
 			item { SummaryModelPanel(local) }
-			if (speech.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+			item { OfflineModelPanel(offline, speech.busy || library.recognizing.isNotEmpty()) }
+			item { DrivePanel(); SlackPanel() }
+			if (speech.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()); TextButton(onClick = speech::cancel) { Text(stringResource(R.string.cancel)) } }
 			item { Text(stringResource(R.string.library), style = MaterialTheme.typography.titleLarge) }
-			item { ImportActions(library) }
+			item { ImportActions(library); DeviceRecordings(library); LibraryReview(library, speech, revision) }
+			item { LibraryFilters(library, category, { category = it }, favorites) { favorites = !favorites } }
 			item {
 				OutlinedTextField(
 					value = input,
@@ -168,25 +273,31 @@ private fun Studio(
 			}
 			when {
 				query.isEmpty() -> {
-					if (library.files.isEmpty()) item { Text(stringResource(R.string.empty)) }
-					items(library.files, key = { it.name }) { file ->
-						val recordedAt = DateFormat.getDateTimeInstance().format(Date(file.lastModified()))
+					if (visibleFiles.isEmpty()) item { Text(stringResource(R.string.empty)) }
+					items(visibleFiles, key = { it.name }) { file ->
+						val recordedAt = library.catalog.title(file)
 						Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
 							Text(recordedAt, Modifier.weight(1f))
-							if (file.extension in audioTypes) TextButton(onClick = { library.togglePlayback(file) }, enabled = !active) {
+							if (file.extension in audioTypes) TextButton(onClick = { context.playRecording(file) }, enabled = !active) {
 								Text(stringResource(if (library.playingFile == file) R.string.stop_playback else R.string.play))
 							}
 						}
+						TextButton(onClick = { aiRecording = file.name; aiOpen = true }) { Text(stringResource(R.string.meeting_workspace)) }
+						if (library.playingFile == file) PlaybackControls(library)
+						AiRecordingStatus(file, revision)
+						RecordingActions(file, library)
+						if (file.extension in audioTypes) PhotoActions(library, file, addPhoto)
 						TrimAction(file, library)
-						SpeakerAction(file, speakers, speech.revision, library)
-						TranscriptionRow(file, recordedAt, speech, local)
+						SpeakerAction(file, speakers, revision, library)
+						if (file in library.recognizing) LinearProgressIndicator() else key(library.transcriptRevision) { TranscriptionRow(file, recordedAt, speech, local, offline) }
 						HorizontalDivider()
 					}
 				}
 				hits == null -> item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
 				hits.isEmpty() -> item { Text(stringResource(R.string.no_matches)) }
-				else -> items(hits, key = { it.recording.name }) { hit ->
-					SearchResult(hit) { selectedName = hit.recording.name }
+				else -> {
+					item { LibraryReview(library, speech, revision, hits.map { it.recording }) }
+					items(hits, key = { it.recording.name }) { hit -> SearchResult(hit) { selectedName = hit.recording.name } }
 				}
 			}
 		}

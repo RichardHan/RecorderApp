@@ -82,7 +82,7 @@ class LocalSummary(app: Application) : AndroidViewModel(app) {
 	}
 }
 
-private fun summaryFile(file: File, transcript: String): File {
+internal fun summaryFile(file: File, transcript: String): File {
 	val hash = MessageDigest.getInstance("SHA-256").digest(transcript.toByteArray()).joinToString("") { "%02x".format(it) }
 	return File(file.parentFile, "${file.nameWithoutExtension}-$hash.summary")
 }
