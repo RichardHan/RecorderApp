@@ -24,12 +24,27 @@ internal fun SlackPanel() {
 	var updates by remember { mutableStateOf(prefs.getBoolean("live", false)) }
 	var hook by remember { mutableStateOf("") }
 	var failed by remember { mutableStateOf(false) }
+	var label by remember { mutableStateOf(prefs.getString("channelLabel", "").orEmpty()) }
+	var show by remember(open) { mutableStateOf(false) }
 	TextButton(onClick = { open = true }) { Text("Slack") }
 	if (!open) return
+	DisposableEffect(Unit) { onDispose { hook = "" } }
 	AlertDialog(onDismissRequest = { open = false }, title = { Text("Slack") }, text = {
 		Column(Modifier.verticalScroll(rememberScrollState())) {
-			OutlinedTextField(hook, { hook = it }, singleLine = true, label = { Text("Incoming webhook URL") }, visualTransformation = PasswordVisualTransformation())
+			OutlinedTextField(hook, { hook = it }, singleLine = true, label = { Text("Incoming webhook URL") }, visualTransformation = if (show) androidx.compose.ui.text.input.VisualTransformation.None else PasswordVisualTransformation())
+			TextButton(onClick = {
+				if (!show && hook.isBlank() && enabled) try { hook = ConnectionVault(context, "studio-slack").load()?.optString("hook").orEmpty() } catch (_: Exception) { failed = true }
+				show = !show
+			}) { Text(stringResource(R.string.ai_webhook_visible)) }
+			TextButton(onClick = {
+				try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://api.slack.com/messaging/webhooks"))) }
+				catch (_: android.content.ActivityNotFoundException) { failed = true }
+			}) { Text(stringResource(R.string.ai_webhook_help)) }
+			OutlinedTextField(label, { label = it }, singleLine = true, label = { Text(stringResource(R.string.ai_channel_label)) })
 			if (enabled) {
+				TextButton(onClick = { prefs.edit().putString("channelLabel", label.trim()).apply() }) { Text(stringResource(R.string.ai_save_label)) }
+				val sent = prefs.getLong("sentAt", 0)
+				if (sent > 0) Text(stringResource(R.string.ai_last_sync, java.text.DateFormat.getDateTimeInstance().format(java.util.Date(sent))))
 				FilterChip(selected = updates, label = { Text(stringResource(R.string.slack_live)) }, onClick = {
 					updates = !updates
 					if (!updates) {
@@ -52,11 +67,11 @@ internal fun SlackPanel() {
 					dismissButton = { TextButton(onClick = { test = false }) { Text(stringResource(R.string.cancel)) } })
 
 				TextButton(onClick = {
-					prefs.edit().remove("generation").remove("live").apply()
+					prefs.edit().remove("generation").remove("live").remove("channelLabel").remove("sentAt").apply()
 					WorkManager.getInstance(context).cancelAllWorkByTag("slack-outbox")
 					ConnectionVault(context, "studio-slack").remove()
 					File(context.noBackupFilesDir, "slack-outbox").deleteRecursively()
-					enabled = false; updates = false; hook = ""
+					enabled = false; updates = false; hook = ""; label = ""
 				}) { Text(stringResource(R.string.disconnect_slack)) }
 			}
 			if (failed) Text(stringResource(R.string.connection_error))
@@ -65,7 +80,7 @@ internal fun SlackPanel() {
 		try {
 			val generation = UUID.randomUUID().toString()
 			ConnectionVault(context, "studio-slack").save(JSONObject().put("hook", hook.trim()).put("generation", generation))
-			prefs.edit().putString("generation", generation).remove("live").apply()
+			prefs.edit().putString("generation", generation).putString("channelLabel", label.trim()).remove("live").remove("sentAt").apply()
 			enabled = true; updates = false; hook = ""; open = false
 		} catch (_: Exception) { failed = true }
 	}) { Text(stringResource(R.string.save_connection)) } }, dismissButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.done)) } })

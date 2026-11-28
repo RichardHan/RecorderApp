@@ -257,6 +257,15 @@ class LocalServiceTest {
 		assertEquals("text-credential", request.getHeader("x-goog-api-key"))
 		assertNull(request.getHeader("Authorization"))
 		assertFalse(request.body.readUtf8().contains("audio-credential"))
+		speech.protocol = SpeechProtocol.Chat
+		speech.model = "live-speech"
+		speech.followSpeechForHighlights = true
+		reply(200, """{"choices":[{"message":{"content":"Highlights"}}]}""")
+		assertEquals("Highlights", speech.highlightCompletion("Synthetic words", "Summarize"))
+		val live = nextRequest()
+		assertEquals("Bearer audio-credential", live.getHeader("Authorization"))
+		assertNull(live.getHeader("x-goog-api-key"))
+		assertEquals("live-speech", JSONObject(live.body.readUtf8()).getString("model"))
 		speech.setTextAddress("https://other.invalid")
 		assertFalse(speech.canAnalyze())
 	}

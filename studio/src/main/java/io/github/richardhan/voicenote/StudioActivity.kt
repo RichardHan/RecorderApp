@@ -75,7 +75,10 @@ class StudioActivity : ComponentActivity() {
 					Column {
 						if (useCloud) Text(stringResource(R.string.live_cloud_confirm, speech.base, speech.model))
 						if (useCloud && speech.correctLive) Text(stringResource(R.string.ai_correction_destination, speech.textDestination))
-						if (slackPrefs().getBoolean("live", false)) Text(stringResource(R.string.slack_session))
+						if (slackPrefs().getBoolean("live", false)) {
+							Text(stringResource(R.string.slack_session))
+							slackPrefs().getString("channelLabel", null)?.takeIf(String::isNotBlank)?.let { Text(it) }
+						}
 					}
 				},
 					confirmButton = { TextButton(onClick = { approveSharing = false; begin(slackPrefs().getString("generation", null).takeIf { slackPrefs().getBoolean("live", false) }, speech.savedProfile.takeIf { useCloud }) }) { Text(stringResource(R.string.slack_allow)) } },

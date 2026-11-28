@@ -61,4 +61,13 @@
 	<string name="ai_tasks_highlights">Choose highlights for the checklist</string>
 	<string name="ai_next_recording">For live captions and highlights, enable in-session AI controls before the next recording.</string>
 	<string name="ai_device_ram">Available memory · %1$d of %2$d MiB</string>
+	<string name="ai_hide_locked">Hide the recording notification on the lock screen</string>
+	<string name="ai_replace_captions">Replace temporary local captions when cloud captions arrive</string>
+	<string name="ai_highlight_connection">Use the live speech connection for highlights</string>
+	<string name="ai_summary_timestamps">Include source timestamps</string>
+	<string name="ai_webhook_visible">Show or hide webhook URL</string>
+	<string name="ai_webhook_help">How to get a Slack webhook</string>
+	<string name="ai_channel_label">Channel display name</string>
+	<string name="ai_save_label">Save channel name</string>
+	<string name="ai_last_sync">Last delivery · %1$s</string>
 </resources>

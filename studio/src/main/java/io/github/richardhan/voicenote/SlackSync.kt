@@ -77,6 +77,7 @@ class SlackWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
 					check(prefs.edit().putInt(cursor, i + 1).commit())
 				} finally { conn.disconnect() }
 			}
+			prefs.edit().putLong("sentAt", System.currentTimeMillis()).apply()
 			status("sent")
 		} catch (e: CancellationException) { throw e }
 		catch (_: Exception) {

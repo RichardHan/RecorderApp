@@ -33,8 +33,10 @@ internal fun CaptureSettings(library: RecordingLibrary, modelInstalled: Boolean)
 	val supported = remember { supportedCaptureFormats() }
 	var formatMenu by remember { mutableStateOf(false) }
 	var rateMenu by remember { mutableStateOf(false) }
+	FilterChip(selected = library.hideOnLockScreen, onClick = { library.lockScreenPrivacy(!library.hideOnLockScreen) }, label = { Text(stringResource(R.string.ai_hide_locked)) })
+	if (modelInstalled) FilterChip(selected = library.cloudReplacesCaption, onClick = { library.replaceLocalCaption(!library.cloudReplacesCaption) }, label = { Text(stringResource(R.string.ai_replace_captions)) })
 	if (modelInstalled) FilterChip(selected = library.liveEnabled, onClick = { library.enableLive(!library.liveEnabled) }, label = { Text(stringResource(R.string.live_asr)) })
-	if (!modelInstalled || !library.liveEnabled) FlowRow {
+	if (!library.liveReady && (!modelInstalled || !library.liveEnabled)) FlowRow {
 		Box {
 			FilledTonalButton(onClick = { formatMenu = true }) { Text(library.format.label) }
 			DropdownMenu(formatMenu, { formatMenu = false }) {

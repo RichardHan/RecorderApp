@@ -61,4 +61,13 @@
 	<string name="ai_tasks_highlights">要点からタスクを選ぶ</string>
 	<string name="ai_next_recording">次の録音を始める前に録音中の AI 操作を有効にすると、字幕や要点を利用できます。</string>
 	<string name="ai_device_ram">利用可能なメモリ · %1$d／%2$d MiB</string>
+	<string name="ai_hide_locked">ロック画面で録音通知を非表示</string>
+	<string name="ai_replace_captions">クラウド字幕を受信したら暫定の端末字幕を置き換える</string>
+	<string name="ai_highlight_connection">要点にもライブ音声の接続を使う</string>
+	<string name="ai_summary_timestamps">引用元の時刻を含める</string>
+	<string name="ai_webhook_visible">Webhook URL の表示切替</string>
+	<string name="ai_webhook_help">Slack Webhook の取得方法</string>
+	<string name="ai_channel_label">チャンネルの表示名</string>
+	<string name="ai_save_label">チャンネル名を保存</string>
+	<string name="ai_last_sync">最終送信 · %1$s</string>
 </resources>

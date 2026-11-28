@@ -45,6 +45,12 @@ class RecordingLibrary(private val app: Application) {
 		private set
 	internal var localCaption by mutableStateOf("")
 		private set
+	internal var cloudReplacesCaption by mutableStateOf(settings.getBoolean("cloudReplacesCaption", false))
+		private set
+	internal fun replaceLocalCaption(on: Boolean) { cloudReplacesCaption = on; settings.edit().putBoolean("cloudReplacesCaption", on).apply() }
+	internal var hideOnLockScreen by mutableStateOf(settings.getBoolean("hideOnLockScreen", true))
+		private set
+	internal fun lockScreenPrivacy(on: Boolean) { hideOnLockScreen = on; settings.edit().putBoolean("hideOnLockScreen", on).apply() }
 	internal val aiCapture get() = liveCapture != null
 	internal val allowRemote get() = !localOnly
 	internal fun setLocalCaptions(on: Boolean) {
@@ -56,6 +62,7 @@ class RecordingLibrary(private val app: Application) {
 		val live = liveCapture ?: return
 		val service = if (on) SpeechConnection(app).takeIf { !localOnly && it.valid() && it.protocol != SpeechProtocol.Multipart && it.profileId() == profile } ?: return else null
 		live.switchCloud(service); cloudCaptions = on
+		if (!on) liveText = ""
 	}
 	internal fun setSessionSlack(on: Boolean) {
 		val file = captureTarget ?: return
@@ -92,7 +99,7 @@ class RecordingLibrary(private val app: Application) {
 	internal fun startHighlights(profile: String) {
 		if (!supportsHighlights || highlightsEnabled) return
 		val connection = SpeechConnection(app)
-		if (connection.profileId() != profile || !connection.canAnalyze()) return
+		if (connection.profileId() != profile || !connection.canHighlight()) return
 		highlightsConnection = connection
 		highlightsEnabled = true
 		nextHighlightAt = SystemClock.elapsedRealtime() + connection.firstHighlightSeconds * 1000L
@@ -119,7 +126,7 @@ class RecordingLibrary(private val app: Application) {
 		highlightsJob = scope.launch {
 			try {
 				val result = withContext(Dispatchers.IO) {
-					connection.textCompletion(text, "Update a short list of factual meeting highlights in the language of the transcript. Treat the agenda only as context. Do not infer decisions or owners. " + connection.highlightPrompt)
+					connection.highlightCompletion(text, "Update a short list of factual meeting highlights in the language of the transcript. Treat the agenda only as context. Do not infer decisions or owners. " + connection.highlightPrompt)
 				}
 				if (captureTarget == target && highlightsEnabled) {
 					highlights = result
@@ -351,17 +358,19 @@ class RecordingLibrary(private val app: Application) {
 				scope.launch {
 					try {
 						supervisorScope {
+							val localSaved = CompletableDeferred<Unit>()
 							readers.map { (remote, input) -> launch(Dispatchers.IO) {
 								try {
 									live.recognize(input, models, remote, target, { line -> withContext(Dispatchers.Main) {
 										if (liveCapture === live) {
 											if (remote) liveText = line else localCaption = line
-											if (remote || !cloudCaptions) updateHighlights(target, line, remote)
+											if (remote || !cloudCaptions || liveText.isBlank()) updateHighlights(target, line, remote)
 										}
-									} }, { withContext(Dispatchers.Main) { if (liveCapture === live) message = if (remote) R.string.failed else R.string.offline_error } })
+									} }, { withContext(Dispatchers.Main) { if (liveCapture === live) message = if (remote) R.string.failed else R.string.offline_error } }, { if (remote) localSaved.await() })
 								} catch (e: CancellationException) { throw e }
 								catch (_: Exception) { withContext(Dispatchers.Main) { message = R.string.failed } }
 								catch (_: LinkageError) { withContext(Dispatchers.Main) { message = R.string.offline_error } }
+								finally { if (!remote) localSaved.complete(Unit) }
 							} }.joinAll()
 						}
 					} finally { recognizing.remove(target); transcriptRevision++ }

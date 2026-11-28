@@ -111,6 +111,13 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 	internal var liveSeconds by mutableIntStateOf(60)
 	internal var overlapSeconds by mutableIntStateOf(3)
 	internal var highlightSeconds by mutableIntStateOf(60)
+	internal var followSpeechForHighlights by mutableStateOf(false)
+	internal val highlightDestination get() = if (followSpeechForHighlights) base else textDestination
+	internal val highlightModel get() = if (followSpeechForHighlights) model else chatModel
+	internal fun canHighlight() = if (followSpeechForHighlights) valid() && protocol != SpeechProtocol.Multipart else canAnalyze()
+	internal fun highlightCompletion(text: String, instruction: String) = if (followSpeechForHighlights)
+		textClient(base, key, model, protocol == SpeechProtocol.Gemini)(text, instruction) else textCompletion(text, instruction)
+
 	internal var highlightPrompt by mutableStateOf("")
 	internal var cloudFirst by mutableStateOf(false)
 	internal var firstHighlightSeconds by mutableIntStateOf(0)
@@ -151,6 +158,7 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 				liveSeconds = it.optInt("liveSeconds", 60).coerceIn(15,600)
 				overlapSeconds = it.optInt("overlap", 3).coerceIn(0,5)
 				highlightSeconds = it.optInt("highlights", 60).coerceIn(15,600)
+				followSpeechForHighlights = it.optBoolean("followSpeechForHighlights")
 				highlightPrompt = it.optString("highlightPrompt")
 				cloudFirst = it.optBoolean("cloudFirst")
 				firstHighlightSeconds = it.optInt("first", 0).coerceIn(0,600)
@@ -172,12 +180,13 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 			.put("separateText", separateText).put("textBase", textBase).put("textKey", textKey).put("textGemini", textGemini)
 			.put("effort", effort).put("speakerLabels", speakerLabels)
 			.put("seconds", segmentSeconds).put("concurrent", concurrentRequests).put("skipSilence", skipSilence)
-		data.put("highlightPrompt", highlightPrompt).put("cloudFirst",cloudFirst).put("liveSeconds", liveSeconds).put("overlap", overlapSeconds).put("highlights", highlightSeconds).put("first", firstHighlightSeconds)
+		data.put("followSpeechForHighlights",followSpeechForHighlights).put("highlightPrompt", highlightPrompt).put("cloudFirst",cloudFirst).put("liveSeconds", liveSeconds).put("overlap", overlapSeconds).put("highlights", highlightSeconds).put("first", firstHighlightSeconds)
 			.put("mp3", compressAudio).put("correctLive", correctLive).put("warnLength", warnLength).put("retrySegments", retrySegments)
 			.put("defaultSummary", defaultSummary).put("summaryNotes", summaryNotes).put("defaultCloud", defaultCloud)
+		val profile = profileId()
 		withContext(Dispatchers.IO) { vault.save(data) }
 		hasSavedConnection = true
-		savedProfile = profileId()
+		savedProfile = profile
 	}
 	fun forgetConnection() = request {
 		withContext(Dispatchers.IO) { vault.remove() }

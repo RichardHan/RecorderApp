@@ -25,6 +25,7 @@ internal fun SpeechConnection.profileId(): String {
 	// Existing saved consents remain valid when the new options are left at their defaults.
 	if (effort.isNotEmpty() || speakerLabels) { fields += effort; fields += speakerLabels }
 	if (correctLive || summaryNotes || retrySegments || defaultSummary.isNotBlank()) fields.addAll(listOf(correctLive, summaryNotes, retrySegments, defaultSummary))
+	if (followSpeechForHighlights) fields.add("highlights/audio")
 	if (separateText) fields.addAll(listOf(textBase, textKey, textGemini))
 	return transcriptDigest(fields.joinToString("\u0000")).toHexString()
 }

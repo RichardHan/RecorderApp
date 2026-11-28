@@ -61,4 +61,13 @@
 	<string name="ai_tasks_highlights">從重點選取待辦</string>
 	<string name="ai_next_recording">下次錄音前開啟「錄音中切換 AI」，即可在錄音時使用字幕與重點。</string>
 	<string name="ai_device_ram">可用記憶體 · %1$d／%2$d MiB</string>
+	<string name="ai_hide_locked">在鎖定畫面隱藏錄音通知</string>
+	<string name="ai_replace_captions">收到雲端字幕後取代暫時的本機字幕</string>
+	<string name="ai_highlight_connection">使用即時語音服務產生重點</string>
+	<string name="ai_summary_timestamps">包含來源時間戳記</string>
+	<string name="ai_webhook_visible">顯示或隱藏 Webhook 網址</string>
+	<string name="ai_webhook_help">如何取得 Slack Webhook</string>
+	<string name="ai_channel_label">頻道顯示名稱</string>
+	<string name="ai_save_label">儲存頻道名稱</string>
+	<string name="ai_last_sync">上次傳送 · %1$s</string>
 </resources>

@@ -39,10 +39,13 @@ internal fun LiveMeeting(library: RecordingLibrary, speech: SpeechConnection) {
 		}
 		if (library.allowRemote && app.slackPrefs().contains("generation")) FilterChip(selected = library.sessionSlack, onClick = { if (library.sessionSlack) library.setSessionSlack(false) else approveSlack = true }, label = { Text("Slack") })
 	}
-	if (library.localCaptions && library.localCaption.isNotBlank()) Text(library.localCaption)
+	if (library.localCaptions && library.localCaption.isNotBlank() && !(library.cloudReplacesCaption && library.cloudCaptions && library.liveText.isNotBlank())) Text(library.localCaption)
 	if (approveCloud || approveSlack) AlertDialog(onDismissRequest = { approveCloud = false; approveSlack = false }, text = {
-		Text(if (approveCloud) stringResource(R.string.live_cloud_confirm, speech.base, speech.model) else stringResource(R.string.slack_session))
-		if (approveCloud && speech.correctLive) Text(stringResource(R.string.ai_correction_destination, speech.textDestination))
+		Column {
+			if (approveSlack) app.slackPrefs().getString("channelLabel", null)?.takeIf(String::isNotBlank)?.let { Text(it) }
+			Text(if (approveCloud) stringResource(R.string.live_cloud_confirm, speech.base, speech.model) else stringResource(R.string.slack_session))
+			if (approveCloud && speech.correctLive) Text(stringResource(R.string.ai_correction_destination, speech.textDestination))
+		}
 	}, confirmButton = { TextButton(onClick = {
 		if (approveCloud) library.setCloudCaptions(true, speech.savedProfile) else library.setSessionSlack(true)
 		approveCloud = false; approveSlack = false
@@ -50,11 +53,11 @@ internal fun LiveMeeting(library: RecordingLibrary, speech: SpeechConnection) {
 	if (!library.supportsHighlights) return
 	if (library.highlights.isNotBlank()) Text(library.highlights)
 	if (library.highlightsEnabled) TextButton(onClick = library::stopHighlights) { Text(stringResource(R.string.meeting_stop_highlights)) }
-	else TextButton(enabled = speech.canAnalyze() && speech.hasSavedConnection && speech.profileId() == speech.savedProfile, onClick = { confirm = true }) {
+	else TextButton(enabled = speech.canHighlight() && speech.hasSavedConnection && speech.profileId() == speech.savedProfile, onClick = { confirm = true }) {
 		Text(stringResource(R.string.meeting_live_highlights))
 	}
 	if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.meeting_live_highlights)) },
-		text = { Text(stringResource(R.string.meeting_highlights_disclose, speech.textDestination, speech.chatModel)) },
+		text = { Text(stringResource(R.string.meeting_highlights_disclose, speech.highlightDestination, speech.highlightModel)) },
 		confirmButton = { TextButton(onClick = { confirm = false; library.startHighlights(speech.savedProfile) }) { Text(stringResource(R.string.meeting_live_highlights)) } },
 		dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } })
 }

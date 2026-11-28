@@ -51,6 +51,7 @@ class CaptureService : Service() {
 	private fun notification(): Notification {
 		val open = PendingIntent.getActivity(this, 0, Intent(this, StudioActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
 		val builder = Notification.Builder(this, channel)
+			.setVisibility(if (library.hideOnLockScreen) Notification.VISIBILITY_SECRET else Notification.VISIBILITY_PUBLIC)
 			.setContentTitle(getString(if (library.isPaused) R.string.recording_paused else R.string.active))
 			.setSmallIcon(R.drawable.voice_mark).setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
 			.addAction(if (library.isPaused) action(CaptureAction.RESUME, R.string.resume_recording) else action(CaptureAction.PAUSE, R.string.pause_recording))

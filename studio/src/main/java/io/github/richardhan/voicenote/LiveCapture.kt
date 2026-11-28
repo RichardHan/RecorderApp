@@ -88,7 +88,7 @@ internal class LiveCapture(private val temp: File) {
 	}
 
 	suspend fun recognize(input: RandomAccessFile, models: OfflineSpeechModels, cloud: Boolean, target: File,
-		onText: suspend (String) -> Unit, onFailure: suspend () -> Unit) {
+		onText: suspend (String) -> Unit, onFailure: suspend () -> Unit, beforeSave: suspend () -> Unit = {}) {
 		input.use {
 			var decoder: SpeechDecoder? = null
 			var active: Input? = null
@@ -152,8 +152,11 @@ internal class LiveCapture(private val temp: File) {
 					} catch (e: CancellationException) { throw e }
 					catch (_: Exception) { onFailure() }
 				}
-				if (published.await() && !failed && lines.isNotEmpty()) saveTranscription(target, lines.joinToString("\n"),
-					TranscriptionReceipt("$label · live", android.os.SystemClock.elapsedRealtime() - startedAt, if (cloud) null else "0", requests = requests), segments)
+				if (published.await() && !failed && lines.isNotEmpty()) {
+					beforeSave()
+					saveTranscription(target, lines.joinToString("\n"),
+						TranscriptionReceipt("$label · live", android.os.SystemClock.elapsedRealtime() - startedAt, if (cloud) null else "0", requests = requests), segments)
+				}
 			} finally { decoder?.close() }
 		}
 	}

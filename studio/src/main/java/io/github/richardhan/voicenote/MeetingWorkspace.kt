@@ -98,6 +98,7 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 	val summary by produceState("", notes, speech.revision, library.transcriptRevision) { value = withContext(Dispatchers.IO) {
 		notes.read(MeetingTool.Summary)?.points?.joinToString("\n") { it.text } ?: summaryFile(file, transcript).takeIf(File::isFile)?.readText().orEmpty()
 	} }
+	var showTimes by rememberSaveable { mutableStateOf(true) }
 	val contextMenu = tool.usesSavedSummary
 	val levels = listOf(R.string.meeting_light, R.string.meeting_medium)
 	val option = when (tool) {
@@ -123,6 +124,7 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 				selected = i == if (summary) style else level, onClick = { if (summary) style = i else level = i },
 				label = { Text(stringResource(label)) })
 		}
+		if (tool == MeetingTool.Summary) FilterChip(selected = showTimes, onClick = { showTimes = !showTimes }, label = { Text(stringResource(R.string.ai_summary_timestamps)) })
 		if (tool == MeetingTool.Summary && style == styles.lastIndex) OutlinedTextField(custom, { custom = it }, label = { Text(stringResource(R.string.ai_custom_summary)) })
 		if (tool == MeetingTool.Outline && result == null) {
 			Text(stringResource(if (summary.isBlank()) R.string.ai_need_summary else R.string.ai_local_outline))
@@ -156,7 +158,7 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 		if (speech.error != 0) Text(if (speech.error == R.string.http_error) stringResource(speech.error, speech.httpStatus) else stringResource(speech.error))
 		result?.let { output ->
 			if (tool == MeetingTool.Outline) CopyOutline(meetingDocument(tool, output, passages))
-			if (output.points.isNotEmpty() && passages.isNotEmpty()) ExportMeetingResult(file, tool, output, passages)
+			if (output.points.isNotEmpty() && passages.isNotEmpty()) ExportMeetingResult(file, tool, output, if (tool == MeetingTool.Summary && !showTimes) passages.map { it.copy(ms = null) } else passages)
 			if (tool == MeetingTool.Summary) SummaryVersions(notes, speech.revision)
 			if (tool == MeetingTool.Outline) TextButton(enabled = !speech.busy, onClick = { speech.discardResult(file, transcript, tool, option) }) { Text(stringResource(R.string.ai_restore_outline)) }
 			if (tool == MeetingTool.Cleanup || tool == MeetingTool.Translation) DiscardAction { speech.discardResult(file, transcript, tool, option) }
@@ -188,7 +190,7 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 						}
 					}
 					if (source != null && point.quote.isNotBlank() && tool != MeetingTool.Translation) Text(point.quote, style = MaterialTheme.typography.bodySmall)
-					source?.ms?.let { ms -> TextButton(enabled = library.started == 0L && file.extension in audioTypes, onClick = { context.playRecording(file, ms) }) { Text(formatClipTime(ms.toInt())) } }
+					source?.ms?.takeIf { tool != MeetingTool.Summary || showTimes }?.let { ms -> TextButton(enabled = library.started == 0L && file.extension in audioTypes, onClick = { context.playRecording(file, ms) }) { Text(formatClipTime(ms.toInt())) } }
 					if (tool == MeetingTool.Actions && tasks.none { it.text == point.text }) TextButton(enabled = !speech.busy, onClick = {
 						speech.changeMeetingTasks(file, transcript) { it + CheckedTask(point.text, false) }
 					}) { Text(stringResource(R.string.meeting_add)) }
