@@ -30,4 +30,14 @@
 	<string name="meeting_share">分享草稿</string>
 	<string name="meeting_edit">編輯</string>
 	<string name="meeting_filler">贅詞 · %1$s × %2$d</string>
+	<string name="meeting_usage">每月 AI 用量</string>
+	<string name="meeting_usage_coverage">統計本版本起的成功請求。%1$d 筆有回報 token，%2$d 筆有回報費用。</string>
+	<string name="meeting_agenda">會前議程與會中筆記</string>
+	<string name="meeting_live_highlights">即時會議重點</string>
+	<string name="meeting_stop_highlights">停止即時重點</string>
+	<string name="meeting_highlights_disclose">要在本次錄音期間，將新增的逐字稿、會議筆記和先前重點傳到 %1$s，以 %2$s 更新重點嗎？每分鐘最多更新一次，可能產生費用。</string>
+	<string name="meeting_known_cost">已回報費用 · USD %1$s</string>
+	<string name="meeting_draft_stale">來源摘要或待辦清單已變更。</string>
+	<string name="meeting_format">草稿格式偏好</string>
+	<string name="meeting_draft_disclose">要將摘要、%3$d 項待辦和格式偏好送到 %1$s，以 %2$s 產生草稿嗎？可能產生費用，成功後會取代已存草稿。</string>
 </resources>

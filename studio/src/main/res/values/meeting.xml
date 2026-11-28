@@ -30,4 +30,14 @@
 	<string name="meeting_share">Share draft</string>
 	<string name="meeting_edit">Edit</string>
 	<string name="meeting_filler">Filler · %1$s × %2$d</string>
+	<string name="meeting_usage">Monthly AI usage</string>
+	<string name="meeting_usage_coverage">Successful requests since this update. Tokens reported on %1$d requests and cost on %2$d.</string>
+	<string name="meeting_agenda">Meeting agenda and notes</string>
+	<string name="meeting_live_highlights">Live highlights</string>
+	<string name="meeting_stop_highlights">Stop live highlights</string>
+	<string name="meeting_highlights_disclose">Send new transcript text, your meeting notes and prior highlights to %1$s using %2$s during this recording? Updates can run once per minute and may incur charges.</string>
+	<string name="meeting_known_cost">Reported charges · USD %1$s</string>
+	<string name="meeting_draft_stale">The source summary or checklist has changed.</string>
+	<string name="meeting_format">Format preference</string>
+	<string name="meeting_draft_disclose">Send the summary, %3$d tasks and format preference to %1$s with %2$s? This can incur charges and replaces the saved draft on success.</string>
 </resources>

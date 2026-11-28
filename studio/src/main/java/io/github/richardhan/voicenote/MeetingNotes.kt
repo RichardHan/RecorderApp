@@ -79,6 +79,16 @@ internal class MeetingNotes(private val recording: File, transcript: String) {
 		}, doc.getString("option"))
 	}
 
+	private val draftFile get() = File(recording.parentFile, recording.name + ".draft.meeting")
+	fun draft(): Pair<String, String>? {
+		if (!draftFile.isFile) return null
+		val data = JSONObject(draftFile.readText())
+		return data.getString("body") to data.getString("sources")
+	}
+	fun saveDraft(body: String, sources: String) {
+		require(body.isNotBlank())
+		writeSidecar(draftFile, JSONObject().put("body", body).put("sources", sources).toString())
+	}
 	// Accepted tasks belong to the recording and survive transcript corrections.
 	private val taskFile get() = File(recording.parentFile, recording.name + ".tasks.meeting")
 	fun tasks(): List<CheckedTask> {

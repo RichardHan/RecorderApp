@@ -56,20 +56,25 @@ tap("AI meeting tools")
 find("AI settings")
 find("Bilingual transcript", scroll=True)
 
-# Seed a public audio fixture and synthetic text for an offline user-level check.
+# Generate a bilingual result through the app's real client and a loopback-only mock.
 adb("shell", "am", "force-stop", PACKAGE)
-adb("shell", "run-as", PACKAGE, "mkdir", "-p", "files/audio")
-for name, body in (
-    ("Review.wav", (Path(os.environ["RUNNER_TEMP"]) / "studio-model-check/speech.wav").read_bytes()),
-    ("Review.txt", b"The group agreed to review the design on Friday."),
-):
-    adb("exec-in", "run-as", PACKAGE, "tee", "files/audio/" + name, data=body)
+adb("install", "-r", "studio/build/outputs/apk/androidTest/debug/studio-debug-androidTest.apk")
+out = adb("shell", "am", "instrument", "-w", "-e", "class",
+          PACKAGE + ".LocalServiceTest#meetingToolsSendOnlyTextAndKeepValidatedResultsPerRecording",
+          "-e", "previewFixture", "true", PACKAGE + ".test/androidx.test.runner.AndroidJUnitRunner")
+if b"OK (1 test)" not in out:
+    raise AssertionError(out.decode(errors="replace"))
 
 launch()
 tap("AI meeting tools")
 tap("Bilingual transcript")
-find("English")
+tap("繁體中文")
+find("已同意計畫。", scroll=True)
+find("寄出草稿。", scroll=True)
 screenshot("bilingual.png")
+adb("shell", "am", "force-stop", PACKAGE)
+launch()
+tap("AI meeting tools")
 tap("Action items")
 tap("New task", scroll=True)
 adb("shell", "input", "text", "Review%sthe%sdesign")

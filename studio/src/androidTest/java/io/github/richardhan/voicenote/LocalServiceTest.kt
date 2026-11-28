@@ -166,6 +166,12 @@ class LocalServiceTest {
 		complete { speech.changeMeetingTasks(audio, text) { it + CheckedTask("Send draft", false) } }
 		complete { speech.changeMeetingTasks(audio, text) { list -> list.map { it.copy(done = true) } } }
 		assertEquals(listOf(CheckedTask("Send draft", true)), MeetingNotes(audio, "edited").tasks())
+		reply(200, response("Please send the draft."))
+		complete { speech.followUp(audio, text, "Send draft", "Brief") }
+		val followUp = nextRequest().body.readUtf8()
+		assertTrue(followUp.contains("Send draft"))
+		assertFalse(followUp.contains("Plan agreed."))
+		assertEquals("Please send the draft.", notes.draft()?.first)
 		assertEquals(text, readTranscript(audio))
 		val zip = java.io.ByteArrayOutputStream()
 		exportTranscripts(zip, listOf(audio))
@@ -175,6 +181,32 @@ class LocalServiceTest {
 		assertEquals("[x] Send draft", entries[audio.name + ".tasks.txt"])
 		assertTrue(entries.getValue(audio.name + ".summary.txt").contains("Result one"))
 		assertTrue(parseMeetingOutput(MeetingTool.Summary, """[{"text":"Unknown","source":2,"quote":"absent"}]""", passages, "").points.single().source == null)
+		if (InstrumentationRegistry.getArguments().getString("previewFixture") == "true") {
+			val fixture = File(audio.parentFile, "Review.wav")
+			fixture.writeBytes(pcmWave(FloatArray(9 * 16000)))
+			val source = "Plan agreed.\nSend the draft."
+			saveTranscription(fixture, source, null, segments)
+			val bilingual = """[{"text":"已同意計畫。","source":1,"quote":"Plan agreed."},{"text":"寄出草稿。","source":2,"quote":"Send the draft."}]"""
+			reply(200, response(bilingual))
+			complete { speech.generateMeetingNotes(fixture, source, MeetingTool.Translation, "繁體中文", "English", false) }
+			assertEquals(0, speech.error)
+		}
+	}
+
+	@Test fun monthlyUsageCountsOnlyReportedCostsAndTokens() {
+		val usage = MonthlyUsage(app)
+		val month = "test-" + UUID.randomUUID()
+		try {
+			usage.record(JSONObject("""{"usage":{"total_tokens":12,"cost":0.012}}"""), null, month)
+			usage.record(JSONObject("""{"usageMetadata":{"totalTokenCount":8}}"""), null, month)
+			usage.record(JSONObject(), null, month)
+			val row = MonthlyUsage(app).row(month)
+			assertEquals(3, row.getInt("requests"))
+			assertEquals(20, row.getInt("tokens"))
+			assertEquals(2, row.getInt("withTokens"))
+			assertEquals(1, row.getInt("withCost"))
+			assertEquals("0.012", row.getString("cost"))
+		} finally { app.getSharedPreferences("studio_ai_usage", 0).edit().remove(month).apply() }
 	}
 
 	@Test fun geminiRetrySendsOnlyUnfinishedAudioAndUsesTheConfiguredKey() = runBlocking {

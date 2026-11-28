@@ -41,6 +41,7 @@ class StudioCaptureTest {
 		var result: File? = null
 		try {
 			instrumentation.runOnMainSync {
+				library.updateAgenda("Review release dates")
 				library.configure(CaptureFormat.AAC, 1)
 				activity.controlCapture(CaptureAction.START)
 			}
@@ -73,6 +74,8 @@ class StudioCaptureTest {
 				assertEquals(MediaFormat.MIMETYPE_AUDIO_AAC, extractor.getTrackFormat(0).getString(MediaFormat.KEY_MIME))
 			} finally { extractor.release() }
 			assertTrue(LibraryCatalog(app).markers(file).single().ms > 0)
+			assertEquals("Review release dates", LibraryCatalog(app).value(file, "notes"))
+			assertEquals("", library.agenda)
 		} finally {
 			instrumentation.runOnMainSync { activity.finish(); app.stopService(Intent(app, CaptureService::class.java)) }
 			result?.delete()

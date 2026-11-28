@@ -5,6 +5,8 @@ import android.content.ClipboardManager
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
@@ -45,13 +47,18 @@ internal fun MeetingWorkspace(library: RecordingLibrary, speech: SpeechConnectio
 					TextButton(onClick = { settings = !settings }) { Text(stringResource(R.string.meeting_setup)) }
 				}
 				if (imports) { ImportActions(library); DeviceRecordings(library) }
-				if (settings) { ConnectionPanel(speech); OfflineModelPanel(offline, speech.busy); SummaryModelPanel(local) }
+				LibraryReview(library, speech, revision)
+				if (settings) { UsagePanel(); ConnectionPanel(speech); OfflineModelPanel(offline, speech.busy); SummaryModelPanel(local) }
 			}
 			if (file == null) item {
 				Text(stringResource(R.string.meeting_empty))
 				for (tool in MeetingTool.entries) Text(stringResource(tool.label), style = MaterialTheme.typography.bodyLarge)
 			} else item(key = file.name) {
 				val transcript by produceState("", file, revision) { value = withContext(Dispatchers.IO) { readTranscript(file) } }
+				library.catalog.value(file, "highlights").takeIf(String::isNotBlank)?.let {
+					Text(stringResource(R.string.meeting_live_highlights), style = MaterialTheme.typography.titleMedium)
+					SelectionContainer { Text(it) }
+				}
 				if (transcript.isBlank()) {
 					Text(stringResource(R.string.meeting_need_transcript))
 					TranscriptionRow(file, library.catalog.title(file), speech, local, offline)
@@ -76,7 +83,7 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 	var level by rememberSaveable { mutableIntStateOf(0) }
 	var mask by rememberSaveable { mutableStateOf(false) }
 	var confirm by rememberSaveable { mutableStateOf(false) }
-	val language = context.resources.configuration.locales[0].displayName
+	val language = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].toLanguageTag()
 	val styles = listOf(R.string.meeting_brief, R.string.meeting_minutes, R.string.meeting_bullets)
 	val levels = listOf(R.string.meeting_light, R.string.meeting_medium)
 	val option = when (tool) {
@@ -168,28 +175,42 @@ private fun MeetingEditor(file: File, transcript: String, speech: SpeechConnecti
 			TextButton(enabled = !speech.busy, onClick = { speech.changeMeetingTasks(file, transcript) { rows -> rows.filterNot { it.text == task.text } } }) { Text(stringResource(R.string.meeting_remove)) }
 		}
 	}
-	FollowUpDraft(file, transcript, notes, tasks, speech.revision)
+	FollowUpDraft(file, transcript, notes, tasks, speech)
 }
 
 @Composable
-private fun FollowUpDraft(file: File, transcript: String, notes: MeetingNotes, tasks: List<CheckedTask>, revision: Int) {
+private fun FollowUpDraft(file: File, transcript: String, notes: MeetingNotes, tasks: List<CheckedTask>, speech: SpeechConnection) {
 	val context = LocalContext.current
-	val summary by produceState("", notes, revision) { value = withContext(Dispatchers.IO) {
+	val summary by produceState("", notes, speech.revision) { value = withContext(Dispatchers.IO) {
 		notes.read(MeetingTool.Summary)?.points?.joinToString("\n") { it.text }
 			?: summaryFile(file, transcript).takeIf(File::isFile)?.readText().orEmpty()
 	} }
-	var draft by rememberSaveable { mutableStateOf<String?>(null) }
-	val pending = tasks.filterNot { it.done }
-	val section = stringResource(R.string.meeting_actions)
-	TextButton(enabled = summary.isNotBlank() || pending.isNotEmpty(), onClick = {
-		draft = listOf(summary, pending.takeIf { it.isNotEmpty() }?.joinToString("\n", prefix = "$section\n") { "• ${it.text}" }.orEmpty()).filter { it.isNotBlank() }.joinToString("\n\n")
-	}) { Text(stringResource(R.string.prompt_follow_up)) }
-	draft?.let { value ->
-		AlertDialog(onDismissRequest = { draft = null }, title = { Text(stringResource(R.string.prompt_follow_up)) },
-			text = { OutlinedTextField(value, { draft = it }, minLines = 3) }, confirmButton = {
-				TextButton(enabled = value.isNotBlank(), onClick = { context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("", value)) }) { Text(stringResource(R.string.meeting_copy)) }
-			}, dismissButton = {
-				TextButton(enabled = value.isNotBlank(), onClick = { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, value), null)) }) { Text(stringResource(R.string.meeting_share)) }
-			})
-	}
+	val saved by produceState<Pair<String, String>?>(null, notes, speech.revision) { value = withContext(Dispatchers.IO) { notes.draft() } }
+	val material = listOf(summary, tasks.joinToString("\n") { (if (it.done) "[x] " else "[ ] ") + it.text })
+		.filter(String::isNotBlank).joinToString("\n\n")
+	val digest = remember(material) { transcriptDigest(material).toHexString() }
+	var open by rememberSaveable { mutableStateOf(false) }
+	TextButton(enabled = material.isNotBlank() || saved != null, onClick = { open = true }) { Text(stringResource(R.string.prompt_follow_up)) }
+	if (!open) return
+	var draft by rememberSaveable(saved) { mutableStateOf(saved?.first ?: material) }
+	var instructions by rememberSaveable { mutableStateOf("") }
+	var confirm by rememberSaveable { mutableStateOf(false) }
+	AlertDialog(onDismissRequest = { open = false }, title = { Text(stringResource(R.string.prompt_follow_up)) }, text = {
+		Column(Modifier.verticalScroll(rememberScrollState())) {
+			if (saved != null && saved?.second != digest) Text(stringResource(R.string.meeting_draft_stale))
+			OutlinedTextField(draft, { draft = it }, minLines = 3)
+			OutlinedTextField(instructions, { instructions = it }, label = { Text(stringResource(R.string.meeting_format)) })
+			TextButton(enabled = material.isNotBlank() && speech.canAnalyze() && !speech.busy, onClick = { confirm = true }) { Text(stringResource(R.string.meeting_generate)) }
+			FlowRow {
+				TextButton(enabled = draft.isNotBlank(), onClick = { context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("", draft)) }) { Text(stringResource(R.string.meeting_copy)) }
+				TextButton(enabled = draft.isNotBlank(), onClick = { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, draft), null)) }) { Text(stringResource(R.string.meeting_share)) }
+			}
+			if (speech.busy) LinearProgressIndicator()
+			if (speech.error != 0) Text(if (speech.error == R.string.http_error) stringResource(speech.error, speech.httpStatus) else stringResource(speech.error))
+		}
+	}, confirmButton = { TextButton(enabled = draft.isNotBlank() && !speech.busy, onClick = { speech.editDraft(file, transcript, draft, saved?.second ?: digest); open = false }) { Text(stringResource(R.string.done)) } },
+		dismissButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.cancel)) } })
+	if (confirm) AlertDialog(onDismissRequest = { confirm = false }, text = { Text(stringResource(R.string.meeting_draft_disclose, speech.base, speech.chatModel, tasks.size)) },
+		confirmButton = { TextButton(onClick = { confirm = false; speech.followUp(file, transcript, material, instructions) }) { Text(stringResource(R.string.meeting_generate)) } },
+		dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } })
 }

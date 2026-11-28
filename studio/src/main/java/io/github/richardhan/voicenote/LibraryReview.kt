@@ -71,6 +71,17 @@ internal fun LibraryReview(library: RecordingLibrary, speech: SpeechConnection, 
 			if (saved.text.isBlank()) null else file to saved.copy(text = saved.text.take(160))
 		}.toMap() }
 	}
+	val reviews by produceState(emptyMap<File, Pair<String, List<CheckedTask>>>(), files, revision) {
+		value = withContext(Dispatchers.IO) {
+			files.associateWith { file ->
+				val transcript = readTranscript(file)
+				val notes = MeetingNotes(file, transcript)
+				val abstract = notes.read(MeetingTool.Summary)?.points?.joinToString("\n") { it.text }
+					?: summaryFile(file, transcript).takeIf(File::isFile)?.readText().orEmpty()
+				abstract to notes.tasks().filterNot { it.done }
+			}
+		}
+	}
 	val known = receipts.values.mapNotNull { it.receipt?.costUsd?.toBigDecimalOrNull() }
 	val stats = stringResource(R.string.library_stats, files.size, receipts.size, files.sumOf(File::length) / 1048576.0)
 	val battery = context.getSystemService(BatteryManager::class.java)?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
@@ -85,6 +96,11 @@ internal fun LibraryReview(library: RecordingLibrary, speech: SpeechConnection, 
 					selection = ArrayList(if (checked) selection - file.name else selection + file.name)
 					combined = ""
 				}, label = { Text(library.catalog.title(file)) })
+				val review = reviews[file]
+				if (review != null) {
+					if (review.first.isNotBlank()) Text(review.first.take(400), style = MaterialTheme.typography.bodyMedium)
+					for (task in review.second) Text("☐ " + task.text)
+				}
 				Text(saved.text.take(160), maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
 			}
 			val selected = receipts.filterKeys { it.name in selection }

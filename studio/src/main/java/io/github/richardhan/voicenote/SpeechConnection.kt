@@ -148,6 +148,21 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 		revision++
 	}
 
+	internal fun followUp(file: File, transcript: String, materials: String, instructions: String) = request {
+		require(canAnalyze() && materials.isNotBlank())
+		withContext(Dispatchers.IO) {
+			val answer = textCompletion(materials, "Draft a follow-up message in the language of the materials. Use only the supplied summary and accepted tasks. Never invent owners, dates or promises. Format preference: " + instructions)
+			kotlinx.coroutines.currentCoroutineContext().ensureActive()
+			check(file.exists())
+			MeetingNotes(file, transcript).saveDraft(answer, transcriptDigest(materials).toHexString())
+		}
+		revision++
+	}
+	internal fun editDraft(file: File, transcript: String, body: String, sourceDigest: String) = request {
+		withContext(Dispatchers.IO) { check(file.exists()); MeetingNotes(file, transcript).saveDraft(body, sourceDigest) }
+		revision++
+	}
+
 	internal fun reviseDecision(file: File, transcript: String, original: MeetingPoint, replacement: String?) = request {
 		withContext(Dispatchers.IO) {
 			val notes = MeetingNotes(file, transcript)
@@ -323,7 +338,9 @@ class SpeechConnection internal constructor(app: Application, private val open: 
 			send(connection)
 			if (connection.responseCode !in 200..299) throw HttpFailure(connection.responseCode)
 			val body = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
-			return SpeechResponse(body, connection.getHeaderField("x-litellm-response-cost"))
+			val fee = connection.getHeaderField("x-litellm-response-cost")
+			if (connection.requestMethod == "POST") MonthlyUsage(getApplication()).record(body, fee)
+			return SpeechResponse(body, fee)
 		} finally { connection.disconnect() }
 	}
 }

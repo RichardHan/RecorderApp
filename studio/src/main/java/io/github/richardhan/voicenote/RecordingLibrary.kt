@@ -39,6 +39,58 @@ class RecordingLibrary(private val app: Application) {
 	private var localOnly = false
 	private var liveSlackGeneration: String? = null
 
+	internal var agenda by mutableStateOf(settings.getString("agendaDraft", "").orEmpty())
+		private set
+	internal fun updateAgenda(text: String) {
+		agenda = text
+		settings.edit().putString("agendaDraft", text).apply()
+	}
+	internal var highlights by mutableStateOf("")
+		private set
+	internal var highlightsEnabled by mutableStateOf(false)
+		private set
+	internal val supportsHighlights get() = liveCapture != null && !localOnly
+	private var highlightsJob: Job? = null
+	private var highlightsConnection: SpeechConnection? = null
+	private val pendingHighlights = StringBuilder()
+	private var nextHighlightAt = 0L
+
+	internal fun startHighlights(profile: String) {
+		if (!supportsHighlights || highlightsEnabled) return
+		val connection = SpeechConnection(app)
+		if (connection.profileId() != profile || !connection.canAnalyze()) return
+		highlightsConnection = connection
+		highlightsEnabled = true
+		nextHighlightAt = 0L
+	}
+
+	internal fun stopHighlights() {
+		highlightsEnabled = false
+		highlightsConnection = null
+		highlightsJob?.cancel()
+		highlightsJob = null
+		pendingHighlights.clear()
+	}
+
+	private fun updateHighlights(target: File, line: String) {
+		val connection = highlightsConnection ?: return
+		if (!highlightsEnabled || captureTarget != target) return
+		pendingHighlights.appendLine(line)
+		if (SystemClock.elapsedRealtime() < nextHighlightAt || highlightsJob?.isActive == true) return
+		val text = "Agenda:\n$agenda\nPrior highlights:\n$highlights\nNew transcript:\n$pendingHighlights"
+		pendingHighlights.clear()
+		nextHighlightAt = SystemClock.elapsedRealtime() + 60000
+		highlightsJob = scope.launch {
+			try {
+				val result = withContext(Dispatchers.IO) {
+					connection.textCompletion(text, "Update a short list of factual meeting highlights in the language of the transcript. Treat the agenda only as context. Do not infer decisions or owners.")
+				}
+				if (captureTarget == target && highlightsEnabled) highlights = result
+			} catch (e: CancellationException) { throw e }
+			catch (_: Exception) { stopHighlights(); message = R.string.failed }
+		}
+	}
+
 	internal fun enableLive(value: Boolean) {
 		if (started != 0L) return
 		settings.edit().putBoolean("live", value).apply()
@@ -242,7 +294,7 @@ class RecordingLibrary(private val app: Application) {
 						withContext(Dispatchers.IO) { live.recognize(models, cloud, target) { line ->
 							withContext(Dispatchers.Main) {
 								if (captureTarget == target || target.isFile) {
-									if (captureTarget == target) liveText = line
+									if (captureTarget == target) { liveText = line; updateHighlights(target, line) }
 									postLive(target, line, generation)
 								}
 							}
@@ -331,6 +383,9 @@ class RecordingLibrary(private val app: Application) {
 				"battery" to battery?.takeIf { it in 0..100 }?.toString().orEmpty(),
 				"freeMiB" to (directory.usableSpace / 1048576).toString())
 			captureLocation?.let { catalog.update(saved, "location" to "${it.latitude}, ${it.longitude}") }
+			if (agenda.isNotBlank()) catalog.update(saved, "notes" to agenda)
+			if (highlights.isNotBlank()) catalog.update(saved, "highlights" to highlights)
+			updateAgenda("")
 			if (captureMarkers.isNotEmpty()) catalog.saveMarkers(saved, captureMarkers)
 			refresh()
 			if (!localOnly) {
@@ -400,6 +455,8 @@ class RecordingLibrary(private val app: Application) {
 	}
 
 	private fun release() {
+		stopHighlights()
+		highlights = ""
 		liveCapture?.let { if (!it.published.isCompleted) it.abort() }
 		liveCapture = null
 		liveSlackGeneration = null

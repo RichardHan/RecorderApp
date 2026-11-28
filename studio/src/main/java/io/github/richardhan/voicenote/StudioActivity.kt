@@ -235,6 +235,7 @@ private fun Studio(
 							}
 						}
 						if (active && library.liveText.isNotBlank()) Text(library.liveText)
+						LiveMeeting(library, speech)
 						library.captureTarget?.let { PhotoActions(library, it, addPhoto) }
 						Text(stringResource(R.string.foreground), style = MaterialTheme.typography.bodySmall)
 					}

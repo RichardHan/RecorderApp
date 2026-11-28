@@ -30,4 +30,14 @@
 	<string name="meeting_share">下書きを共有</string>
 	<string name="meeting_edit">編集</string>
 	<string name="meeting_filler">フィラー · %1$s × %2$d</string>
+	<string name="meeting_usage">月別 AI 使用量</string>
+	<string name="meeting_usage_coverage">更新後の成功したリクエストを集計します。トークンの報告は %1$d 件、料金の報告は %2$d 件です。</string>
+	<string name="meeting_agenda">議題と会議メモ</string>
+	<string name="meeting_live_highlights">リアルタイム要点</string>
+	<string name="meeting_stop_highlights">要点の更新を停止</string>
+	<string name="meeting_highlights_disclose">録音中に新しい文字起こし、会議メモ、過去の要点を %1$s の %2$s で処理しますか？最大で毎分更新され、料金が発生する場合があります。</string>
+	<string name="meeting_known_cost">報告された料金 · USD %1$s</string>
+	<string name="meeting_draft_stale">元の要約またはタスクが変更されました。</string>
+	<string name="meeting_format">形式の希望</string>
+	<string name="meeting_draft_disclose">要約、タスク %3$d 件、形式の希望を %1$s の %2$s に送信しますか？料金が発生する場合があり、成功時に下書きを置き換えます。</string>
 </resources>
